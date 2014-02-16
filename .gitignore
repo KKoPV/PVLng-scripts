@@ -1,0 +1,6 @@
+test-all.sh
+*.conf
+data/*
+!data/.githold
+run/*
+!run/.githold

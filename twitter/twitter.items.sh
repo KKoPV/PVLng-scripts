@@ -15,7 +15,7 @@
 twitter_last_help='Actual/last value'
 ##############################################################################
 function twitter_last {
-    value=$(PVLngGET2 "data/$1.tsv?period=last" | cut -f2)
+    value=$(PVLngGET "data/$1.tsv?period=last" | cut -f2)
     log 1 "$url => $value"
     echo $value
 }
@@ -28,7 +28,7 @@ twitter_average_help='Average value since $1'
 ### Start at today midnight and aggregate 24 hours > 1 row as result
 ##############################################################################
 function twitter_average {
-    value=$(PVLngGET2 "data/$2.tsv?start=$1&period=99y" | cut -f2)
+    value=$(PVLngGET "data/$2.tsv?start=$1&period=99y" | cut -f2)
     log 1 "$url => $value"
     echo $value
 }
@@ -42,7 +42,7 @@ twitter_maximum_help='Maximum value since $1'
 ##############################################################################
 function twitter_maximum {
     ### Get all data rows
-    PVLngGET2 "data/$2.tsv?start=$1" >$TMPFILE
+    PVLngGET "data/$2.tsv?start=$1" >$TMPFILE
 
     ### Loop all rows and find max. value
     imax=0; vmax=0
@@ -68,7 +68,7 @@ twitter_production_help='Production in kWh since $1'
 ### Start at today midnight  | 1st of this month
 ##############################################################################
 function twitter_production {
-    value=$(PVLngGET2 "data/$2.tsv?start=$1&period=last" | cut -f2)
+    value=$(PVLngGET "data/$2.tsv?start=$1&period=last" | cut -f2)
     log 1 "$url => $value"
     echo $value
 }
@@ -77,7 +77,7 @@ function twitter_production {
 twitter_overall_help='Overall production in MWh'
 ##############################################################################
 function twitter_overall {
-    value=$(PVLngGET2 "data/$1.tsv?period=readlast" | cut -f2)
+    value=$(PVLngGET "data/$1.tsv?period=readlast" | cut -f2)
     log 1 "$url => $value"
     echo $value
 }
@@ -87,7 +87,7 @@ twitter_today_working_hours_help='Today working hours in hours :-)'
 ##############################################################################
 function twitter_today_working_hours {
     ### Get all data rows
-    PVLngGET2 "data/$1.tsv" >$TMPFILE
+    PVLngGET "data/$1.tsv" >$TMPFILE
 
     ### get first line, get 1st value
     min=$(cat $TMPFILE | head -n1 | cut -f1)

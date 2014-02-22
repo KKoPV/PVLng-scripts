@@ -86,7 +86,7 @@ while test $i -lt $PATTERN_N; do
 			  --consumer_secret=$CONSUMER_SECRET \
 			  --oauth_token=$OAUTH_TOKEN \
 			  --oauth_secret=$OAUTH_TOKEN_SECRET \
-			  --status="$STATUS" --location="$LAT_LON"
+			  --status="$STATUS" --location="$LOCATION"
 
 			eval move="\$FILE_${i}_MOVE"
 

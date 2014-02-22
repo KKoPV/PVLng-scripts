@@ -57,10 +57,10 @@ GUID_4           ""
 ###              relative values in kWh / installed power in kWp = kWh/kWp
 FACTOR_4         "1 / 1000 / <your installed power here>"
 
-### E-Total channel of inverter or an accumulator of many E-Total
+### E-Total channel of inverter or an accumulator of many E-Total, into MWh
 ITEM_5           "overall"
 GUID_5           ""
-FACTOR_5         "1 / 1000 / 1000" # into MWh
+FACTOR_5         "1 / 1000 / 1000"
 
 ### E-Total channel of inverter or an accumulator of many E-Total
 ITEM_6           "overall"

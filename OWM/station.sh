@@ -33,9 +33,9 @@ read_config "$1"
 ##############################################################################
 test "$TRACE" && set -x
 
-test "$LAT_LON" || error_exit "Missing loaction coordinates (LAT_LON)!"
+test "$LOCATION" || error_exit "Missing loaction coordinates (LOCATION)!"
 
-loc="$(echo "$LAT_LON" | sed -e 's~,~\t~')"
+loc="$(echo "$LOCATION" | sed -e 's~,~\t~')"
 set $loc
 LATITUDE=$1
 LONGITUDE=$2

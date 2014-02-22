@@ -67,8 +67,8 @@ while test $i -lt $GUID_N; do
     eval GUID=\$GUID_$i
     test "$GUID" || error_exit "Sensor GUID is required (GUID_$i)"
 
-    SERIAL=$(PVLngGET $GUID/serial.txt)
-    CHANNEL=$(PVLngGET $GUID/channel.txt)
+    SERIAL=$(PVLngGET channel/$GUID/serial.txt)
+    CHANNEL=$(PVLngGET channel/$GUID/channel.txt)
 
 #     SERIAL=$(PVLngNC "$GUID,serial")
 #     CHANNEL=$(PVLngNC "$GUID,channel")

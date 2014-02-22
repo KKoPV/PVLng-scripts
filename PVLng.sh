@@ -42,7 +42,7 @@ test "$SaveDataDir" || SaveDataDir=$(readlink -f $(dirname ${BASH_SOURCE[0]}))/d
 function log {
     test $VERBOSE -ge $1 || return
     shift
-    d=$(date +"[%H:%M:%S]")
+    d="["$(date +"%H:%M:%S.%N" | cut -b-13)"]"
     {   ### Detect if now $1 is a "@filename"
         if test "${1:0:1}" == '@'; then
             echo "$d File: ${1:1}"
@@ -172,11 +172,11 @@ function PVLngNC {
 
 ##############################################################################
 ### Get data from PVLng latest API release
-### $1 = GUID
+### $1 = GUID plus add. parameters
 ##############################################################################
 function PVLngGET {
-    url="$PVLngURL/$1"
-    log 2 "URL : $url"
+    local url="$PVLngURL/$1"
+    log 2 "Fetch    : $url"
     $(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $url
 }
 
@@ -185,7 +185,7 @@ function PVLngGET {
 ### $1 = GUID
 ##############################################################################
 function PVLngGET2 {
-    url="$PVLngURL2/$1"
+    local url="$PVLngURL2/$1"
     log 2 "URL : $url"
     $(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $url
 }
@@ -195,7 +195,7 @@ function PVLngGET2 {
 ### $1 = GUID
 ##############################################################################
 function PVLngGET3 {
-    url="$PVLngURL3/$1"
+    local url="$PVLngURL3/$1"
     log 2 "URL : $url"
     $(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $url
 }

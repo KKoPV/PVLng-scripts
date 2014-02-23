@@ -54,7 +54,7 @@ while test $i -lt $GUID_N; do
     test "$GUID" || error_exit "Sensor GUID is required (GUID_$i)"
     log 1 "GUID    : $GUID"
 
-    DEVICE=$(PVLngGET $GUID/channel.txt)
+    DEVICE=$(PVLngGET channel/$GUID/channel.txt)
     test "$DEVICE" || error_exit "Device is required, maintain as 'channel' for channel $GUID"
     log 1 "Device  : $DEVICE"
 

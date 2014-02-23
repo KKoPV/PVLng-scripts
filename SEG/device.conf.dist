@@ -17,12 +17,12 @@ NODE_NAME       ""
 ##############################################################################
 
 ##############################################################################
-### Count of following GUIDs to read
+### Count of following streams
 ##############################################################################
-CHANNEL_N       0
+STREAM_N        0
 
 ##############################################################################
-### Reapeat the follwing settings for each channel to read.
+### Reapeat the follwing settings for each stream
 ### Give all belonging parameters same _<#>
 ##############################################################################
 
@@ -53,6 +53,6 @@ GUID_1          ""
 ### Multiply reading e.g. for Wh to kWh set to 1000
 ### optional, default 1
 ##############################################################################
-FACTOR_1        1
+#FACTOR_1        1
 
 ### <<< copy

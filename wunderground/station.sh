@@ -33,16 +33,8 @@ read_config "$1"
 ##############################################################################
 test "$TRACE" && set -x
 
-test "$LOCATION" || error_exit "Missing loaction coordinates (LOCATION)!"
-
-loc="$(echo "$LOCATION" | sed -e 's~,~\t~')"
-set $loc
-LATITUDE=$1
-LONGITUDE=$2
-
-test "$LATITUDE" -a "$LONGITUDE" || error_exit "Invalid loaction definition (LOCATION)!"
-
-test "$GUID" || error_exit "Missing OpenWeatherMap channel GUID (GUID)!"
+test "$APIURL" || error_exit "Missing API URL (APIURL)!"
+test "$GUID" || error_exit "Missing Wunderground group channel GUID (GUID)!"
 
 ##############################################################################
 ### Go
@@ -51,41 +43,22 @@ RESPONSEFILE=$(mktemp /tmp/pvlng.XXXXXX)
 
 trap 'rm -f $TMPFILE $RESPONSEFILE >/dev/null 2>&1' 0
 
-# http://api.openweathermap.org/data/2.5/weather?lat=51.54805&lon=12.13125&units=metric&APPID=edfbe28d77cd456ae014bbc030730ed
-API_URL="http://api.openweathermap.org/data/2.5/weather?lat=$LATITUDE&lon=$LONGITUDE&units=metric"
-
-test "$APPID" && API_URL="$API_URL&APPID=$APPID"
-test "$LANGUAGE" && API_URL="$API_URL&lang=$LANGUAGE"
-
-log 2 "$API_URL"
+log 2 "$APIURL"
 
 curl="$(curl_cmd)"
 
 ### Query OpenWeatherMap API
-$curl --output $RESPONSEFILE $API_URL
+$curl --output $RESPONSEFILE $APIURL
 rc=$?
 
 log 2 @$RESPONSEFILE
 
 if test $rc -ne 0; then
-     error_exit "cUrl error for OpenWeatherMap API: $rc"
-fi
-
-if cat $RESPONSEFILE | grep -q failed; then
-     error_exit "OpenWeatherMap API response: $(<$RESPONSEFILE)"
-fi
-
-code=$($curl --request POST --header "Content-Type: application/json" \
-             --data-binary @$RESPONSEFILE $PVLngURL/json/cod.txt)
-
-if test "$code" != "200"; then
-    echo "API URL: $API_URL"
-    cat $RESPONSEFILE
-    error_exit "$code"
+     error_exit "cUrl error for Wunderground API: $rc"
 fi
 
 ### Test mode
-log 2 "OpenWeatherMap API response:"
+log 2 "Wunderground API response:"
 log 2 @$RESPONSEFILE
 
 test "$TEST" || PVLngPUT $GUID @$RESPONSEFILE
@@ -95,7 +68,7 @@ exit
 ##############################################################################
 # USAGE >>
 
-Fetch data from OpenWeatherMap API
+Fetch data from Wunderground API
 
 Usage: $scriptname [options] config_file
 

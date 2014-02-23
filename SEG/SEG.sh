@@ -29,7 +29,7 @@ read_config $pwd/SEG.conf
 
 shift $((OPTIND-1))
 
-read_config "$pwd/$1"
+read_config "$1"
 
 ##############################################################################
 ### Start
@@ -40,8 +40,8 @@ test "$APIURL" || error_exit "SEG API URL is required, see SEG.conf.dist"
 test "$SITE_TOKEN" || error_exit "SEG site name is required (SITE_TOKEN)"
 test "$NODE_NAME" || error_exit "SEG node name is required (NODE_NAME)"
 
-CHANNEL_N=$(int "$CHANNEL_N")
-test $CHANNEL_N -gt 0 || error_exit "No channel sections defined (CHANNEL_N)"
+STREAM_N=$(int "$STREAM_N")
+test $STREAM_N -gt 0 || error_exit "No stream sections defined (STREAM_N)"
 
 ##############################################################################
 ### Go
@@ -61,11 +61,11 @@ fi
 
 i=0
 
-while test $i -lt $CHANNEL_N; do
+while test $i -lt $STREAM_N; do
 
     i=$((i + 1))
 
-    log 1 "--- Channel $i ---"
+    log 1 "--- Stream $i ---"
 
     eval ENABLED=\$ENABLED_$i
     if test "$ENABLED" -a $(bool "$ENABLED") -eq 0; then
@@ -75,19 +75,27 @@ while test $i -lt $CHANNEL_N; do
     fi
 
     ### required parameters
-    eval GUID=\$GUID_$i
-    log 2 "GUID     : $GUID"
-    test "$GUID" || error_exit "Channel GUID is required (GUID_$i)"
-
     eval STREAM_NAME=\$STREAM_NAME_$i
-    log 2 "STREAM   : $STREAM_NAME"
     test "$STREAM_NAME" || error_exit "SEG stream name is required (STREAM_NAME_$i)"
+    log 2 "STREAM   : $STREAM_NAME"
 
-    fetch="data/$GUID.tsv?start=-${INTERVAL}minutes&period=${INTERVAL}minutes"
-    log 2 "Fetch    : $fetch"
+    eval GUID=\$GUID_$i
+    test "$GUID" || error_exit "Channel GUID is required (GUID_$i)"
+    log 2 "GUID     : $GUID"
+
+    ### Buffer meter attribute
+    mfile=$(run_file SEG $GUID meter)
+    if test ! -f "$mfile"; then
+        int $(PVLngGET channel/$GUID/meter.txt) > $mfile
+    fi
+
+    if test $(<$mfile) -eq 0; then
+        ### Fetch for sensor channels average of last x minutes
+        fetch="start=-${INTERVAL}minutes&period=${INTERVAL}minutes"
+    fi
 
     ### read value, get last row
-    row=$(PVLngGET $fetch | tail -n1)
+    row=$(PVLngGET data/$GUID.tsv?$fetch | tail -n1)
     log 2 "Data:    : $row"
 
     ### No data for last $INTERVAL minutes
@@ -97,12 +105,18 @@ while test $i -lt $CHANNEL_N; do
         error_exit "PVLng API readout error:\n\n$row"
     fi
 
-    ### set "timestamp" and "data" to $1 and $2
+    ### set "data" to $2
     set $row
     value="$2"
 
+    ### Buffer numeric attribute
+    nfile=$(run_file SEG $GUID numeric)
+    if test ! -f "$nfile"; then
+        int $(PVLngGET channel/$GUID/numeric.txt) > $nfile
+    fi
+
     ### Factor for this channel
-    if test $(int $(PVLngGET $GUID/numeric.txt)) -eq 1; then
+    if test $(<$nfile) -eq 1; then
         ### Only for numeric channels!
         eval FACTOR=\$FACTOR_$i
         log 2 "Factor   : $FACTOR"
@@ -118,19 +132,19 @@ while test $i -lt $CHANNEL_N; do
 
 done
 
+test "$stream_data" || exit
+
 data="(site $SITE_TOKEN (node $NODE_NAME ? $stream_data))"
 
 log 2 "Send     : $data"
 
-test "$stream_data" || exit
-
 test "$TEST" && exit
 
 ### Send
-### http://api.smartenergygroups.com/api_streams/<stream_token>/add_point?value=47.2
-rc=$($(curl_cmd) --request PUT --write-out %{http_code} --output $TMPFILE \
-                 --data "$data" $APIURL)
+rc=$($(curl_cmd) --request PUT --write-out %{http_code} \
+                 --output $TMPFILE --data "$data" $APIURL)
 
+log 2 "API response:"
 log 2 @$TMPFILE
 
 ### Check result, ONLY 200 is ok

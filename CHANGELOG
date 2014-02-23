@@ -1,0 +1,16 @@
+ v1.1.0
+========
+
+FIXED
+
+ - Fix ignoring mail templates ~ Knut Kohl <github@knutkohl.de>
+ - Fix SmartEnergyGroups config templates and script ~ Knut Kohl <github@knutkohl.de>
+
+CHANGED
+
+ - Some fixes in Twitter scripts ~ Knut Kohl <github@knutkohl.de>
+ - Several fixes to force the use of last API version ~ Knut Kohl <github@knutkohl.de>
+
+NEW
+
+ - Add Wunderground weather API script ~ Knut Kohl <github@knutkohl.de>

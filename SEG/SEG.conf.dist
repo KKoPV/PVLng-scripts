@@ -7,9 +7,7 @@
 
 ##############################################################################
 ### SEG API URL
-### We use the "The Simple Stream API" here
-### http://api.smartenergygroups.com/api_streams/<stream_token>/add_point?value=47.2
 ### See http://smartenergygroups.com/api
 ### required
 ##############################################################################
-APIURL      "http://api.smartenergygroups.com/api_streams"
+APIURL      "http://api.smartenergygroups.com/api_sites/stream"

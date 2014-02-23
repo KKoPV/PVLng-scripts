@@ -7,9 +7,9 @@
 
 ##############################################################################
 ### Email adress
-### required, 'Name Surname <name.surname@example.com>'
+### required, "Name Surname <name.surname@example.com>"
 ##############################################################################
-EMAIL           "Knut Kohl <pv@knutkohl.de>"
+EMAIL           ""
 
 ##############################################################################
 ### Email subject

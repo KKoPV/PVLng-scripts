@@ -21,7 +21,9 @@ GUID_N        0
 ### PVLng sensor GUID
 ### optional, empty GUID skips processing of a section
 ##############################################################################
-GUID_1        ""
+GUID_1_N      0
+GUID_1_1      ""
+GUID_1_2      ""
 
 ##############################################################################
 ### This condition must met to fire an alert

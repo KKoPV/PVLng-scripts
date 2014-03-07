@@ -70,12 +70,13 @@ while test $i -lt $GUID_N; do
         continue
     fi
 
-    name="$(PVLngGET $GUID/name.txt)"
-    desc="$(PVLngGET $GUID/description.txt)"
-    unit="$(PVLngGET $GUID/unit.txt)"
+    name="$(PVLngGET channel/$GUID/name.txt)"
+    desc="$(PVLngGET channel/$GUID/description.txt)"
+    unit="$(PVLngGET channel/$GUID/unit.txt)"
+    dec="$(PVLngGET channel/$GUID/decimals.txt)"
 
     ### Extract 2nd value == data
-    value=$(PVLngGET data/$GUID.tsv?period=last | cut -f2)
+    value=$(toFixed $(PVLngGET data/$GUID.tsv?period=last | cut -f2) $dec)
 
 	### Format for this channel defined?
 	eval FORMAT=\$FORMAT_$i

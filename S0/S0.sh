@@ -50,19 +50,24 @@ while test $i -lt $GUID_N; do
 
     log 1 "--- Section $i ---"
 
-    eval GUID=\$GUID_$i
+    var1 GUID $i
     test "$GUID" || error_exit "Sensor GUID is required (GUID_$i)"
     log 1 "GUID    : $GUID"
 
-    DEVICE=$(PVLngGET channel/$GUID/channel.txt)
-    test "$DEVICE" || error_exit "Device is required, maintain as 'channel' for channel $GUID"
-    log 1 "Device  : $DEVICE"
+    var1 CHANNEL $i
+    if test -z "$CHANNEL"; then
+        ### Read from API
+        PVLngChannelAttr $GUID CHANNEL
+    fi
 
-    if test ! -r "$DEVICE"; then
+    test "$CHANNEL" || error_exit "Device is required, maintain as 'channel' for channel $GUID"
+    log 1 "Device  : $CHANNEL"
+
+    if test ! -r "$CHANNEL"; then
         echo
-        echo Device $DEVICE is not readable for script running user!
+        echo Device $CHANNEL is not readable for script running user!
         echo
-        ls -l "$DEVICE"
+        ls -l "$CHANNEL"
         echo
         echo Please make sure the user is at least added to the group which ownes the device.
         exit 2
@@ -87,7 +92,7 @@ while test $i -lt $GUID_N; do
     log 1 "Log     : $LOG"
 
     ### Identify S0 process by device attached to!
-    pid=$(ps ax | grep -e "[ /]S0" | grep "$DEVICE" | sed -e 's/^ *//' | cut -d' ' -f1)
+    pid=$(ps ax | grep -e "[ /]S0" | grep "$CHANNEL" | sed -e 's/^ *//' | cut -d' ' -f1)
 
     if test "$pid"; then
 
@@ -148,7 +153,7 @@ while test $i -lt $GUID_N; do
         ##########################################################################
         ### mostly 1st run, start s0
         ##########################################################################
-        cmd="$S0 -d $DEVICE -r $RESOLUTION -l $LOG"
+        cmd="$S0 -d $CHANNEL -r $RESOLUTION -l $LOG"
         if test "$TEST"; then
             log 1 "TEST: $cmd"
         else

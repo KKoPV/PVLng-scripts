@@ -55,7 +55,6 @@ test $GUID_N -gt 0 || error_exit "No sections defined (GUID_N)"
 test $(bool "$CACHED") -eq 0 && CACHED='/uncached' || CACHED=
 test -z "$CACHED" && log 1 "Use cached channel values"
 
-curl=$(curl_cmd)
 i=0
 
 while test $i -lt $GUID_N; do
@@ -64,14 +63,22 @@ while test $i -lt $GUID_N; do
 
     log 1 "--- GUID $i ---"
 
-    eval GUID=\$GUID_$i
+    var1 GUID $i
     test "$GUID" || error_exit "Sensor GUID is required (GUID_$i)"
 
-    SERIAL=$(PVLngGET channel/$GUID/serial.txt)
-    CHANNEL=$(PVLngGET channel/$GUID/channel.txt)
+    var1 SERIAL $i
+    if test -z "$SERIAL"; then
+        ### Read from API
+        PVLngChannelAttr $GUID SERIAL
+#       SERIAL=$(PVLngNC "$GUID,serial")
+    fi
 
-#     SERIAL=$(PVLngNC "$GUID,serial")
-#     CHANNEL=$(PVLngNC "$GUID,channel")
+    var1 CHANNEL $i
+    if test -z "$CHANNEL"; then
+        ### Read from API
+        PVLngChannelAttr $GUID CHANNEL
+#       CHANNEL=$(PVLngNC "$GUID,channel")
+    fi
 
     ### read value
     cmd="$owread -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"

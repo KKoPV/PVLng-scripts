@@ -41,9 +41,18 @@ GUID_N        0
 ##############################################################################
 ### PVLng sensor GUID
 ### Read Serial and Channel from API!
-### Maintain the REAL Serial as 28CA2307040000E0 - NOT 28.CA2307040000 !
 ### required
 ##############################################################################
 GUID_1        ""
+
+##############################################################################
+### The sensor serial and channel is requested by default via API.
+### If you run the scripts on remote equipment, you should define them also
+### here, so when the connection to your PVLng server fails, the data will
+### be collected correctly
+### optional
+##############################################################################
+#SERIAL_1      ""
+#CHANNEL_1     ""
 
 ### <<< copy

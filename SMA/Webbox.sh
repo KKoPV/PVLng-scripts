@@ -10,7 +10,6 @@
 ### Init variables
 ##############################################################################
 pwd=$(dirname $0)
-WEBBOX="192.168.0.168:80"
 
 . $pwd/../PVLng.conf
 . $pwd/../PVLng.sh
@@ -28,6 +27,8 @@ done
 
 shift $((OPTIND-1))
 
+WEBBOX='192.168.0.168:80'
+
 read_config "$1"
 
 ##############################################################################
@@ -43,7 +44,7 @@ test $GUID_N -gt 0  || error_exit "No GUIDs defined (GUID_N)"
 if test "$LOCATION"; then
     ### Location given, test for daylight time
     loc=$(echo $LOCATION | sed -e 's/,/\//g')
-    daylight=$(PVLngGET "daylight/$loc/60.txt")
+    daylight=$(PVLngGET "daylight/${loc}/60.txt")
     log 2 "Daylight: $daylight"
     test $daylight -eq 1 || exit 127
 fi
@@ -51,7 +52,7 @@ fi
 ##############################################################################
 ### Go
 ##############################################################################
-RESPONSEFILE=$(mktemp /tmp/pvlng.XXXXXX)
+RESPONSEFILE=$(temp_file)
 
 trap 'rm -f $TMPFILE $RESPONSEFILE >/dev/null 2>&1' 0
 
@@ -65,16 +66,23 @@ while test $i -lt $GUID_N; do
 
     log 1 "--- $i ---"
 
-    eval GUID=\$GUID_$i
+    var1 GUID $i
     test "$GUID" || error_exit "Equipment GUID is required (GUID_$i)"
 
-    ### request serial
-    SERIAL=$(PVLngGET channel/$GUID/serial.txt)
+    var1 SERIAL $i
+    if test -z "$SERIAL"; then
+        ### Read from API
+        PVLngChannelAttr $GUID SERIAL
+    fi
     test "$SERIAL" || error_exit "No serial number found for GUID: $GUID"
+
+    ### Response JSON holds no timestamp, use "id" paramter for this
+    ### Relevant for loading failed data
+    RPC_Id=$(date +"%Y-%m-%d %H:%M:%S")
 
     ### Build RPC request, catch all channels from equipment
     cat >$TMPFILE <<EOT
-{ "version": "1.0", "proc": "GetProcessData", "id": "$SERIAL", "format": "JSON",
+{ "version": "1.0", "proc": "GetProcessData", "id": "$RPC_Id", "format": "JSON",
   "params": { "devices": [ { "key": "$SERIAL", "channels": null } ] } }
 EOT
 
@@ -94,11 +102,11 @@ EOT
 
     ### Check response for error object
     if grep -q '"error"' $RESPONSEFILE; then
-        error_exit "$(printf "ERROR from Webbox:\n%s" "$(cat $RESPONSEFILE)")"
+        error_exit "$(printf "ERROR from Webbox:\n%s" "$(<$RESPONSEFILE)")"
     fi
 
     ### Save data
-    test "$TEST" || PVLngPUT2 $GUID @$RESPONSEFILE
+    test "$TEST" || PVLngPUT $GUID @$RESPONSEFILE
 
 done
 

@@ -42,7 +42,7 @@ test "$SaveDataDir" || SaveDataDir=$(readlink -f $(dirname ${BASH_SOURCE[0]}))/d
 function log {
     test $VERBOSE -ge $1 || return
     shift
-    d="["$(date +"%H:%M:%S.%N" | cut -b-13)"]"
+    d="["$(date +"%H:%M:%S.%N" | cut -b-12)"]"
     {   ### Detect if now $1 is a "@filename"
         if test "${1:0:1}" == '@'; then
             echo "$d File: ${1:1}"
@@ -73,9 +73,21 @@ function usage {
 ##############################################################################
 function read_config {
     local file="$1"
-    test "$file" || error_exit 'Configuration file required!'
+
+    if test -z "$file"; then
+        echo
+        echo ERROR: Configuration file required!
+        usage
+        exit 1
+    fi
+
     test -f "$file" || file="$pwd/$file"
-    test -r "$file" || error_exit 'Configuration file is not readable!'
+    if test ! -r "$file"; then
+        echo
+        echo ERROR: Configuration file is not readable!
+        usage
+        exit 1
+    fi
 
     log 2 "--- $file ---"
 
@@ -106,10 +118,35 @@ function int {
 }
 
 ##############################################################################
+### $1 - value, required
+### $2 - decimals, optional; default 0
+##############################################################################
+function toFixed {
+    local value=${1:-0}
+    local decimals=${2:-0}
+    printf "%.${decimals}f" $value
+}
+##############################################################################
 ### build md5sum of file
 ##############################################################################
 function hash {
     md5sum "$1" | cut -d' ' -f1
+}
+
+##############################################################################
+### Variable level 1
+### example: var1 GUID 1 > $GUID will get value of $GUID_1
+##############################################################################
+function var1 {
+    eval ${1}="\$${1}_${2}"
+}
+
+##############################################################################
+### Variable level 2
+### example: var2 ACTION 1 1 > $ACTION will get value of $ACTION_1_1
+##############################################################################
+function var2 {
+    eval ${1}="\$${1}_${2}_${3}"
 }
 
 ##############################################################################
@@ -120,10 +157,19 @@ function run_file {
 }
 
 ##############################################################################
+### make a temporary file
+##############################################################################
+function temp_file {
+    mktemp /tmp/pvlng.XXXXXX
+}
+
+##############################################################################
+### Analyse verbosity level and set curl to silent or verbose
+##############################################################################
 function curl_cmd {
-    v=$(int "$VERBOSE")
-    test $v -le 2 && cmd="$CURL --silent" || cmd="$CURL --verbose"
-    echo $cmd $CurlOpts
+    local mode='--silent' # default
+    test $(int "$VERBOSE") -gt 2 && mode='--verbose'
+    echo "$CURL $mode $CurlOpts"
 }
 
 ##############################################################################
@@ -159,7 +205,7 @@ function save_log {
                 --header "X-PVLng-key: $PVLngAPIkey" \
                 --header "Content-Type: application/json" \
                 --data "{\"scope\":\"$scope\",\"message\":\"$message\"}" \
-                $PVLngHost/api/r2/log >/dev/null
+                $PVLngURL/log >/dev/null
 }
 
 ##############################################################################
@@ -168,6 +214,19 @@ function save_log {
 ##############################################################################
 function PVLngNC {
     echo "$1" | netcat $PVLngDomain $SocketServerPort
+}
+
+##############################################################################
+### Get channel attribute value
+### $1 = GUID
+### $2 = Attribute & variable name
+### Result is a setted global variable of attribute name (case-sensitive!)
+### example: PVLngChannelAttr $GUID NAME > $NAME=...
+##############################################################################
+function PVLngChannelAttr {
+    ### convert attribute to lowercase
+    local attr=$(echo ${2} | tr [:upper:] [:lower:])
+    eval ${2}="$(PVLngGET channel/${1}/${attr}.txt)"
 }
 
 ##############################################################################
@@ -308,10 +367,12 @@ function PVLngPUT1 {
 ##############################################################################
 function PVLngPUTsaveRaw {
     ### Each GUID get its own directory
-    dir=$1/$2
-    test -d $dir || mkdir -p $dir
-    file=$dir/$(date +"%Y-%m-%d").csv
+    local dir=${1}/${2}/$(date +"%Y-%m")
+    local file=${dir}/$(date +"%Y-%m-%d").csv
+
     log 2 "Save $3 to $file"
+
+    test -d $dir || mkdir -p $dir
     echo $(date +"%Y-%m-%d %H:%M:%S")";$3" >>$file
 }
 
@@ -319,15 +380,18 @@ function PVLngPUTsaveRaw {
 ### internal use
 ### $1 = directory
 ### $2 = GUID
-### $2 = value or @file_name with JSON data
+### $3 = @file_name with data
 ##############################################################################
 function PVLngPUTsaveFile {
     ### Multiple files per day, each day of GUID get its own directory
-    dir=$1/$2/$(date +"%Y-%m-%d")
+    local dir=${1}/${2}/$(date +"%Y-%m/%d")
+    local file=${dir}/$(date +"%Y-%m-%d.%H:%M:%S")
+
+    log 2 "Save data"
+    log 2 "- from $3"
+    log 2 "-   to $file"
+
     test -d $dir || mkdir -p $dir
-    file=$dir/$(date +"%H:%M:%S").txt
-    log 2 "Save data from $3"
-    log 2 "  to $file"
     cp "$3" $file
 }
 

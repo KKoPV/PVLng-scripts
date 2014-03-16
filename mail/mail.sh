@@ -51,7 +51,7 @@ if test "${BODY:0:1}" == @; then
 fi
 
 ### If mail body was empty, just list all channels
-test -z "$BODY" && empty=y
+test -z "$BODY" && emptyBody=y
 
 curl=$(curl_cmd)
 
@@ -63,38 +63,37 @@ while test $i -lt $GUID_N; do
 
     log 1 "--- Section $i ---"
 
-    eval GUID=\$GUID_$i
-
+    var1 GUID $i
     if test -z "$GUID"; then
         log 1 'Disabled, skip'
         continue
     fi
 
-    name="$(PVLngGET $GUID/name.txt)"
-    desc="$(PVLngGET $GUID/description.txt)"
-    unit="$(PVLngGET $GUID/unit.txt)"
+    PVLngChannelAttr $GUID NAME
+    PVLngChannelAttr $GUID DESCRIPTION
+    PVLngChannelAttr $GUID UNIT
+    PVLngChannelAttr $GUID DECIMALS
 
     ### Extract 2nd value == data
-    value=$(PVLngGET data/$GUID.tsv?period=last | cut -f2)
+    value=$(toFixed $(PVLngGET data/$GUID.tsv?period=last | cut -f2) $DECIMALS)
 
 	### Format for this channel defined?
-	eval FORMAT=\$FORMAT_$i
-
+	var1 FORMAT $i
 	if test "$FORMAT"; then
 		log 2 "Format   : $FORMAT"
 	    printf -v value "$FORMAT" "$value"
 	fi
 
-    if test "$empty"; then
-        test "$desc" && name="$name ($desc)"
-        BODY="$BODY- $name: $value $unit\n"
+    if test "$emptyBody"; then
+        test "$DESC" && NAME="$NAME ($DESCRIPTION)"
+        BODY="$BODY- $NAME: $value $unit\n"
     else
         BODY=$(
             echo "$BODY" | \
-            sed -e "s~[{]NAME_$i[}]~$name~g" \
-                -e "s~[{]DESCRIPTION_$i[}]~$desc~g" \
+            sed -e "s~[{]NAME_$i[}]~$NAME~g" \
+                -e "s~[{]DESCRIPTION_$i[}]~$DESCRIPTION~g" \
                 -e "s~[{]VALUE_$i[}]~$value~g" \
-                -e "s~[{]UNIT_$i[}]~$unit~g"
+                -e "s~[{]UNIT_$i[}]~$UNIT~g"
         )
     fi
 

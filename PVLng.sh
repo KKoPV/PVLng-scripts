@@ -73,9 +73,21 @@ function usage {
 ##############################################################################
 function read_config {
     local file="$1"
-    test "$file" || error_exit 'Configuration file required!'
+
+    if test -z "$file"; then
+        echo
+        echo ERROR: Configuration file required!
+        usage
+        exit 1
+    fi
+
     test -f "$file" || file="$pwd/$file"
-    test -r "$file" || error_exit 'Configuration file is not readable!'
+    if test ! -r "$file"; then
+        echo
+        echo ERROR: Configuration file is not readable!
+        usage
+        exit 1
+    fi
 
     log 2 "--- $file ---"
 
@@ -142,6 +154,13 @@ function var2 {
 ##############################################################################
 function run_file {
     echo $pwd/../run/$1.$(echo $(basename "$2") | sed -e 's~[.].*$~~g' -e 's~[^A-Za-z0-9-]~_~g').$3
+}
+
+##############################################################################
+### make a temporary file
+##############################################################################
+function temp_file {
+    mktemp /tmp/pvlng.XXXXXX
 }
 
 ##############################################################################

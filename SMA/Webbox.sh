@@ -52,7 +52,7 @@ fi
 ##############################################################################
 ### Go
 ##############################################################################
-RESPONSEFILE=$(mktemp /tmp/pvlng.XXXXXX)
+RESPONSEFILE=$(temp_file)
 
 trap 'rm -f $TMPFILE $RESPONSEFILE >/dev/null 2>&1' 0
 

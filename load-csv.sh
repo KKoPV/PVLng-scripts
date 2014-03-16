@@ -14,12 +14,12 @@ pwd=$(dirname $0)
 . $pwd/PVLng.conf
 . $pwd/PVLng.sh
 
-while getopts "c:ntvxh" OPTION; do
+while getopts "c:f:ntxh" OPTION; do
     case "$OPTION" in
         c) GUID="$OPTARG" ;;
+        f) FILE="$OPTARG" ;;
         n) KEEP=y ;;
-        t) TEST=y; KEEP=y; VERBOSE=$((VERBOSE + 1)) ;;
-        v) VERBOSE=$((VERBOSE + 1)) ;;
+        t) TEST=y; KEEP=y ;;
         x) TRACE=y ;;
         h) usage; exit ;;
         ?) usage; exit 1 ;;
@@ -28,36 +28,54 @@ done
 
 shift $((OPTIND-1))
 
-files=$#
-
-if test $files -eq 0; then usage; exit; fi
-
 ##############################################################################
 ### Start
 ##############################################################################
 test "$TRACE" && set -x
 
+FILESFILE=$(temp_file)
+
+trap 'rm -f $TMPFILE $FILESFILE >/dev/null 2>&1' 0
+
+if test -f "$FILE"; then
+    cp $FILE $FILESFILE
+else
+    while test "$1"; do
+        echo $1 >>$FILESFILE
+        shift
+    done
+fi
+
+if test $(wc -l $FILESFILE | cut -d' ' -f1) -eq 0; then
+    usage;
+    exit;
+fi
+
 i=1
 
 curl=$(curl_cmd)
 
-while test "$1"; do
+while read file; do
 
-    log 0 "$(printf "%2d/%2d" $i $files) - $(basename $1) ..."
+    if test ! -f $file; then
+        log -1 Missing $file - skip
+        continue
+    fi
+
+    log 0 Process $(basename $file) ...
 
     i=$((i+1))
 
+    ### No channel GUID given, test file name
     if test -z "$GUID"; then
-        ### No channel GUID given, test file name
-
         ### Ubuntu/Debian don't have the same awk as openSUSE, so the GUID match
         ### didn't work for me. Because of that I changed awk to sed.
         ### https://github.com/K-Ko/PVLng/pull/18
-        GUID=$(echo "$1" | sed -n 's/.*\(\([a-z0-9]\{4\}-\)\{7\}[a-z0-9]\{4\}\).*/\1/p')
+        GUID=$(echo "$file" | sed -n 's/.*\(\([a-z0-9]\{4\}-\)\{7\}[a-z0-9]\{4\}\).*/\1/p')
         test "$GUID" || error_exit "No sensor GUID in filename found"
     fi
 
-    test "$GUID" || error_exit "No sensor GUID given"
+    test "$GUID" || error_exit "No channel GUID given"
 
     if test -z "$TEST"; then
 
@@ -69,27 +87,29 @@ while test "$1"; do
                    --header "Content-Type: text/plain" \
                    --write-out %{http_code} \
                    --output $TMPFILE \
-                   --data-binary "@$1" \
+                   --data-binary "@$file" \
                    $PVLngURL/csv/$GUID.tsv)
 
         if echo "$rc" | grep -qe '^20[012]'; then
             ### 200/201/202 Ok
-            log 0 "        Ok [$rc] $(cat $TMPFILE | tail -n 1)"
+            msg="> Ok [$rc] $(cat $TMPFILE | tail -n 1)"
 
             if test -z "$KEEP"; then
-                rm "$1" && log 0 "        deleted"
-                if echo $1 | grep -q 'data/fail'; then
-                    find $(dirname $1) -empty -type d -delete
+                rm "$file" && msg="$msg - deleted"
+                if echo $file | grep -q 'data/fail'; then
+                    ### Delete afterwards empty directories
+                    find $(dirname $file) -type d -empty -delete
                 fi
             fi
+
+            log 0 "$msg"
         else
             ### Any other is an error
             error_exit "Failed [$rc] $(cat $TMPFILE | tail -n 1)"
         fi
     fi
 
-    shift
-done
+done <$FILESFILE
 
 set +x
 
@@ -101,17 +121,17 @@ exit
 Load CSV data files via API, delete successful imported files and
 if full file name contains 'data/fail' also empty directories!
 
-Usage: $scriptname [-c GUID] [options] files
+Usage: $scriptname [-c GUID] [options] [-f file | files]
+
+Take files list either from file (-f) or from cammand line
 
 Options:
 
-    -c  Channel GUID
-    -n  DON'T delete successful imported file(s)
-    -t  Test mode, don't save to PVLng
-        Sets verbosity to info level
-    -v  Set verbosity level to info level
-    -vv Set verbosity level to debug level
-    -h  Show this help
+    -c       Channel GUID
+    -f file  Load files from file, the file names MUST contain the GUIDs
+    -n       DON'T delete successful imported file(s)
+    -t       Test mode, don't save to PVLng
+    -h       Show this help
 
 If no GUID is given, it will be extracted from file name.
 

@@ -6,7 +6,7 @@ In this repository you find the scripts for data acquisition.
 
 ## Issues
 
-Please use appropriately tagged github [issues](https://github.com/K-Ko/PVLng-scripts/issues) to request features or report bugs.
+Please use appropriately tagged github [issues](https://github.com/KKoPV/PVLng-scripts/issues) to request features or report bugs.
 
 ## Contributing
 

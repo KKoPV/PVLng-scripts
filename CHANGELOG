@@ -1,3 +1,21 @@
+ v1.3.0
+========
+
+CHANGED
+
+ - Fix some typos
+
+ v1.2.0
+========
+
+FIXED
+
+ - Fix for stable work on remote hardware ~ Knut Kohl <github@knutkohl.de>
+
+CHANGED
+
+ - Adjust CSV file loading, single script ~ Knut Kohl <github@knutkohl.de>
+
  v1.1.0
 ========
 

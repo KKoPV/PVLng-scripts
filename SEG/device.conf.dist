@@ -7,7 +7,7 @@
 
 ##############################################################################
 ### Global settings, see https://smartenergygroups.com/my_things/show_keys
-### You need a filer per device!
+### You need a file per device!
 ##############################################################################
 SITE_TOKEN      ""
 NODE_NAME       ""
@@ -29,24 +29,16 @@ STREAM_N        0
 ### copy >>>
 
 ##############################################################################
-### Stream enabled
-### Not enabled channels will be skipped
-### optional, default yes
-### (Any one of (1|X|on|yes|true) is case-insensitive interpreted as "yes")
+### PVLng sensor GUID
+### recommended, empty GUID disables section
 ##############################################################################
-ENABLED_1       yes
+GUID_1 ""
 
 ##############################################################################
 ### Stream name
 ### required
 ##############################################################################
 STREAM_NAME_1   ""
-
-##############################################################################
-### PVLng sensor GUID
-### required
-##############################################################################
-GUID_1          ""
 
 ##############################################################################
 ### Factor for numeric channel readings only!

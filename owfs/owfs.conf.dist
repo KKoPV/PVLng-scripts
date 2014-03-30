@@ -20,7 +20,17 @@
 ### optional, default false
 ### true|false
 ##############################################################################
-CACHED        false
+#CACHED        false
+
+##############################################################################
+### Unit for temperature sensors, see also "owread -h"
+### optional, default "C"
+###   C - Celsius(default) temperature scale
+###   F - Fahrenheit temperature scale
+###   K - Kelvin temperature scale
+###   R - Rankine temperature scale
+##############################################################################
+#UNIT          C
 
 ##############################################################################
 ### Per sensor settings

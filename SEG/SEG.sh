@@ -46,16 +46,17 @@ test $STREAM_N -gt 0 || error_exit "No stream sections defined (STREAM_N)"
 ##############################################################################
 ### Go
 ##############################################################################
-curl="$(curl_cmd)"
+curl=$(curl_cmd)
 
 if test -z "$INTERVAL"; then
     ifile=$(run_file SEG "$1" last)
     if test -f "$ifile"; then
         INTERVAL=$(echo "scale=0; ( "$(date +%s)" - "$(<$ifile)" ) / 60" | bc -l)
     else
-        ### start with 10 minutes interval...
+        ### Start with 10 minutes
         INTERVAL=10
     fi
+    ### Remember actual timestamp
     date +%s >$ifile
 fi
 
@@ -65,34 +66,36 @@ while test $i -lt $STREAM_N; do
 
     i=$((i + 1))
 
-    log 1 "--- Stream $i ---"
+    log 1 "--- GUID $i ---"
 
-    eval ENABLED=\$ENABLED_$i
-    if test "$ENABLED" -a $(bool "$ENABLED") -eq 0; then
-        ### Enabled was defined AND set to FALSE
-        log 1 disabled
+    var1 GUID $i
+    if test -z "$GUID"; then
+        log 1 "Missing GUID $i, disabled"
         continue
     fi
 
-    ### required parameters
-    eval STREAM_NAME=\$STREAM_NAME_$i
+    log 2 "GUID     : $GUID"
+
+    ### Required parameters
+    var1 STREAM_NAME $i
     test "$STREAM_NAME" || error_exit "SEG stream name is required (STREAM_NAME_$i)"
     log 2 "STREAM   : $STREAM_NAME"
 
-    eval GUID=\$GUID_$i
-    test "$GUID" || error_exit "Channel GUID is required (GUID_$i)"
-    log 2 "GUID     : $GUID"
-
     ### Buffer meter attribute
     mfile=$(run_file SEG $GUID meter)
-    if test ! -f "$mfile"; then
-        int $(PVLngGET channel/$GUID/meter.txt) > $mfile
+    if test -f "$mfile"; then
+        meter=$(<$mfile)
+    else
+        meter=$(int $(PVLngGET channel/$GUID/meter.txt))
+        echo -n $meter >$mfile
     fi
 
-    if test $(<$mfile) -eq 0; then
+#    if test $meter -eq 1; then
+#        fetch="start=midnight&period=1d"
+#    else
         ### Fetch for sensor channels average of last x minutes
         fetch="start=-${INTERVAL}minutes&period=${INTERVAL}minutes"
-    fi
+#    fi
 
     ### read value, get last row
     row=$(PVLngGET data/$GUID.tsv?$fetch | tail -n1)
@@ -102,7 +105,7 @@ while test $i -lt $STREAM_N; do
     test "$row" || continue
 
     if echo "$row" | egrep -q '[[:alpha:]]'; then
-        error_exit "PVLng API readout error:\n\n$row"
+        error_exit "PVLng API readout error:\n$row"
     fi
 
     ### set "data" to $2
@@ -111,14 +114,17 @@ while test $i -lt $STREAM_N; do
 
     ### Buffer numeric attribute
     nfile=$(run_file SEG $GUID numeric)
-    if test ! -f "$nfile"; then
-        int $(PVLngGET channel/$GUID/numeric.txt) > $nfile
+    if test -f "$nfile"; then
+        numeric=$(<$nfile)
+    else
+        numeric=$(int $(PVLngGET channel/$GUID/numeric.txt))
+        echo -n $numeric >$nfile
     fi
 
     ### Factor for this channel
-    if test $(<$nfile) -eq 1; then
+    if test $numeric -eq 1; then
         ### Only for numeric channels!
-        eval FACTOR=\$FACTOR_$i
+        var1 FACTOR $i
         log 2 "Factor   : $FACTOR"
         test "$FACTOR" && value=$(echo "scale=4; $value * $FACTOR" | bc -l)
     else

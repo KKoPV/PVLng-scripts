@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
 ### @copyright   2012-2013 Knut Kohl
@@ -10,7 +10,6 @@
 ### Init
 ##############################################################################
 pwd=$(dirname $0)
-GUID_N=0
 
 . $pwd/../PVLng.conf
 . $pwd/../PVLng.sh
@@ -54,6 +53,7 @@ test $GUID_N -gt 0 || error_exit "No sections defined (GUID_N)"
 ##############################################################################
 test $(bool "$CACHED") -eq 0 && CACHED='/uncached' || CACHED=
 test -z "$CACHED" && log 1 "Use cached channel values"
+test -z "$UNIT" && UNIT=C
 
 i=0
 
@@ -81,7 +81,7 @@ while test $i -lt $GUID_N; do
     fi
 
     ### read value
-    cmd="$owread -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
+    cmd="$owread -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
     log 2 $cmd
     value=$($cmd)
     log 1 "Value        = $value"

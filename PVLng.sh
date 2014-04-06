@@ -45,9 +45,12 @@ function log {
     d="["$(date +"%H:%M:%S.%N" | cut -b-12)"]"
     {   ### Detect if now $1 is a "@filename"
         if test "${1:0:1}" == '@'; then
-            echo "$d File: ${1:1}"
-            cat ${1:1}
-            echo
+            file=${1:1}
+            # echo "$d $file >>>"
+            ### cat ... read needs at least one new line at end of file...
+            echo >>$file
+            cat $file | sed '/^$/d' | while read l; do echo "$d $l"; done
+            # echo "$d <<< $file"
         else
             echo -e "$d $*"
         fi

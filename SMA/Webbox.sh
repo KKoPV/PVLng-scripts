@@ -67,7 +67,10 @@ while test $i -lt $GUID_N; do
     log 1 "--- $i ---"
 
     var1 GUID $i
-    test "$GUID" || error_exit "Equipment GUID is required (GUID_$i)"
+    if test -z "$GUID"; then
+        log 1 Disabled, skip
+        continue
+    fi
 
     var1 SERIAL $i
     if test -z "$SERIAL"; then
@@ -76,16 +79,14 @@ while test $i -lt $GUID_N; do
     fi
     test "$SERIAL" || error_exit "No serial number found for GUID: $GUID"
 
+    ### Build RPC request, catch all channels from equipment
     ### Response JSON holds no timestamp, use "id" paramter for this
     ### Relevant for loading failed data
-    RPC_Id=$(date +"%Y-%m-%d %H:%M:%S")
-
-    ### Build RPC request, catch all channels from equipment
     cat >$TMPFILE <<EOT
-{ "version": "1.0", "proc": "GetProcessData", "id": "$RPC_Id", "format": "JSON",
-  "params": { "devices": [ { "key": "$SERIAL", "channels": null } ] } }
+{"version":"1.0","proc":"GetProcessData","id":"$(date +%s)","format":"JSON","params":{"devices":[{"key":"$SERIAL"}]}}
 EOT
 
+    log 2 "Webbox request:"
     log 2 @$TMPFILE
 
     ### Query webbox

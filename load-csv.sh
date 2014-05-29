@@ -123,7 +123,7 @@ if full file name contains 'data/fail' also empty directories!
 
 Usage: $scriptname [-c GUID] [options] [-f file | files]
 
-Take files list either from file (-f) or from cammand line
+Take files list either from file (-f) or from command line
 
 Options:
 
@@ -135,14 +135,14 @@ Options:
 
 If no GUID is given, it will be extracted from file name.
 
-- Load any failed (/GUID/year/month/*.csv):
-    $scriptname data/fail/*/*/*/*.csv
+- Load any failed (/GUID/year-month/*.csv):
+    $scriptname data/fail/*/*/*.csv
 
 - Load failed january of one GUID and DON'T delete files:
-    $scriptname -n data/fail/{GUID}/2014/01/*.csv
+    $scriptname -n data/fail/{GUID}/2014-01/*.csv
 
 - Load failed 1st of january of one GUID:
-    $scriptname data/fail/{GUID}/2014/01/*01-01.csv
+    $scriptname data/fail/{GUID}/2014-01/2014-01-01.csv
 
 - Load any file with given GUID:
     $scriptname -c {GUID} file1.csv file2.csv file3.csv

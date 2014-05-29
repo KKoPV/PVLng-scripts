@@ -5,12 +5,8 @@
 ### @version     $Id$
 ##############################################################################
 
-PVLngURL1="$PVLngHost/api/r1"
-PVLngURL2="$PVLngHost/api/r2"
-PVLngURL3="$PVLngHost/api/r3"
-
 ### Latest API release
-PVLngURL="$PVLngURL3"
+PVLngURL="$PVLngHost/api/r4"
 
 test "$CURL" || CURL="$(which curl 2>/dev/null)"
 test -z "$CURL" && echo "Can not find curl executable, please install and/or define in PVLng.conf!" && exit 1
@@ -243,26 +239,6 @@ function PVLngGET {
 }
 
 ##############################################################################
-### Get data from PVLng by API r2
-### $1 = GUID
-##############################################################################
-function PVLngGET2 {
-    local url="$PVLngURL2/$1"
-    log 2 "URL : $url"
-    $(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $url
-}
-
-##############################################################################
-### Get data from PVLng by API r3
-### $1 = GUID
-##############################################################################
-function PVLngGET3 {
-    local url="$PVLngURL3/$1"
-    log 2 "URL : $url"
-    $(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $url
-}
-
-##############################################################################
 ### Save data to PVLng latest API release
 ### $1 = GUID
 ### $2 = value or @file_name with JSON data
@@ -332,32 +308,83 @@ function PVLngPUT {
 }
 
 ##############################################################################
-### Save data to PVLng
+### Save data to PVLng using batch
 ### $1 = GUID
-### $2 = date
+### $2 = file - @file_name
+###      <timestamp>,<value>;...   : Semicolon separated timestamp and value data sets
+###      <date time>,<value>;...   : Semicolon separated date time and value data sets
+###      <date>,<time>,<value>;... : Semicolon separated date, time and value data sets
 ##############################################################################
-function PVLngPUT1 {
+function PVLngPUTBatch {
 
-    log 2 "GUID     : $1"
-    log 2 "Data     : $2"
+    local GUID="$1"
+    local data="$2"
 
-    local data=
+    log 2 "GUID      : $GUID"
+    log 2 "Data file : $data"
 
-    test "${2:0:1}" != "@" && data="data=\"$2\"" || data="data$2"
+    ### Clear temp. file before
+    rm $TMPFILE >/dev/null 2>&1
 
-    rc=$($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" --request PUT \
-                     --write-out %{http_code} --output $TMPFILE \
-                     --data-urlencode $data $PVLngHost/api/r1/$1)
+    set $($(curl_cmd) --request PUT \
+                      --header "X-PVLng-key: $PVLngAPIkey" \
+                      --header "Content-Type: text/plain" \
+                      --write-out %{http_code} \
+                      --output $TMPFILE \
+                      --data-binary $data \
+                      $PVLngURL/batch/$GUID.txt)
 
-    if echo "$rc" | grep -qe '^20[012]'; then
+    if echo "$1" | grep -qe '^20[012]'; then
         ### 200/201/202 ok
-        log 1 HTTP code : $rc
-        log 1 "$(cat $TMPFILE)"
+        log 1 "HTTP code : $1"
+        test -f $TMPFILE && log 2 @$TMPFILE
     else
         ### errors
-        log -1 HTTP code : $rc
-        log -1 "$(cat $TMPFILE)"
-        save_log "$1" @$TMPFILE
+        log -1 "HTTP code : $1"
+        test -f $TMPFILE && log -1 @$TMPFILE
+        save_log "$GUID" "HTTP code: $1 - raw: $raw"
+        test -f $TMPFILE && save_log "$GUID" @$TMPFILE
+    fi
+
+}
+
+##############################################################################
+### Save data to PVLng using CSV file
+### $1 = GUID
+### $2 = CSV file - @file_name
+###      <timestamp>;<value>   : Semicolon separated timestamp and value data rows
+###      <date time>;<value>   : Semicolon separated date time and value data rows
+###      <date>;<time>;<value> : Semicolon separated date, time and value data rows
+##############################################################################
+function PVLngPUTCSV {
+
+    local GUID="$1"
+    local data="$2"
+
+    log 2 "GUID      : $GUID"
+    log 2 "Data file : $data"
+
+    ### Clear temp. file before
+    rm $TMPFILE >/dev/null 2>&1
+
+    set $($(curl_cmd) --request PUT \
+                      --header "X-PVLng-key: $PVLngAPIkey" \
+                      --header "Content-Type: text/plain" \
+                      --write-out %{http_code} \
+                      --output $TMPFILE \
+                      --data-binary $data \
+                      $PVLngURL/csv/$GUID.txt)
+
+    if echo "$1" | grep -qe '^20[012]'; then
+        ### 200/201/202 ok
+        log 1 "HTTP code : $1"
+        test -f $TMPFILE && log 2 @$TMPFILE
+    else
+        ### errors
+        log -1 "HTTP code : $1"
+        test -f $TMPFILE && log -1 @$TMPFILE
+        save_log "$GUID" "HTTP code: $1 - raw: $raw"
+        test -f $TMPFILE && save_log "$GUID" @$TMPFILE
     fi
 
 }
@@ -396,164 +423,6 @@ function PVLngPUTsaveFile {
 
     test -d $dir || mkdir -p $dir
     cp "$3" $file
-}
-
-##############################################################################
-### Save data to PVLng API r2
-### $1 = GUID
-### $2 = value or @file_name with JSON data
-##############################################################################
-function PVLngPUT2 {
-
-    local GUID="$1"
-    local raw="$2"
-    local data="$2"
-    local dataraw=
-    local datafile=
-
-    log 2 "GUID      : $GUID"
-    log 2 "Data      : $data"
-
-    if test "${data:0:1}" != "@"; then
-        ### No file
-        dataraw="$data"
-        data="{\"data\":\"$(JSON_quote "$data")\"}"
-        log 2 "Send      : $data"
-    else
-        ### File
-        datafile="${data:1}"
-    fi
-
-    ### Log data
-    if test "$SAVEDATA"; then
-        if test "$dataraw"; then
-            PVLngPUTsaveRaw "$SaveDataDir" $GUID $dataraw
-        elif test "$datafile"; then
-            PVLngPUTsaveFile "$SaveDataDir" $GUID $datafile
-        fi
-    fi
-
-    ### Clear temp. file before
-    rm $TMPFILE >/dev/null 2>&1
-
-    set $($(curl_cmd) --request PUT \
-                      --header "X-PVLng-key: $PVLngAPIkey" \
-                      --header "Content-Type: application/json" \
-                      --write-out %{http_code} \
-                      --output $TMPFILE \
-                      --data-binary $data \
-                      $PVLngHost/api/r2/data/$GUID.txt)
-
-    if echo "$1" | grep -qe '^20[012]'; then
-        ### 200/201/202 ok
-        log 1 "HTTP code : $1"
-        test -f $TMPFILE && log 2 @$TMPFILE
-    else
-        ### errors
-
-        ### Log always failed data
-        if test "$dataraw"; then
-            PVLngPUTsaveRaw "$SaveDataDir/fail" $GUID $dataraw
-        elif test "$datafile"; then
-            PVLngPUTsaveFile "$SaveDataDir/fail" $GUID $datafile
-        fi
-
-        log -1 "HTTP code : $1"
-        test -f $TMPFILE && log -1 @$TMPFILE
-        save_log "$GUID" "HTTP code: $1 - raw: $raw"
-        test -f $TMPFILE && save_log "$GUID" @$TMPFILE
-    fi
-}
-
-##############################################################################
-### Save data to PVLng API r3
-### $1 = GUID
-### $2 = value or @file_name with JSON data
-##############################################################################
-function PVLngPUT3 {
-    PVLngPUT2 $*
-}
-
-##############################################################################
-### Save data to PVLng using batch
-### $1 = GUID
-### $2 = file - @file_name
-###      <timestamp>,<value>;...   : Semicolon separated timestamp and value data sets
-###      <date time>,<value>;...   : Semicolon separated date time and value data sets
-###      <date>,<time>,<value>;... : Semicolon separated date, time and value data sets
-##############################################################################
-function PVLngPUT2Batch {
-
-    local GUID="$1"
-    local data="$2"
-
-    log 2 "GUID      : $GUID"
-    log 2 "Data file : $data"
-
-    ### Clear temp. file before
-    rm $TMPFILE >/dev/null 2>&1
-
-    set $($(curl_cmd) --request PUT \
-                      --header "X-PVLng-key: $PVLngAPIkey" \
-                      --header "Content-Type: text/plain" \
-                      --write-out %{http_code} \
-                      --output $TMPFILE \
-                      --data-binary $data \
-                      $PVLngHost/api/r2/batch/$GUID.txt)
-
-    if echo "$1" | grep -qe '^20[012]'; then
-        ### 200/201/202 ok
-        log 1 "HTTP code : $1"
-        test -f $TMPFILE && log 2 @$TMPFILE
-    else
-        ### errors
-        log -1 "HTTP code : $1"
-        test -f $TMPFILE && log -1 @$TMPFILE
-        save_log "$GUID" "HTTP code: $1 - raw: $raw"
-        test -f $TMPFILE && save_log "$GUID" @$TMPFILE
-    fi
-
-}
-
-##############################################################################
-### Save data to PVLng using CSV file
-### $1 = GUID
-### $2 = CSV file - @file_name
-###      <timestamp>;<value>   : Semicolon separated timestamp and value data rows
-###      <date time>;<value>   : Semicolon separated date time and value data rows
-###      <date>;<time>;<value> : Semicolon separated date, time and value data rows
-##############################################################################
-function PVLngPUT2CSV {
-
-    local GUID="$1"
-    local data="$2"
-
-    log 2 "GUID      : $GUID"
-    log 2 "Data file : $data"
-
-    ### Clear temp. file before
-    rm $TMPFILE >/dev/null 2>&1
-
-    set $($(curl_cmd) --request PUT \
-                      --header "X-PVLng-key: $PVLngAPIkey" \
-                      --header "Content-Type: text/plain" \
-                      --write-out %{http_code} \
-                      --output $TMPFILE \
-                      --data-binary $data \
-                      $PVLngHost/api/r2/csv/$GUID.txt)
-
-    if echo "$1" | grep -qe '^20[012]'; then
-        ### 200/201/202 ok
-        log 1 "HTTP code : $1"
-        test -f $TMPFILE && log 2 @$TMPFILE
-    else
-        ### errors
-        log -1 "HTTP code : $1"
-        test -f $TMPFILE && log -1 @$TMPFILE
-        save_log "$GUID" "HTTP code: $1 - raw: $raw"
-        test -f $TMPFILE && save_log "$GUID" @$TMPFILE
-    fi
-
 }
 
 ##############################################################################

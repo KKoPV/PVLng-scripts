@@ -1,7 +1,7 @@
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
+### @copyright   2012-2014 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
@@ -43,23 +43,23 @@ ITEM_1           "average -60minutes"
 GUID_1           ""
 
 ### E-Total channel of inverter or an accumulator of many E-Total
-ITEM_2           "production midnight"
+ITEM_2           "last_meter midnight"
 GUID_2           ""
 FACTOR_2         "1 / 1000"
 
 ### E-Total channel of inverter or an accumulator of many E-Total
-ITEM_3           "production midnight"
+ITEM_3           "last_meter midnight"
 GUID_3           ""
 ###              relative values in kWh / installed power in kWp = kWh/kWp
 FACTOR_3         "1 / 1000 / <your installed power here>"
 
 ### E-Total channel of inverter or an accumulator of any E-Total
-ITEM_4           "overall"
+ITEM_4           "readlast"
 GUID_4           ""
 FACTOR_4         "1 / 1000 / 1000" # into MWh
 
 ### E-Total channel of inverter or an accumulator of any E-Total
-ITEM_5           "overall"
+ITEM_5           "readlast"
 GUID_5           ""
 ###              relative values in MWh / installed power in kWp = MWh/kWp
 FACTOR_5         "1 / 1000 / 1000 / <your installed power here>"

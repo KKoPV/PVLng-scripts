@@ -1,8 +1,12 @@
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     1.1.0
+### @copyright   2012-2014 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
+### @version     1.2.0
+###
+### 1.2.0
+### Wrapper func. to fetch value from one-liner result
+### Max. calculation with awk
 ###
 ### 1.1.0
 ### Adjust functions, make more variable
@@ -11,26 +15,53 @@
 ### Initial creation
 ##############################################################################
 
+### Helper function to fetch value from result containing one row
+function _twitter_fetch_value {
+    echo $(PVLngGET "$1" | cut -f2)
+}
+
 ##############################################################################
 twitter_last_help='Actual/last value'
+### $1 - GUID
 ##############################################################################
 function twitter_last {
-    value=$(PVLngGET "data/$1.tsv?period=last" | cut -f2)
-    log 1 "$url => $value"
-    echo $value
+    _twitter_fetch_value "data/$1.tsv?period=last"
+}
+
+##############################################################################
+twitter_last_meter_help='Actual/last value of meter with start'
+### $1 - Start time
+### $2 - GUID
+### Example params: midnight | first%20day%20of%20this%20month
+### Start at today midnight  | 1st of this month
+##############################################################################
+function twitter_last_meter {
+    _twitter_fetch_value "data/$2.tsv?start=$1&period=last"
+}
+
+##############################################################################
+twitter_readlast_help='Generic item to read last value'
+### $1 - GUID
+##############################################################################
+function twitter_readlast {
+    _twitter_fetch_value "data/$1.tsv?period=readlast"
+}
+
+##############################################################################
+twitter_overall_help='Overall production in MWh'
+##############################################################################
+function twitter_overall {
+    _twitter_fetch_value "data/$1.tsv?period=readlast"
 }
 
 ##############################################################################
 twitter_average_help='Average value since $1'
 ### $1 - Start time
 ### $2 - GUID
-### Example params: midnight 24hours
-### Start at today midnight and aggregate 24 hours > 1 row as result
+### Example params: midnight
 ##############################################################################
 function twitter_average {
-    value=$(PVLngGET "data/$2.tsv?start=$1&period=99y" | cut -f2)
-    log 1 "$url => $value"
-    echo $value
+    _twitter_fetch_value "data/$2.tsv?start=$1&period=99y"
 }
 
 ##############################################################################
@@ -41,45 +72,9 @@ twitter_maximum_help='Maximum value since $1'
 ### Start at today midnight  | 1st of this month
 ##############################################################################
 function twitter_maximum {
-    ### Get all data rows
-    PVLngGET "data/$2.tsv?start=$1" >$TMPFILE
-
-    ### Loop all rows and find max. value
-    imax=0; vmax=0
-    while read line; do
-        value=$(echo "$line" | cut -f2)
-        ### Cut of decimals for testing
-        int=$(printf "%.0f" $value)
-        if test $int -gt $imax; then
-            imax=$int
-            vmax=$value
-        fi
-    done <$TMPFILE
-
-    log 1 "$url => $vmax"
-    echo $vmax
-}
-
-##############################################################################
-twitter_production_help='Production in kWh since $1'
-### $1 - Start time
-### $2 - GUID
-### Example params: midnight | first%20day%20of%20this%20month
-### Start at today midnight  | 1st of this month
-##############################################################################
-function twitter_production {
-    value=$(PVLngGET "data/$2.tsv?start=$1&period=last" | cut -f2)
-    log 1 "$url => $value"
-    echo $value
-}
-
-##############################################################################
-twitter_overall_help='Overall production in MWh'
-##############################################################################
-function twitter_overall {
-    value=$(PVLngGET "data/$1.tsv?period=readlast" | cut -f2)
-    log 1 "$url => $value"
-    echo $value
+    ### Get all data rows and loop to find max. value
+    PVLngGET "data/$2.tsv?start=$1" | \
+    awk 'NR==1 { max=$2 } { if ($2>max) max=$2 } END { print max }'
 }
 
 ##############################################################################
@@ -89,12 +84,12 @@ function twitter_today_working_hours {
     ### Get all data rows
     PVLngGET "data/$1.tsv" >$TMPFILE
 
-    ### get first line, get 1st value
-    min=$(cat $TMPFILE | head -n1 | cut -f1)
-    ### get last line, get 1st value
-    max=$(cat $TMPFILE | tail -n1 | cut -f1)
-    log 1 "$url => $min - $max"
+    ### Get first line, get 1st value
+    local min=$(cat $TMPFILE | head -n1 | cut -f1)
+    ### Get last line, get 1st value
+    local max=$(cat $TMPFILE | tail -n1 | cut -f1)
+    log 1 "Min - Max: $min - $max"
 
     ### to hours
-    echo "scale=3; ($max - $min) / 3600" | bc -l
+    echo "scale=4; ($max - $min) / 3600" | bc -l
 }

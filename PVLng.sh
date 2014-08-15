@@ -5,32 +5,7 @@
 ### @version     $Id$
 ##############################################################################
 
-### Latest API release
-PVLngURL="$PVLngHost/api/r4"
-
-test "$CURL" || CURL="$(which curl 2>/dev/null)"
-test -z "$CURL" && echo "Can not find curl executable, please install and/or define in PVLng.conf!" && exit 1
-
-CURL="$CURL $CURLCONNECT"
-
-### Create temp. file e.g. for curl --output
-TMPFILE=$(mktemp /tmp/pvlng.XXXXXX)
-
-### Define some variables
-scriptname=${0##*/}
-pwd=$(dirname $0)
-
-TEST=
-VERBOSE=0
-TRACE=
-
-LC_NUMERIC=en_US
-
-### Automatic logging of all data pushed to PVLng API,
-### flag -l required
-SAVEDATA=
-### default directory can be overwriten in any other config file
-test "$SaveDataDir" || SaveDataDir=$(readlink -f $(dirname ${BASH_SOURCE[0]}))/data
+REQUEST_TIME=$(date +%s)
 
 ##############################################################################
 ### show message depending of verbosity level on stderr
@@ -80,7 +55,7 @@ function read_config {
         exit 1
     fi
 
-    test -f "$file" || file="$pwd/$file"
+    test -f "$file" || file="$(dirname $0)/$file"
     if test ! -r "$file"; then
         echo
         echo ERROR: Configuration file is not readable!
@@ -99,24 +74,29 @@ function read_config {
 }
 
 ##############################################################################
-### analyse paramter $1 as boolean
+### Force $1 as boolean
+### Any of 1,x,on,yes,true is case-insensitive detected as TRUE
+### Return 1 for TRUE, 0 for FALSE
 ##############################################################################
 function bool {
-    case $(echo "$1" | tr '[A-Z]' '[a-z]') in
+    case $(echo "$1" | tr [:upper:] [:lower:]) in
         1|x|on|yes|true) echo 1 ;;
         *)               echo 0 ;;
     esac
 }
 
 ##############################################################################
-### force paramter $1 as integer
+### Force $1 as integer
+### Return 0 for invalid/empty parameter $1
 ##############################################################################
 function int {
+    local t=
     test -n "$1" && t=$(expr "$1" \* 1 2>/dev/null)
     test -z "$t" && echo 0 || echo $t
 }
 
 ##############################################################################
+### Format numeric value with decimals
 ### $1 - value, required
 ### $2 - decimals, optional; default 0
 ##############################################################################
@@ -126,22 +106,22 @@ function toFixed {
     printf "%.${decimals}f" $value
 }
 ##############################################################################
-### build md5sum of file
+### Build md5 hash of file
 ##############################################################################
 function hash {
     md5sum "$1" | cut -d' ' -f1
 }
 
 ##############################################################################
-### Variable level 1
-### example: var1 GUID 1 > $GUID will get value of $GUID_1
+### Define variable level 1
+### Example: var1 GUID 1 > $GUID will get value of $GUID_1
 ##############################################################################
 function var1 {
     eval ${1}="\$${1}_${2}"
 }
 
 ##############################################################################
-### Variable level 2
+### Define variable level 2
 ### example: var2 ACTION 1 1 > $ACTION will get value of $ACTION_1_1
 ##############################################################################
 function var2 {
@@ -149,14 +129,64 @@ function var2 {
 }
 
 ##############################################################################
-### build run file name
+### Wrapper function to add more than one command to "trap ... 0"
+### Builds a queue of commands to execute on script exit (signal 0)
+### http://stackoverflow.com/a/21212552
+### Usage: on_exit "command ..."
 ##############################################################################
-function run_file {
-    echo $pwd/../run/$1.$(echo $(basename "$2") | sed -e 's~[.].*$~~g' -e 's~[^A-Za-z0-9-]~_~g').$3
+function on_exit_init {
+    local next="$1"
+    eval "function on_exit {
+        local old='$(echo "$next" | sed -e s/\'/\'\\\\\'\'/g)'
+        local new=\"\$old; \$1\"
+        trap -- \"\$new\" 0
+        on_exit_init \"\$new\"
+    }"
+}
+### Initialize wrapper, required to declare 1st "on_exit" function
+on_exit_init true
+
+##############################################################################
+### Remove given file name on script exit
+### $1 : file name
+##############################################################################
+function on_exit_rm {
+    test "$1" && on_exit 'rm -f "'$1'" >/dev/null 2>&1'
 }
 
 ##############################################################################
-### make a temporary file
+### Build run file name from configuration file name
+### $1 - Prefix, mostly calling script name
+### $2 - e.g. a configuration file name
+### $3 - File extension, optional; default "run"
+##############################################################################
+function run_file {                           ### remove extension, replace all not allowed chars with single _
+    echo $RUNDIR/$1.$(echo $(basename "$2") | sed -e 's~[.].*$~~g' -e 's~[^A-Za-z0-9-]~_~g' -e 's~_+~_~g').${3:-run}
+}
+
+##############################################################################
+### Build lock file name, create lock link if not esists
+### Add a trap for script exit to remove lock file
+### $1 - suffix for lock file name, required; for empty use ""
+### $2 <> "" and lock file exists (another instance is running) 
+###          use as exit code
+##############################################################################
+function check_lock {
+    local lockfile=$RUNDIR/$(echo $(basename "$0") | sed -e 's~[.].*$~~g' -e 's~[^A-Za-z0-9-]~_~g')$(test "$1" && echo ".$1").pid
+
+    log 2 "Lock file : $lockfile"
+
+    if [ -L $lockfile ]; then
+        exit ${2:-0}
+    else
+        ### Make fake link file as lock file
+        ln -s pid=$$ $lockfile
+        on_exit_rm "$lockfile"
+    fi
+}
+
+##############################################################################
+### Make a temporary file
 ##############################################################################
 function temp_file {
     mktemp /tmp/pvlng.XXXXXX
@@ -186,7 +216,6 @@ function JSON_quote {
 ### $2 = message
 ##############################################################################
 function save_log {
-
     local scope=$(JSON_quote "$1")
     local message=
 
@@ -236,6 +265,7 @@ function PVLngGET {
     local url="$PVLngURL/$1"
     log 2 "Fetch    : $url"
     $(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $url
+    log 2 "Fetch    : done"
 }
 
 ##############################################################################
@@ -244,7 +274,6 @@ function PVLngGET {
 ### $2 = value or @file_name with JSON data
 ##############################################################################
 function PVLngPUT {
-
     local GUID="$1"
     local raw="$2"
     local data="$2"
@@ -316,7 +345,6 @@ function PVLngPUT {
 ###      <date>,<time>,<value>;... : Semicolon separated date, time and value data sets
 ##############################################################################
 function PVLngPUTBatch {
-
     local GUID="$1"
     local data="$2"
 
@@ -357,7 +385,6 @@ function PVLngPUTBatch {
 ###      <date>;<time>;<value> : Semicolon separated date, time and value data rows
 ##############################################################################
 function PVLngPUTCSV {
-
     local GUID="$1"
     local data="$2"
 
@@ -429,9 +456,10 @@ function PVLngPUTsaveFile {
 ### trap function to clean up
 ##############################################################################
 function clean_up {
+:;
     ### Clean up on program exit, accepts an exit status
-    rm -f "$TMPFILE" >/dev/null 2>&1
-    exit $1
+##    rm -f "$TMPFILE" >/dev/null 2>&1
+##    exit $1
 }
 
 ##############################################################################
@@ -442,6 +470,8 @@ function curl_error_exit {
     #
     # http://curl.haxx.se/libcurl/c/libcurl-errors.html
     #
+    rc=$1
+    local -a curl_rc=
     curl_rc[1]="The URL you passed to libcurl used a protocol that this libcurl does not support. The support might be a compile-time option that you didn't use, it can be a misspelled protocol string or just a protocol libcurl has no code for."
     curl_rc[2]="Very early initialization code failed. This is likely to be an internal error or problem, or a resource problem where something fundamental couldn't get done at init time."
     curl_rc[3]="The URL was not properly formatted."
@@ -524,20 +554,23 @@ function curl_error_exit {
     echo
     echo $scriptname: Curl error $2 "($rc): ${curl_rc[$rc]}" 1>&2
     echo
-    clean_up 1
+    exit 1
 }
 
 ##############################################################################
-### exit with error message and return code 1
+### Exit with error message and return code 1
 ##############################################################################
 function error_exit {
     ### Display error message and exit
     echo
     echo "$scriptname: ${1:-"Unknown Error"}" 1>&2
     echo
-    clean_up 1
+    exit 1
 }
 
+##############################################################################
+###
+##############################################################################
 function realpath {
     f=$@;
     if [ -d "$f" ]; then
@@ -551,4 +584,77 @@ function realpath {
     echo "$dir$base"
 }
 
-trap clean_up 0
+##############################################################################
+### Show run time of script in seconds/minutes,
+### best use with verbose equal/upper info
+### $1 = <empty>: Show seconds, else minutes
+### Usage: log 1 $(run_time)   # for seconds
+###        log 1 $(run_time x) # for minutes
+##############################################################################
+function run_time {
+    if test -z "$1"; then
+        printf "Run time : %.0f s" $(echo "($(date +%s) - $REQUEST_TIME)" | bc -l)
+    else
+        printf "Run time : %.1f min" $(echo "($(date +%s) - $REQUEST_TIME) / 60" | bc -l)
+    fi
+}
+
+##############################################################################
+### Default PVLng script options
+##############################################################################
+function opt_define_pvlng() {
+    if [ "$1" ]; then
+        ### Flag to save data also into file
+        opt_define short=s long=save desc='Save data also into log file' variable=SAVEDATA value=y
+    fi
+    ### Test mode with raise of verbosity level
+    ### Value is required to detect argument as flag
+    opt_define short=t long=test variable=TEST \
+               desc='Test mode, set verbosity to info level' value=y \
+               callback='TEST=y; VERBOSE=$(($VERBOSE+1))'
+    ### Multiple -v raises verbosity level
+    opt_define short=v long=verbose variable=VERBOSE \
+               desc='Verbosity, use multiple times for higher level' \
+               default=0 value=1 callback='VERBOSE=$(($VERBOSE+1))'
+    ### Prepare a TRACE variable to "set -x" after preparation
+    ### No description > not shown in help
+    opt_define short=x long=trace variable=TRACE value=X
+}
+
+##############################################################################
+### Init
+##############################################################################
+LC_NUMERIC=en_US
+
+_ROOT=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
+
+### Source getopts helper functions
+source $_ROOT/opt.sh
+
+### Load global configuration
+source $_ROOT/PVLng.conf
+
+### Latest API release
+PVLngURL="$PVLngHost/api/r4"
+
+### Setup curl command
+test "$CURL" || CURL="$(which curl 2>/dev/null)"
+test -z "$CURL" && echo "Can not find curl executable, please install and/or define in PVLng.conf!" && exit 1
+
+CURL="$CURL $CURLCONNECT"
+
+### Create temp. file e.g. for curl --output and remove on exit
+TMPFILE=$(mktemp /tmp/pvlng.XXXXXX)
+on_exit_rm "$TMPFILE"
+
+### Some variables
+scriptname=${0##*/}
+
+### Automatic logging of all data pushed to PVLng API,
+### flag -s, --savedata required
+SAVEDATA=
+### default directory can be overwriten in any other config file
+test "$SaveDataDir" || SaveDataDir=$_ROOT/data
+
+### Directory for the "run" files
+RUNDIR=$_ROOT/run

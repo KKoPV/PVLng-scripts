@@ -1,44 +1,31 @@
-#!/bin/bash
+#!/bin/sh
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     $Id$
+### @copyright   2012-2014 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
+### @version     1.0.0
 ##############################################################################
-
-### URL to get system info
-GetSystemURL=http://pvoutput.org/service/r2/getsystem.jsp
-
-### URL to add system status
-AddStatusURL=http://pvoutput.org/service/r2/addstatus.jsp
-
-### How many parameters are supported
-vMax=12
 
 ##############################################################################
 ### Init
 ##############################################################################
-pwd=$(dirname $0)
 
-. $pwd/../PVLng.conf
-. $pwd/../PVLng.sh
+source $(dirname $0)/../PVLng.sh
 
-while getopts "tvxh" OPTION; do
-	case "$OPTION" in
-		t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-		v) VERBOSE=$((VERBOSE + 1)) ;;
-		x) TRACE=y ;;
-		h) usage; exit ;;
-		?) usage; exit 1 ;;
-	esac
-done
+### Script options
+opt_help      "Update a system on PVOutput.org"
+opt_help_args "<config file>"
+opt_help_hint "See pvoutput.conf.dist and system.conf.dist for details."
 
-read_config $pwd/pvoutput.conf
+### PVLng default options with flag for save data
+opt_define_pvlng
 
-shift $((OPTIND-1))
+source $(opt_build)
+
 CONFIG="$1"
 
 read_config "$CONFIG"
+read_config $(dirname $0)/pvoutput.conf
 
 ##############################################################################
 ### Start
@@ -149,25 +136,3 @@ else
 	save_log "PVOutput" "$SYSTEMID - Update failed: $(cat $TMPFILE)"
 	save_log "PVOutput" "$SYSTEMID - Data: $DATA"
 fi
-
-set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Update PVOutput.org system
-
-Usage: $scriptname [options] config_file
-
-Options:
-	-t   Test mode, don't push to PVOutput
-	     Sets verbosity to info level
-	-v   Set verbosity level to info level
-	-vv  Set verbosity level to debug level
-	-h   Show this help
-
-See system.conf.dist for reference.
-
-# << USAGE

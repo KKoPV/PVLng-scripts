@@ -1,65 +1,55 @@
 #!/bin/sh
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
+### @copyright   2012-2014 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
 ### Init
 ##############################################################################
-pwd=$(dirname $0)
+source $(dirname $0)/../PVLng.sh
 
-. $pwd/../PVLng.conf
-. $pwd/../PVLng.sh
+### check owread binary
+owread=${owread:=$(which owread)}
+[ "$owread" ] || error_exit "Missing owread binary!"
 
-owread=$(which owread)
-test "$owread" || error_exit "Missing owread binary!"
+### Script options
+opt_help      "Fetch 1-wire sensor data"
+opt_help_args "<config file>"
+opt_help_hint "See owfs.conf.dist for details."
 
+### PVLng default options with flag for save data
+opt_define_pvlng x
+
+source $(opt_build)
+
+SERVER="localhost:4304"
 CACHED=false
-
-while getopts "stvxh" OPTION; do
-    case "$OPTION" in
-        s) SAVEDATA=y ;;
-        t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-        v) VERBOSE=$((VERBOSE + 1)) ;;
-        x) TRACE=y ;;
-        h) usage; exit ;;
-        ?) usage; exit 1 ;;
-    esac
-done
-
-if test "$TEST" && test -z "$(which owread)"; then
-    error_exit "Missing owread binary from OWFS. Is OWFS is properly installed?"
-fi
-
-shift $((OPTIND-1))
 
 read_config "$1"
 
 ##############################################################################
 ### Start
 ##############################################################################
-test "$TRACE" && set -x
-
-test "$SERVER" || SERVER="localhost:4304"
+[ "$TRACE" ] && set -x
 
 GUID_N=$(int "$GUID_N")
-test $GUID_N -gt 0 || error_exit "No sections defined (GUID_N)"
+[ $GUID_N -gt 0 ] || error_exit "No sections defined (GUID_N)"
 
 ##############################################################################
 ### Go
 ##############################################################################
-test $(bool "$CACHED") -eq 0 && CACHED='/uncached' || CACHED=
-test -z "$CACHED" && log 1 "Use cached channel values"
-test -z "$UNIT" && UNIT=C
+[ $(bool "$CACHED") -eq 0 ] && CACHED='/uncached' || CACHED=
+[ -z "$CACHED" ] && log 1 "Use cached channel values"
+[ -z "$UNIT" ] && UNIT=C
 
 i=0
 
 while test $i -lt $GUID_N; do
 
-    i=$(expr $i + 1)
+    i=$(($i+1))
 
     log 1 "--- GUID $i ---"
 
@@ -74,7 +64,7 @@ while test $i -lt $GUID_N; do
     fi
 
     var1 CHANNEL $i
-    if test -z "$CHANNEL"; then
+    if [ -z "$CHANNEL" ]; then
         ### Read from API
         PVLngChannelAttr $GUID CHANNEL
 #       CHANNEL=$(PVLngNC "$GUID,channel")
@@ -87,32 +77,6 @@ while test $i -lt $GUID_N; do
     log 1 "Value        = $value"
 
     ### Save data
-    test "$TEST" || PVLngPUT $GUID $value
+    [ "$TEST" ] || PVLngPUT $GUID $value
 
 done
-
-set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Fetch 1-wire sensor data
-
-Usage: $scriptname [options]
-
-Options:
-
-    -s  Save data also into log file
-    -t  Test mode, don't save to PVLng
-        Sets verbosity to info level
-    -v  Set verbosity level to info level
-    -vv Set verbosity level to debug level
-    -h  Show this help
-
-Requires a configuation file $pwd/owfs.conf
-
-See $pwd/owfs.conf.dist for details.
-
-# << USAGE

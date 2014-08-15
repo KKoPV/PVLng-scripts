@@ -34,7 +34,7 @@ read_config "$1"
 ##############################################################################
 test "$TRACE" && set -x
 
-test "$APIURL" || error_exit "Solar Net API URL is required!"
+test "$APIURL" || error_exit "Solar Net API URL is required (APIURL)"
 
 GUID_N=$(int "$GUID_N")
 test $GUID_N -gt 0  || error_exit "No GUIDs defined (GUID_N)"
@@ -53,8 +53,7 @@ fi
 . $pwd/func.sh
 
 RESPONSEFILE=$(mktemp /tmp/pvlng.XXXXXX)
-
-trap 'rm -f $TMPFILE $RESPONSEFILE >/dev/null 2>&1' 0
+on_exit_rm "$RESPONSEFILE"
 
 curl="$(curl_cmd --header 'Content-Type=application/json')"
 

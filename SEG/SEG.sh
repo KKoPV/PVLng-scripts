@@ -90,12 +90,12 @@ while test $i -lt $STREAM_N; do
         echo -n $meter >$mfile
     fi
 
-#    if test $meter -eq 1; then
-#        fetch="start=midnight&period=1d"
-#    else
+    if test $meter -eq 1; then
+        fetch="start=midnight&period=1d"
+    else
         ### Fetch for sensor channels average of last x minutes
         fetch="start=-${INTERVAL}minutes&period=${INTERVAL}minutes"
-#    fi
+    fi
 
     ### read value, get last row
     row=$(PVLngGET data/$GUID.tsv?$fetch | tail -n1)

@@ -12,4 +12,16 @@
 ### always keep your API key secret. API Access must be enabled
 ### required
 ##############################################################################
-APIKEY      ""
+APIKEY       ""
+
+##############################################################################
+### DON'T change from here
+##############################################################################
+### URL to get system info
+GetSystemURL http://pvoutput.org/service/r2/getsystem.jsp
+
+### URL to add system status
+AddStatusURL http://pvoutput.org/service/r2/addstatus.jsp
+
+### How many parameters are supported
+vMax         12

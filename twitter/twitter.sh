@@ -1,26 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
+### @copyright   2012-2014 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
-##############################################################################
-### Init
-##############################################################################
-pwd=$(dirname $0)
-
-. $pwd/../PVLng.conf
-. $pwd/../PVLng.sh
-
-test -f $pwd/.tokens || error_exit "Missing token file! Did you run setup.sh?"
-
-. $pwd/twitter.items.sh
-. $pwd/.pvlng
-. $pwd/.tokens
-
-##############################################################################
 function listItems {
     printf '\nImplemented items:\n\n'
     typeset -F | grep ' twitter_' | sed -e 's/.*twitter_//'| \
@@ -32,31 +17,50 @@ function listItems {
 }
 
 ##############################################################################
-while getopts "lftvxh" OPTION; do
-    case "$OPTION" in
-        l) listItems; exit ;;
-        f) FORCE=y ;;
-        t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-        v) VERBOSE=$((VERBOSE + 1)) ;;
-        x) TRACE=y ;;
-        h) usage; exit ;;
-        ?) usage; exit 1 ;;
-    esac
-done
+### Init
+##############################################################################
+pwd=$(dirname $0)
 
-shift $((OPTIND-1))
+source $pwd/../PVLng.sh
+
+### Script options
+opt_help      "Post status to twitter"
+opt_help_args "<config file>"
+opt_help_hint "See twitter.conf.dist for details."
+
+opt_define short=l long=list desc="List implemented items" variable=LIST value=y
+### Hidden option to force update also with no valid data
+opt_define short=f long=force variable=FORCE value=y
+
+### PVLng default options
+opt_define_pvlng
+
+source $(opt_build)
+
+source $pwd/twitter.items.sh
+
+if [ "$LIST" ]; then
+    listItems
+    exit
+fi
+
+[ -f $pwd/.tokens ] || error_exit "Missing token file! Did you run setup.sh?"
 
 read_config "$1"
 
-test "$STATUS" || error_exit "Missing status!"
+source $pwd/.pvlng
+source $pwd/.tokens
+
+##############################################################################
+[ "$STATUS" ] || error_exit "Missing status!"
 
 ITEM_N=$(int "$ITEM_N")
-test $ITEM_N -gt 0  || error_exit "No items defined"
+[ $ITEM_N -gt 0 ] || error_exit "No items defined"
 
 ##############################################################################
 ### Start
 ##############################################################################
-test "$TRACE" && set -x
+[ "$TRACE" ] && set -x
 
 TWITTER_URL="https://api.twitter.com/1/statuses/update.json"
 
@@ -64,36 +68,46 @@ curl="$(curl_cmd)"
 
 i=0
 
-while test $i -lt $ITEM_N; do
+while [ $i -lt $ITEM_N ]; do
 
-    i=$((i + 1))
+    i=$((i+1))
 
     log 1 "--- $i ---"
 
-    eval ITEM=\$ITEM_$i
-    log 1 "Item    : $ITEM"
+    ### Check for reused value, skip API call
+    var1 USE $i
+    if [ "$USE" ]; then
+        log 1 "Reuse    : $USE"
+        eval value="\$VALUE_$USE"
+    else
+        var1 ITEM $i
+        log 1 "Item     : $ITEM"
 
-    eval GUID=\$GUID_$i
-    log 1 "GUID    : $GUID"
+        var1 GUID $i
+        log 1 "GUID     : $GUID"
 
-    value=$(twitter_$ITEM $GUID)
-    log 1 "Value : $value"
+        value=$(twitter_$ITEM $GUID)
+    fi
+    log 1 "Value    : $value"
+
+    ### Remember value
+    eval VALUE_$i="\$value"
 
     ### Exit if no value is found, e.g. no actual power outside daylight times
-    test "$value" && test "$value" != "0" || test "$FORCE" || exit
+    [ "$value" ] && [ "$value" != "0" ] || [ "$FORCE" ] || exit
 
     ### In case of force set to zero to work properly
-    test -z "$value" && value=0
+    value=${value:-0}
 
     eval FACTOR=\$FACTOR_$i
-    log 1 "Factor: $FACTOR"
+    log 1 "Factor   : $FACTOR"
 
-    if test "$FACTOR"; then
-        value=$(echo "scale=3; $value * $FACTOR" | bc -l)
-        log 1 "Value : $value"
+    if [ "$FACTOR" ]; then
+        value=$(echo "scale=4; $value * $FACTOR" | bc -l)
+        log 1 "Value    : $value"
     fi
 
-    PARAMS="$PARAMS $value"
+    PARAMS+="$value "
 
 done
 
@@ -107,35 +121,15 @@ STATUS=$(printf "$STATUS" $PARAMS)
 log 1 "Result   : $STATUS"
 log 1 "Length   : $(echo $STATUS | wc -c)"
 
-if test -z "$TEST"; then
+[ "$TEST" ] && exit
 
-    test $VERBOSE -gt 0 && opts="--debug"
+[ $VERBOSE -gt 0 ] && opts="--debug"
 
-    $pwd/twitter.php $opts \
-        --consumer_key=$CONSUMER_KEY \
-        --consumer_secret=$CONSUMER_SECRET \
-        --oauth_token=$OAUTH_TOKEN \
-        --oauth_secret=$OAUTH_TOKEN_SECRET \
-        --status="$STATUS" --location="$LAT_LON"
-fi
+$pwd/twitter.php $opts \
+    --consumer_key=$CONSUMER_KEY \
+    --consumer_secret=$CONSUMER_SECRET \
+    --oauth_token=$OAUTH_TOKEN \
+    --oauth_secret=$OAUTH_TOKEN_SECRET \
+    --status="$STATUS" --location="$LAT_LON"
 
 exit $?
-
-##############################################################################
-# USAGE >>
-
-Post status to twitter
-
-Usage: $scriptname [options] config_file
-
-Options:
-    -l   List implemented items
-    -t   Test mode, don't post
-         Sets verbosity to info level
-    -v   Set verbosity level to info level
-    -vv  Set verbosity level to debug level
-    -h   Show this help
-
-See $pwd/twitter.conf.dist for details.
-
-# << USAGE

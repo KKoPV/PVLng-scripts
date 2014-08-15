@@ -1,7 +1,7 @@
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
+### @copyright   2012-2014 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
@@ -73,10 +73,10 @@ RESOLUTION_1  1000
 
 ##############################################################################
 ### Either log watt or impulse
-### Set to 1 for counter power sensors
-### optional, default: 0
+### Set to "yes" for counter power sensors
+### optional, default: no
 ##############################################################################
-IMPULSES_1    0
+#IMPULSES_1    no
 
 ##############################################################################
 ### The device (sensor channel) is requested by default via API.

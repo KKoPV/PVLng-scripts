@@ -117,7 +117,7 @@ while test $i -lt $GUID_N; do
 		test "$desc" && name="$name ($desc)"
 		eval name_$j="\$name"
 
-		data=$(PVLngGET data/$GUID.tsv?period=last)
+		data=$(PVLngGET data/$GUID.tsv?period=readlast)
 		log 2 "Data   : $data"
 
 		### Extract 2nd value == data
@@ -153,8 +153,7 @@ while test $i -lt $GUID_N; do
 		result=$(echo "scale=4; $CONDITION" | bc -l)
 	else
 	    ### String condition
-		test $CONDITION
-		test $? -eq 0 && result=1 || result=0
+		eval test $CONDITION; test $? -eq 0 && result=1 || result=0
 	fi
 
 	### Skip if condition is not true

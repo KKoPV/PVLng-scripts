@@ -27,14 +27,14 @@ done
 
 shift $((OPTIND-1))
 
+HEADER=6
+
 read_config "$1"
 
 ##############################################################################
 ### Start
 ##############################################################################
 test "$TRACE" && set -x
-
-test "$APIURL" || error_exit "Solar Net API URL is required (APIURL)"
 
 GUID_N=$(int "$GUID_N")
 test $GUID_N -gt 0  || error_exit "No GUIDs defined (GUID_N)"
@@ -50,13 +50,17 @@ fi
 ##############################################################################
 ### Go
 ##############################################################################
-. $pwd/func.sh
-
+TMPFILE2=$(mktemp /tmp/pvlng.XXXXXX)
+on_exit_rm "$TMPFILE2"
+CNTFILE=$(mktemp /tmp/pvlng.XXXXXX)
+on_exit_rm "$CNTFILE"
 RESPONSEFILE=$(mktemp /tmp/pvlng.XXXXXX)
 on_exit_rm "$RESPONSEFILE"
 
-curl="$(curl_cmd --header 'Content-Type=application/json')"
+curl="$(curl_cmd)"
 
+lines=0
+echo 0 >$CNTFILE
 i=0
 
 while test $i -lt $GUID_N; do
@@ -65,26 +69,59 @@ while test $i -lt $GUID_N; do
 
     log 1 "--- $i ---"
 
-    eval GUID=\$GUID_$i
+    var1 PIKOURL $i
+    test "$PIKOURL" || error_exit "Kostal Piko API URL is required (PIKOURL_$i)"
+
+    var1 GUID $i
     test "$GUID" || error_exit "Inverter GUID is required (GUID_$i)"
 
-    ### request serial and type, required fields
-    DEVICEID=$(PVLngGET $GUID/serial.txt)
-    TYPE=$(int $(PVLngGET $GUID/channel.txt))
+    ### Fetch data
+    $curl --output $TMPFILE $PIKOURL
+    rc=$?
 
-    if test $TYPE -eq 1 -o $TYPE -eq 2; then
-        requestComCard GetInverterRealtimeData CommonInverterData
+    if test $rc -ne 0; then
+        curl_error_exit $rc $PIKOURL
     fi
 
-    if test $TYPE -eq 2; then
-        requestComCard GetStringRealtimeData NowStringControlData
-    fi
+    log 2 "Response:"
+    log 2 @$TMPFILE
+    log 2 "Rows : "$(wc -l $TMPFILE | cut -d' ' -f1)
 
-    if test $TYPE -eq 3; then
-        requestComCard GetSensorRealtimeData NowSensorData
-    fi
+    ### Split file to send each single row to avoid server timeouts
+    ### Extract channel names line
+    names=$(head -n $(( $HEADER + 1)) $TMPFILE | tail -1)
+
+    ### Extract data rows behind header and send each prepended with header row to API
+    tail -n +$(( $HEADER + 2)) $TMPFILE | while read line; do
+
+        test "$line" || continue
+
+        lines=$(( $lines + 1 ))
+        log 2 "Line: $lines"
+        ### Put lines in temp. file from subshell
+        echo $lines >$CNTFILE
+
+        ( echo "$names"; echo "$line" ) >$TMPFILE2
+
+        ### Encode data file to JSON for API PUT
+        rc=$($curl --request POST --write-out %{http_code} \
+                   --output $RESPONSEFILE --data-binary @$TMPFILE2 \
+                   $PVLngURL/jsonencode)
+
+        if test $rc -ne 200; then
+            echo "RC $rc: JSON encode failed for $TMPFILE"
+            cat $TMPFILE
+            exit 1
+        fi
+
+        ### Save data
+        test "$TEST" || PVLngPUT $GUID @$RESPONSEFILE
+    done
 
 done
+
+log 1 "Data lines: $(<$CNTFILE)"
+log 1 $(run_time x)
 
 set +x
 
@@ -93,18 +130,18 @@ exit
 ##############################################################################
 # USAGE >>
 
-Read data from Fronius inverters/SensorCards
+Read data from Kostal Piko inverters
 
 Usage: $scriptname [options] config_file
 
 Options:
     -s  Save data also into log file
-    -t  Test mode, read only from ComCard and show the results, don't save to PVLng
+    -t  Test mode, read only and show the results, don't save to PVLng
         Sets verbosity to info level
     -v  Set verbosity level to info level
     -vv Set verbosity level to debug level
     -h  Show this help
 
-See $pwd/System.conf.dist for reference.
+See $pwd/Piko.conf.dist for reference.
 
 # << USAGE

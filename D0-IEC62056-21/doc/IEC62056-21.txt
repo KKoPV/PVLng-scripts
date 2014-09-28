@@ -1,0 +1,52 @@
+https://en.wikipedia.org/wiki/IEC_62056#IEC_62056-21
+
+IEC 61107 or currently IEC 62056-21, was an international standard for a
+computer protocol to read utility meters. It is designed to operate over any
+media, including the Internet. A meter sends ASCII (in modes A..D) or HDLC
+(mode E) data to a nearby hand-held unit (HHU) using a serial port.
+The physical media are usually either modulated light, sent with an LED and
+received with a photodiode, or a pair of wires, usually modulated by a 20mA
+current loop. The protocol is usually half-duplex.
+
+The following exchange usually takes a second or two, and occurs when a person
+from the utility company presses a meter-reading gun against a transparent
+faceplate on the meter, or plugs into the metering bus at the mailbox of an
+apartment building.
+
+The general protocol consists of a "sign on" sequence, in which a handheld unit
+identifies itself to the metering unit. During sign-on, the handheld unit
+addresses a particular meter by number. The meter and hand-held unit negotiate
+various parameters such as the maximum frame length during transmission and
+reception, whether multiple frames can be sent without acknowledging individual
+frames (Windowing), the fastest communication rate that they can both manage
+(only in case of mode E switching to HDLC) etc. Next the meter informs the hand
+held unit about the various parameters that are available with it in various
+security settings viz. the 'no security logical group', ' the low security
+logical groups' and ' the high security logical groups'.
+
+If the parameter required is in no security group, just a get.request will
+provide the HHU with the desired response. If the parameter required is in low
+security group, a password authentication of the HHU is required before
+information can be read.
+
+In case of high security parameters,the meter challenges the hand held unit
+with a cryptographic password. The hand held unit must return an encrypted
+password. If the password exchange is ok, the meter accepts the hand held unit-
+it is "signed on."
+
+After signing on, the hand held unit generally reads a meter description.
+This describes some registers that describe the current count of metered units
+(i.e. kilowatt hours, megajoules, litres of gas or water) and the metering
+unit's reliability (is it still operating ok?). Occasionally a manufacturer
+will invent a new quantity to measure, and in this case, a new or different
+data type will appear in the meter definition. Most metering units have special
+modes for calibration and resetting meter registers. These modes are usually
+protected by anti-tampering features such as switches that sense if the meter
+enclosure has been opened.
+
+The HHU may also be given limited rights to set or reset certain parameters in
+the meter.
+
+The hand held unit then sends a sign-off message, and the meter automatically
+signs off after a previously negotiated time interval after the last message,
+if no sign-off message is sent.

@@ -1,8 +1,8 @@
 ##############################################################################
-### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     1.0.0
+### @author     Knut Kohl <github@knutkohl.de>
+### @copyright  2012-2014 Knut Kohl
+### @license    MIT License (MIT) http://opensource.org/licenses/MIT
+### @version    1.0.0
 ###
 ### Idea from Optparse - a BASH wrapper for getopts
 ### @author : nk412 / nagarjuna.412@gmail.com
@@ -105,9 +105,9 @@ function opt_define() {
             if [ "$val" != "\$OPTARG" ]; then
                 ### Flag parameter
                 desc+=" [flag]"
-            else
+            elif [ "$default" ]; then
                 ### Parameter with default value
-                desc+=" [default:${default}]"
+                desc+=" [default:$default]"
             fi
         fi
         if [ "$required" ]; then

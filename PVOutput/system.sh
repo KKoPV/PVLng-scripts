@@ -84,7 +84,7 @@ while test $i -lt $vMax; do
 		fi
 
 		if test "$value"; then
-			value=$(echo "scale=3; $value * $FACTOR" | bc -l)
+			value=$(calc "$value * $FACTOR")
 			DATA="$DATA -d v$i=$value"
 		fi
 		log 1 "$(printf 'VALUE   %2d: %s' $i $value)"

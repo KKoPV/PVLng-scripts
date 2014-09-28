@@ -13,32 +13,37 @@ pwd=$(dirname $0)
 
 . $pwd/PVLng.sh
 
-PERIOD=60
-NICE=10
+### Script options
+opt_help "Run command each given period (in seconds) for 1 minute.
+Use in cron with period * for each minute."
+opt_help_args "-- command parameter1 parameter2 ..."
 
-while getopts "p:n:tvxh" OPTION; do
-    case "$OPTION" in
-        p) P=$OPTARG; PERIOD=$(int $OPTARG) ;;
-        n) NICE=$(int $OPTARG) ;;
-        t) TEST=y;  VERBOSE=$((VERBOSE+1)) ;;
-        v) VERBOSE=$((VERBOSE+1)) ;;
-        x) TRACE=y ;;
-        h) usage; exit ;;
-        ?) usage; exit 1 ;;
-    esac
-done
+### PVLng default options with flag for save data
+opt_define short=p long=period desc="Period in seconds (5..60)" variable=PERIOD default=60
+opt_define short=n long=nice desc="Niceness range from -20 (most favorable) to 19 (least favorable)" variable=NICE default=10
+opt_define_pvlng
 
-shift $((OPTIND-1))
+source $(opt_build)
+
 CMD="$@"
 
 ##############################################################################
 ### Start
 ##############################################################################
-test $PERIOD -gt 0 || error_exit "Unknown period: $P"
-test $PERIOD -lt 5 && error_exit "Valid period values: 5..60"
-test $PERIOD -gt 60 && error_exit "Valid period values: 5..60"
+if [ "${PERIOD: -1}" == x ]; then
+    LOOPS=$(int ${PERIOD::-1})
+    PERIOD=$((60 / $LOOPS))
+else
+    LOOPS=$((60 / $(int $PERIOD)))
+fi
+[ $PERIOD -gt  0 ] || error_exit "Unknown period"
+[ $PERIOD -lt  5 ] && error_exit "Valid period values: 5..60"
+[ $PERIOD -gt 60 ] && error_exit "Valid period values: 5..60"
+
+NICE=$(int $NICE)
 test $NICE -lt -20 && error_exit "Valid nice level: -20..19"
-test $NICE -gt 19 && error_exit "Valid nice level: -20..19"
+test $NICE -gt  19 && error_exit "Valid nice level: -20..19"
+
 test "$CMD" || error_exit "No command defined!"
 
 ##############################################################################
@@ -46,7 +51,7 @@ test "$CMD" || error_exit "No command defined!"
 ##############################################################################
 test "$TRACE" && set -x
 
-LOOPS=$((60 / $PERIOD))
+LOOPS=$((60 / $(int $PERIOD)))
 
 log 1 "Period        : ${PERIOD}s"
 log 1 "Calls         : $LOOPS"
@@ -54,37 +59,22 @@ log 1 "Command given : $CMD"
 CMD="nice --adjustment=$NICE $CMD &"
 log 1 "Command to run: $CMD"
 
-while test $LOOPS -gt 0; do
+while :; do
     if test "$TEST"; then
         log 1 Test ...
     else
+        log 1 Run now
         eval $CMD
     fi
     LOOPS=$(($LOOPS - 1))
+
     ### Break loop if no more left
-    test $LOOPS -gt 0 || break;
+    if [ $LOOPS -eq 0 ]; then
+        log 1 Finished
+        exit
+    fi
+
     log 1 "$LOOPS left ..."
     ### Wait ...
     sleep $PERIOD
 done
-
-exit 0
-
-##############################################################################
-# USAGE >>
-
-Run command each given period (in seconds) for 1 minute.
-Use in cron with period * for each minute.
-
-Usage: $scriptname [options] -- command parameter1 parameter2 ...
-
-Options:
-    -p    Period in seconds, valid from 5 to 60; default: 60 (run once)
-    -n    Niceness range from -20 (most favorable) to 19 (least favorable)
-          default 10
-    -t    Test mode
-          Sets verbosity to info level
-    -v    Set verbosity to info level
-    -h    Show this help
-
-# << USAGE

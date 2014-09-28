@@ -1,34 +1,29 @@
 #!/bin/bash
 ##############################################################################
-### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2014 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     1.0.0
+### @author     Knut Kohl <github@knutkohl.de>
+### @copyright  2012-2014 Knut Kohl
+### @license    MIT License (MIT) http://opensource.org/licenses/MIT
+### @version    1.0.0
 ##############################################################################
 
 ##############################################################################
 ### Init
 ##############################################################################
-pwd=$(dirname $0)
+source $(dirname $0)/../PVLng.sh
 
-. $pwd/../PVLng.conf
-. $pwd/../PVLng.sh
+### Script options
+opt_help      "Update Smart Energy Group streams for one device"
+opt_help_args "<config file>"
+opt_help_hint "See device.conf.dist for details."
 
-while getopts "i:tvxh" OPTION; do
-    case "$OPTION" in
-        i) INTERVAL=$(int "$OPTARG") ;;
-        t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-        v) VERBOSE=$((VERBOSE + 1)) ;;
-        x) TRACE=y ;;
-        h) usage; exit ;;
-        ?) usage; exit 1 ;;
-    esac
-done
+opt_define short=i long=interval variable=INTERVAL desc='Fix Average interval in minutes'
+
+### PVLng default options
+opt_define_pvlng
+
+source $(opt_build)
 
 read_config $pwd/SEG.conf
-
-shift $((OPTIND-1))
-
 read_config "$1"
 
 ##############################################################################
@@ -48,10 +43,10 @@ test $STREAM_N -gt 0 || error_exit "No stream sections defined (STREAM_N)"
 ##############################################################################
 curl=$(curl_cmd)
 
-if test -z "$INTERVAL"; then
+if [ -z "$INTERVAL" ]; then
     ifile=$(run_file SEG "$1" last)
-    if test -f "$ifile"; then
-        INTERVAL=$(echo "scale=0; ( "$(date +%s)" - "$(<$ifile)" ) / 60" | bc -l)
+    if [ -s "$ifile" ]; then
+        INTERVAL=$(calc "($(date +%s) - $(<$ifile)) / 60" 0)
     else
         ### Start with 10 minutes
         INTERVAL=10
@@ -60,26 +55,26 @@ if test -z "$INTERVAL"; then
     date +%s >$ifile
 fi
 
+log 1 "Interval : $INTERVAL"
+
 i=0
 
-while test $i -lt $STREAM_N; do
+while [ $i -lt $STREAM_N ]; do
 
-    i=$((i + 1))
+    i=$((i+1))
 
-    log 1 "--- GUID $i ---"
+    sec 1 Stream $i
 
-    var1 GUID $i
-    if test -z "$GUID"; then
-        log 1 "Missing GUID $i, disabled"
+    var1 STREAM $i
+    if [ -z "$STREAM" ]; then
+        log 1 "Missing STREAM $i, disabled"
         continue
     fi
+    lkv 2 STREAM "$STREAM"
 
-    log 2 "GUID     : $GUID"
-
-    ### Required parameters
-    var1 STREAM_NAME $i
-    test "$STREAM_NAME" || error_exit "SEG stream name is required (STREAM_NAME_$i)"
-    log 2 "STREAM   : $STREAM_NAME"
+    var1 GUID $i
+    [ "$GUID" ] || error_exit "Missing GUID (GUID_$i)"
+    lkv 2 GUID $GUID
 
     ### Buffer meter attribute
     mfile=$(run_file SEG $GUID meter)
@@ -90,16 +85,16 @@ while test $i -lt $STREAM_N; do
         echo -n $meter >$mfile
     fi
 
-    if test $meter -eq 1; then
-        fetch="start=midnight&period=1d"
-    else
+#    if test $meter -eq 1; then
+#        fetch="start=midnight&period=1d"
+#    else
         ### Fetch for sensor channels average of last x minutes
         fetch="start=-${INTERVAL}minutes&period=${INTERVAL}minutes"
-    fi
+#    fi
 
     ### read value, get last row
     row=$(PVLngGET data/$GUID.tsv?$fetch | tail -n1)
-    log 2 "Data:    : $row"
+    lkv 2 Data "$row"
 
     ### No data for last $INTERVAL minutes
     test "$row" || continue
@@ -125,16 +120,16 @@ while test $i -lt $STREAM_N; do
     if test $numeric -eq 1; then
         ### Only for numeric channels!
         var1 FACTOR $i
-        log 2 "Factor   : $FACTOR"
-        test "$FACTOR" && value=$(echo "scale=4; $value * $FACTOR" | bc -l)
+        lkv 2 Factor $FACTOR
+        [ "$FACTOR" ] && value=$(calc "$value * $FACTOR")
     else
         ### URL encode spaces to +
         value="$(echo $value | sed -e 's~ ~+~g')"
     fi
 
-    log 1 "Value    : $value"
+    lkv 1 Value $value
 
-    stream_data="$stream_data($STREAM_NAME $value)"
+    stream_data="$stream_data($STREAM $value)"
 
 done
 
@@ -142,7 +137,7 @@ test "$stream_data" || exit
 
 data="(site $SITE_TOKEN (node $NODE_NAME ? $stream_data))"
 
-log 2 "Send     : $data"
+lkv 2 Send "$data"
 
 test "$TEST" && exit
 
@@ -164,24 +159,3 @@ else
 fi
 
 set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Update Smart Energy Group streams for one device
-
-Usage: $scriptname [options] config_file
-
-Options:
-    -i interval  Fix Average interval in minutes
-    -t           Test mode, don't push to SEG
-                 Sets verbosity to info level
-    -v           Set verbosity level to info level
-    -vv          Set verbosity level to debug level
-    -h           Show this help
-
-See device.conf.dist for reference.
-
-# << USAGE

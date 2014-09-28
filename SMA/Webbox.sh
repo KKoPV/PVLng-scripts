@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
 ### @copyright   2012-2014 Knut Kohl
@@ -10,7 +10,7 @@
 ### Init
 ##############################################################################
 
-source $(dirname $0)/../PVLng.sh
+. $(dirname $0)/../PVLng.sh
 
 ### Script options
 opt_help      "Read Inverter or Sensorbox data from SMA Webbox"
@@ -20,7 +20,7 @@ opt_help_hint "See Webbox.conf.dist for details."
 ### PVLng default options with flag for save data
 opt_define_pvlng x
 
-source $(opt_build)
+. $(opt_build)
 
 ### Don't check lock file in test mode
 [ "$TEST" ] || check_lock $(basename $1)
@@ -39,16 +39,6 @@ read_config "$1"
 GUID_N=$(int "$GUID_N")
 [ $GUID_N -gt 0 ] || error_exit "No GUIDs defined (GUID_N)"
 
-if [ "$LOCATION" ]; then
-    ### Location given, test for daylight time
-    loc=$(echo "$LOCATION" | sed -e 's/,/\//g')
-    daylight=$(PVLngGET "daylight/${loc}/60.txt")
-    log 2 "Daylight: $daylight"
-    [ $daylight -eq 1 ] || exit 127
-fi
-
-[ "$PASSWORD" ] && PASSWORD=',"passwd":"'$(echo -n "$PASSWORD" | md5sum | cut -d' ' -f1)'"'
-
 ##############################################################################
 ### Go
 ##############################################################################
@@ -56,6 +46,13 @@ RESPONSEFILE=$(temp_file)
 on_exit_rm $RESPONSEFILE
 
 curl="$(curl_cmd)"
+
+### Run only during daylight +- 60 min
+daylight=$(PVLngGET "daylight/60.txt")
+log 2 "Daylight: $daylight"
+[ $daylight -eq 1 ] || exit 127
+
+[ "$PASSWORD" ] && PASSWORD=',"passwd":"'$(echo -n "$PASSWORD" | md5sum | cut -d' ' -f1)'"'
 
 i=0
 

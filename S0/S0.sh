@@ -21,8 +21,9 @@ opt_help      "Read S0 impulses"
 opt_help_args "<config file>"
 opt_help_hint "See S0.conf.dist for details."
 
-### PVLng default options with flag for save data
 opt_define short=a long=abort desc="Abort listening, kill all running S0 processes" variable=ABORT value=y
+
+### PVLng default options with flag for local time and save data
 opt_define_pvlng x
 
 source $(opt_build)

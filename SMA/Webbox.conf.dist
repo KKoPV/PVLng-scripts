@@ -16,15 +16,16 @@
 WEBBOX        "192.168.0.168:80"
 
 ##############################################################################
-### Plant location
-### Query Webbox only during daylight times (+- 60 min.) if defined
-### Cron can then run all time
-### 2 decimals comma separated: "51.2345,11.2345" (latitude, longitude)
+### The plain Webbox "installer" account password
+### If not set, the "user" account will be used for Webbox access,
+### with less information.
+### optional
 ##############################################################################
-LOCATION      ""
+PASSWORD      ""
 
 ##############################################################################
 ### Count of following GUIDs
+### required
 ##############################################################################
 GUID_N        0
 

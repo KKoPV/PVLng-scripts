@@ -91,5 +91,5 @@ function twitter_today_working_hours {
     log 1 "Min - Max: $min - $max"
 
     ### to hours
-    echo "scale=4; ($max - $min) / 3600" | bc -l
+    calc "($max - $min) / 3600"
 }

@@ -1,8 +1,8 @@
 ##############################################################################
-### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     1.0.0
+### @author     Knut Kohl <github@knutkohl.de>
+### @copyright  2012-2014 Knut Kohl
+### @license    MIT License (MIT) http://opensource.org/licenses/MIT
+### @version    1.0.0
 ##############################################################################
 
 ##############################################################################
@@ -32,8 +32,7 @@ CurlOpts="--connect-timeout 10 --retry 3 --retry-max-time 60"
 
 ##############################################################################
 ### Global setting for log data
-### default: .../public_html/bin/data
-### Can also adjusted in later config files
+### default: .../PVLng-scripts/data
 ##############################################################################
 SaveDataDir=
 

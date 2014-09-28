@@ -150,7 +150,7 @@ while test $i -lt $GUID_N; do
 
 	if test $? -eq 0; then
 		### Numeric condition
-		result=$(echo "scale=4; $CONDITION" | bc -l)
+		result=$(calc "$CONDITION")
 	else
 	    ### String condition
 		eval test $CONDITION; test $? -eq 0 && result=1 || result=0
@@ -160,7 +160,7 @@ while test $i -lt $GUID_N; do
 	if test $result -eq 0; then
 		log 1 "Skip, condition not apply."
 		### remove flag file
-		test -f $flagfile && rm $flagfile
+		rm $flagfile >/dev/null 2>&1
 		continue
 	fi
 

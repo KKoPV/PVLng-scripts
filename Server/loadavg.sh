@@ -26,11 +26,7 @@ read_config "$1"
 ##############################################################################
 ### Functions
 ##############################################################################
-function saveLoadAvg {
-    log 1 "$1 : $2"
-    ### Save data with local timestamp rounded to full minute
-    [ "$1" -a -z "$TEST" ] && PVLngPUT $1 $2
-}
+function saveLoadAvg { lkv 1 $@; [ "$1" -a -z "$TEST" ] && PVLngPUT $@; }
 
 ##############################################################################
 ### Start
@@ -40,11 +36,24 @@ function saveLoadAvg {
 ##############################################################################
 ### Go
 ##############################################################################
+### Get load and set load to $1, $2, $3
+### set $4 to number of currently running processes
+### set $5 to the total number of processes
+set $(sed -e 's~/~ ~' /proc/loadavg)
 
-### Get load and set to $1, $2, $3
-set $(</proc/loadavg)
+[ "$TEST" ] && exit
 
-### Process all defined GUIDs
-saveLoadAvg "$LOADAVG_1"  $1
-saveLoadAvg "$LOADAVG_5"  $2
-saveLoadAvg "$LOADAVG_15" $3
+i=0
+
+function SaveLoadAvg {
+    i=$((i+1))
+    log 1 "--- $i ---"
+    lkv 2 "$1" "$2"
+    [ "$1" -a "$2" ] && PVLngPUT $@
+}
+
+SaveLoadAvg "$LOADAVG_1"  $1
+SaveLoadAvg "$LOADAVG_5"  $2
+SaveLoadAvg "$LOADAVG_15" $3
+SaveLoadAvg "$RUNNIG"     $4
+SaveLoadAvg "$PROCESSES"  $5

@@ -272,16 +272,20 @@ function PVLngNC {
 }
 
 ##############################################################################
-### Get channel attribute value
+### Get channel attribute value and buffer it for next calls
 ### $1 = GUID
 ### $2 = Attribute & variable name
 ### Result is a setted global variable of attribute name (case-sensitive!)
 ### example: PVLngChannelAttr $GUID NAME > $NAME=...
 ##############################################################################
 function PVLngChannelAttr {
-    ### convert attribute to lowercase
-    local attr=$(echo ${2} | tr [:upper:] [:lower:])
-    eval ${2}="$(PVLngGET channel/${1}/${attr}.txt)"
+    local GUID=$1
+    local attr=$(echo ${2} | tr [:upper:] [:lower:]) ### convert to lowercase
+    local mfile=$(run_file attr $GUID $attr)
+
+    [ -f "$mfile" ] || PVLngGET channel/$GUID/$attr.txt >$mfile
+
+    eval $2='$(<$mfile)'
 }
 
 ##############################################################################
@@ -327,11 +331,11 @@ function PVLngPUT {
             fi
             data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":$timestamp}"
         fi
-        log 2 "Send      : $data"
+        lkv 2 Send "$data"
     else
         ### File
         datafile="${data:1}"
-        log 2 "Send file :"
+        log 2 "Send file"
         log 2 @$datafile
     fi
 
@@ -759,6 +763,7 @@ on_exit_rm "$TMPFILE"
 
 ### Some variables
 scriptname=${0##*/}
+VERBOSE=0
 
 ### Automatic logging of all data pushed to PVLng API,
 ### flag -s, --savedata required

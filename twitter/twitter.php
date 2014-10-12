@@ -33,6 +33,7 @@ $args->add('c', 'Twitter consumer key', 'consumer_key', TRUE)
      ->add('u', 'OAuth secret', 'oauth_secret', TRUE)
      ->add('s', 'Status to post', 'status', TRUE)
      ->add('l', 'Location: latitude,longitude', 'location')
+     ->add('i', 'Ignore status duplicates, handle them as ok', 'ignore_duplicates')
      ->add('t', 'Activate test mode', 'test')
      ->add('d', 'Activate debug mode', 'debug')
      ->add('h', 'This help', 'help')
@@ -88,13 +89,14 @@ if ($rc) {
   $res = $conn->post('statuses/update', $status);
 
   $rc = ($conn->http_code == 200) ? 0 : 4;
-  if ($rc) {
+  if ($rc AND (!$args->i/* OR $res['errors'][0]['code'] != 187*/)) {
     echo 'Twitter update failed.', PHP_EOL,
          $conn->http_header['status'], PHP_EOL;
+    print_r($status);
     print_r($res);
   }
 }
 
 if ($args->d) echo PHP_EOL, print_r($conn, TRUE), PHP_EOL;
 
-return $rc;
+exit($rc);

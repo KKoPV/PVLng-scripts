@@ -1,9 +1,9 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     $Id$
+### @copyright   2012-2014 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
+### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
@@ -11,24 +11,22 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-VERBOSE=0
-
-. $pwd/../PVLng.conf
 . $pwd/../PVLng.sh
 
-while getopts "tvrxh" OPTION; do
-    case "$OPTION" in
-        v) VERBOSE=$((VERBOSE+1)) ;;
-        x) TRACE=y ;;
-        h) usage; exit ;;
-        ?) usage; exit 1 ;;
-    esac
-done
+### Script options
+opt_help      "Get last reading of a single channel.
+Can be logged to file for e.g. for solar estimate over day"
+opt_help_args "<config file>"
+opt_help_hint "See watch.conf.dist for details."
 
-shift $((OPTIND-1))
-CONFIG="$1"
+opt_define short=v long=verbose variable=VERBOSE \
+           desc='Verbosity, use multiple times for higher level' \
+           default=0 value=1 callback='VERBOSE=$(($VERBOSE+1))'
+opt_define short=x long=trace variable=TRACE value=y
 
-read_config "$CONFIG"
+. $(opt_build)
+
+read_config "$1"
 
 ##############################################################################
 ### Start
@@ -36,37 +34,11 @@ read_config "$CONFIG"
 test "$GUID" || error_exit "No GUID defined (GUID)"
 test "$FORMAT" || ( FORMAT="%s": log 1 "Set FORMAT to '%s'" )
 
-
 ##############################################################################
 ### Go
 ##############################################################################
-test "$TRACE" && set -x
+[ "$TRACE" ] && set -x
 
 data=$(PVLngGET "data/$GUID.tsv?period=readlast")
 
-if test "$data"; then
-    set $data
-    printf "%s;$FORMAT\n" "$(date +'%Y-%m-%d %H:%M;%s')" "$2"
-fi
-
-set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Get last reading of a single channel.
-Can be logged to file for e.g. for solar estimate over day
-
-Usage: $scriptname [options] config_file
-
-Options:
-
-    -v  Set verbosity level to info level
-    -vv Set verbosity level to debug level
-    -h  Show this help
-
-See watch.conf.dist for details
-
-# << USAGE
+[ "$data" ] && set $data && printf "%s;$FORMAT\n" "$(date +'%Y-%m-%d %H:%M;%s')" "$2"

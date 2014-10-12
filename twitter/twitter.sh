@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
 ### @copyright   2012-2014 Knut Kohl
@@ -21,7 +21,7 @@ function listItems {
 ##############################################################################
 pwd=$(dirname $0)
 
-source $pwd/../PVLng.sh
+. $pwd/../PVLng.sh
 
 ### Script options
 opt_help      "Post status to twitter"
@@ -35,9 +35,9 @@ opt_define short=f long=force variable=FORCE value=y
 ### PVLng default options
 opt_define_pvlng
 
-source $(opt_build)
+. $(opt_build)
 
-source $pwd/twitter.items.sh
+. $pwd/twitter.items.sh
 
 if [ "$LIST" ]; then
     listItems
@@ -48,8 +48,8 @@ fi
 
 read_config "$1"
 
-source $pwd/.pvlng
-source $pwd/.tokens
+. $pwd/.pvlng
+. $pwd/.tokens
 
 ##############################################################################
 [ "$STATUS" ] || error_exit "Missing status!"
@@ -77,18 +77,18 @@ while [ $i -lt $ITEM_N ]; do
     ### Check for reused value, skip API call
     var1 USE $i
     if [ "$USE" ]; then
-        log 1 "Reuse    : $USE"
+        lkv 1 Reuse $USE
         eval value="\$VALUE_$USE"
     else
         var1 ITEM $i
-        log 1 "Item     : $ITEM"
+        lkv 1 Item "$ITEM"
 
         var1 GUID $i
-        log 1 "GUID     : $GUID"
+        lkv 1 GUID $GUID
 
         value=$(twitter_$ITEM $GUID)
     fi
-    log 1 "Value    : $value"
+    lkv 1 Value "$value"
 
     ### Remember value
     eval VALUE_$i="\$value"
@@ -100,11 +100,11 @@ while [ $i -lt $ITEM_N ]; do
     value=${value:-0}
 
     eval FACTOR=\$FACTOR_$i
-    log 1 "Factor   : $FACTOR"
+    lkv 1 Factor "$FACTOR"
 
     if [ "$FACTOR" ]; then
-        value=$(echo "scale=4; $value * $FACTOR" | bc -l)
-        log 1 "Value    : $value"
+        value=$(calc "$value * $FACTOR")
+        lkv 1 Value $value
     fi
 
     PARAMS+="$value "
@@ -112,14 +112,14 @@ while [ $i -lt $ITEM_N ]; do
 done
 
 log 1 '--- Status ---'
-log 1 "Status   : $STATUS"
-log 1 "Parameter: $PARAMS"
+lkv 1 Status "$STATUS"
+lkv 1 Parameter "$PARAMS"
 
 STATUS=$(printf "$STATUS" $PARAMS)
 
 ##############################################################################
-log 1 "Result   : $STATUS"
-log 1 "Length   : $(echo $STATUS | wc -c)"
+lkv 1 Result "$STATUS"
+lkv 1 Length $(echo $STATUS | wc -c)
 
 [ "$TEST" ] && exit
 

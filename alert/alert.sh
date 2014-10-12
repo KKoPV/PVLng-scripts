@@ -1,9 +1,9 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     $Id$
+### @copyright   2012-2014 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
+### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
@@ -11,21 +11,20 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-. $pwd/../PVLng.conf
 . $pwd/../PVLng.sh
 
-while getopts "tvrxh" OPTION; do
-	case "$OPTION" in
-		t) TEST=y; VERBOSE=$((VERBOSE+1)) ;;
-		v) VERBOSE=$((VERBOSE+1)) ;;
-		r) RESET=y ;;
-		x) TRACE=y ;;
-		h) usage; exit ;;
-		?) usage; exit 1 ;;
-	esac
-done
+### Script options
+opt_help      "Alert on channels conditions"
+opt_help_args "<config file>"
+opt_help_hint "See alert.conf.dist for details."
 
-shift $((OPTIND-1))
+opt_define short=x long=trace variable=RESET value=y
+
+### PVLng default options
+opt_define_pvlng
+
+. $(opt_build)
+
 CONFIG="$1"
 
 read_config "$CONFIG"
@@ -40,255 +39,237 @@ test "$TRACE" && set -x
 
 ### Prepare conditions
 function replace_vars {
-	local str="$1" ### save for looping
-	local i=0
-	local value=
-	local name=
-	local last=
+  local str="$1" ### save for looping
+  local i=0
+  local value=
+  local name=
+  local last=
 
-	### On replacing in Condition, $EMPTY is not set, so it works on real data
+  ### On replacing in Condition, $EMPTY is not set, so it works on real data
 
-	### max. 100 parameters :-)
-	while test $i -lt 100; do
-		i=$((i+1))
+  ### max. 100 parameters :-)
+  while test $i -lt 100; do
+    i=$((i+1))
 
-		eval value="\$value_$i"
-		test -z "$value" && value=$EMPTY
+    eval value="\$value_$i"
+    [ -z "$value" ] && value=$EMPTY
 
-		eval name="\$name_$i"
-		eval last="\$last_$i"
+    eval name="\$name_$i"
+    eval last="\$last_$i"
 
-		str=$(echo "$str" | sed -e "s~[{]VALUE_$i[}]~$value~g" \
-		                        -e "s~[{]NAME_$i[}]~$name~g" \
-		                        -e "s~[{]LAST_$i[}]~$last~g")
-	done
+    str=$(echo "$str" | sed -e "s~[{]VALUE_$i[}]~$value~g" \
+                            -e "s~[{]NAME_$i[}]~$name~g" \
+                            -e "s~[{]LAST_$i[}]~$last~g")
+  done
 
-	### If only 1 is used, VALUE, NAME and LAST are also allowed
-	test -z "$value_1" && value_1=$EMPTY
-	str=$(echo "$str" | sed -e "s~[{]VALUE[}]~$value_1~g" \
-	                        -e "s~[{]NAME[}]~$name_1~g" \
-	                        -e "s~[{]LAST[}]~$last_1~g")
+  ### If only 1 is used, VALUE, NAME and LAST are also allowed
+  [ -z "$value_1" ] && value_1=$EMPTY
+  str=$(echo "$str" | sed -e "s~[{]VALUE[}]~$value_1~g" \
+                          -e "s~[{]NAME[}]~$name_1~g" \
+                          -e "s~[{]LAST[}]~$last_1~g")
 
-	echo "$str"
+  echo "$str"
 }
 
 ### Reset run files
 function reset {
-	files=$(ls $(run_file alert $CONFIG '*'))
-	log 1 Reset, delete $files ...
-	rm $files
+  files=$(ls $(run_file alert $CONFIG '*'))
+  log 1 "Reset, delete $files ..."
+  rm $files
 }
 
-if test "$RESET"; then
-	reset
-	exit
+if [ "$RESET" ]; then
+  reset
+  exit
 fi
 
 curl=$(curl_cmd)
 
 i=0
 
-while test $i -lt $GUID_N; do
+while [ $i -lt $GUID_N ]; do
 
-	i=$((i+1))
+    i=$((i+1))
 
-	EMPTY=
+    EMPTY=
 
-	log 1 "--- $i ---"
+    log 1 "--- $i ---"
 
-	eval GUID_i_N=\$GUID_${i}_N
-	GUID_i_N=$(int "$GUID_i_N")
+    eval GUID_i_N=\$GUID_${i}_N
+    GUID_i_N=$(int "$GUID_i_N")
 
-	if test $GUID_i_N -eq 0; then
-		continue
-	fi
+    [ $GUID_i_N -eq 0 ] && continue
 
-	j=0
-	numeric=
+    j=0
+    numeric=
 
-	while test $j -lt $GUID_i_N; do
+    while test $j -lt $GUID_i_N; do
 
-		j=$((j+1))
+        j=$((j+1))
 
-		eval GUID="\$GUID_${i}_${j}"
+        eval GUID="\$GUID_${i}_${j}"
 
-		name="$(PVLngGET channel/$GUID/name.txt)"
-		desc="$(PVLngGET channel/$GUID/description.txt)"
-		test "$desc" && name="$name ($desc)"
-		eval name_$j="\$name"
+        PVLngChannelAttr $GUID name
+        PVLngChannelAttr $GUID description
 
-		data=$(PVLngGET data/$GUID.tsv?period=readlast)
-		log 2 "Data   : $data"
+        [ "$description" ] && name="$name ($description)"
+        eval name_$j="\$name"
 
-		### Extract 2nd value == data
-		value=$(echo "$data" | cut -f2)
-		log 2 "Result : $name - $value"
+        data=$(PVLngGET data/$GUID.tsv?period=readlast)
+        lkv 2 Data "$data"
 
-		### Test for numerics
+        ### Extract 2nd value == data
+        value=$(echo "$data" | cut -f2)
+        lkv 2 Result "$name - $value"
+
+        ### Test for numerics
         case $value in (*[0-9.]*) numeric=y;; esac
 
-		eval value_$j="\$value"
+        eval value_$j="\$value"
 
-		lastfile=$(run_file alert $CONFIG "$i.$j.last")
-		test -f $lastfile && last=$(<$lastfile) || last=
-		eval last_$j="\$last"
+        lastfile=$(run_file alert $CONFIG "$i.$j.last")
+        [ -f $lastfile ] && last=$(<$lastfile) || last=
+        eval last_$j="\$last"
 
-		echo -n "$value" >$lastfile
+        echo -n "$value" >$lastfile
 
-	done
+    done
 
-	flagfile=$(run_file alert $CONFIG "$i.once")
+    flagfile=$(run_file alert $CONFIG "$i.once")
 
-	### Prepare condition
-	eval CONDITION=\$CONDITION_$i
-	test "$CONDITION" || error_exit "Condition is required (CONDITION_$i)"
+    ### Prepare condition
+    eval CONDITION=\$CONDITION_$i
+    [ "$CONDITION" ] || error_exit "Condition is required (CONDITION_$i)"
 
-	CONDITION=$(replace_vars "$CONDITION")
-	log 1 "Condition: $CONDITION"
+    CONDITION=$(replace_vars "$CONDITION")
+    lkv 1 Condition "$CONDITION"
 
-	echo "$CONDITION" | grep -qe "[<>]"
+    echo "$CONDITION" | grep -qe "[<>]"
 
-	if test $? -eq 0; then
-		### Numeric condition
-		result=$(calc "$CONDITION")
-	else
-	    ### String condition
-		eval test $CONDITION; test $? -eq 0 && result=1 || result=0
-	fi
+    if [ $? -eq 0 ]; then
+        ### Numeric condition
+        result=$(calc "$CONDITION")
+    else
+        ### String condition
+        eval [ $CONDITION ]; [ $? -eq 0 ] && result=1 || result=0
+    fi
 
-	### Skip if condition is not true
-	if test $result -eq 0; then
-		log 1 "Skip, condition not apply."
-		### remove flag file
-		rm $flagfile >/dev/null 2>&1
-		continue
-	fi
+    ### Skip if condition is not true
+    if [ $result != 0 ]; then
+        log 1 "Skip, condition not apply."
+        ### remove flag file
+        rm $flagfile >/dev/null 2>&1
+        continue
+    fi
 
-	### Condition was true
+    ### Condition was true
 
-	### Skip if flag file exists, condition was true before && ONCE is set
-	if test -f $flagfile; then
-		log 1 "Skip, report condition '$CONDITION' only once"
-		continue
-	fi
+    eval ONCE=\$ONCE_$i
+    ONCE=$(int "$ONCE")
 
-	eval ONCE=\$ONCE_$i
+    ### Skip if flag file exists, condition was true before && ONCE is set
+    if [ $ONCE -eq 1 -a -f $flagfile ]; then
+        log 1 "Skip, report condition '$CONDITION' only once"
+        continue
+    fi
 
-	if test $(int "$ONCE") -eq 1; then
-		### Mark condition was true
-		touch $flagfile
-	fi
+    if [ $ONCE -eq 1 ]; then
+        ### Mark condition was true
+        touch $flagfile
+    else
+        ### remove flag file
+        rm $flagfile >/dev/null 2>&1
+    fi
 
-	### Get actions count
-	eval ACTION_N=\$ACTION_${i}_N
-	ACTION_N=$(int $ACTION_N)
+    ### Get actions count
+    eval ACTION_N=\$ACTION_${i}_N
+    ACTION_N=$(int $ACTION_N)
 
-	j=0
+    j=0
 
-	while test $j -lt $ACTION_N; do
+    while [ $j -lt $ACTION_N ]; do
 
-		j=$((j+1))
+        j=$((j+1))
 
-		log 1 "--- Action $j ---"
+        log 1 "--- Action $j ---"
 
-		eval ACTION=\$ACTION_${i}_${j}
+        eval ACTION=\$ACTION_${i}_${j}
 
-		eval EMPTY=\$ACTION_${i}_${j}_EMPTY
-		test "$EMPTY" || EMPTY="<empty>"
+        eval EMPTY=\$ACTION_${i}_${j}_EMPTY
+        [ "$EMPTY" ] || EMPTY="<empty>"
 
-		case ${ACTION:-log} in
+        case ${ACTION:-log} in
 
-			log)
-				### Save data to PVLng log
-				if test "$TEST"; then
-					log 1 "Log: $GUID - $value"
-				else
-					save_log 'Alert' "{NAME}: {VALUE}"
-				fi
-				;;
+            log)
+                log 1 "Save data to PVLng log"
+                lkv 1 Log "$GUID - $value"
 
-			logger)
-				eval MESSAGE=\$ACTION_${i}_${j}_MESSAGE
-				test "$MESSAGE" || MESSAGE="{NAME}: {VALUE}"
-				MESSAGE=$(replace_vars "$MESSAGE")
+                [ "$TEST" ] || save_log 'Alert' "{NAME}: {VALUE}"
+                ;;
 
-			    log 1 "Logger: $MESSAGE"
+            logger)
+                log 1 "Save data to syslog"
+                eval MESSAGE=\$ACTION_${i}_${j}_MESSAGE
+                test "$MESSAGE" || MESSAGE="{NAME}: {VALUE}"
+                MESSAGE=$(replace_vars "$MESSAGE")
 
-				test "$TEST" || logger -t PVLng "$MESSAGE"
-				;;
+                lkv 1 Logger "$MESSAGE"
 
-			mail)
-				eval EMAIL=\$ACTION_${i}_${j}_EMAIL
-				test "$EMAIL" || error_exit "Email is required! (ACTION_${i}_${j}_EMAIL)"
+                [ "$TEST" ] || logger -t PVLng "$MESSAGE"
+                ;;
 
-				eval SUBJECT=\$ACTION_${i}_${j}_SUBJECT
-				test "$SUBJECT" || SUBJECT="{NAME}: {VALUE}"
-				SUBJECT=$(replace_vars "$SUBJECT")
+            mail)
+                log 1 "Send email"
+                eval EMAIL=\$ACTION_${i}_${j}_EMAIL
+                [ "$EMAIL" ] || error_exit "Email is required! (ACTION_${i}_${j}_EMAIL)"
 
-				eval BODY=\$ACTION_${i}_${j}_BODY
-				BODY=$(replace_vars "$BODY")
+                eval SUBJECT=\$ACTION_${i}_${j}_SUBJECT
+                [ "$SUBJECT" ] || SUBJECT="[PVLng] {NAME}: {VALUE}"
+                SUBJECT=$(replace_vars "$SUBJECT")
 
-			    log 1 "Send email to $EMAIL"
-				log 1 "Subject: $SUBJECT"
-				log 1 "Body:"
-				log 1 "$BODY"
+                eval BODY=\$ACTION_${i}_${j}_BODY
+                BODY=$(replace_vars "$BODY")
 
-				test "$TEST" || echo -e "$BODY" | mail -s "[PVLng] $SUBJECT" $EMAIL >/dev/null
-				;;
+                lkv 1 "Send email" "$EMAIL"
+                lkv 1 Subject "$SUBJECT"
+                log 1 "Body:"
+                log 1 "$BODY"
 
-			file)
-				eval DIR=\$ACTION_${i}_${j}_DIR
-				test "$DIR" || error_exit "Directory is required! (ACTION_${i}_${j}_DIR)"
+                [ "$TEST" ] || echo -e "$BODY" | mail -s "$SUBJECT" $EMAIL >/dev/null
+                ;;
 
-				eval PREFIX=\$ACTION_${i}_${j}_PREFIX
-				test "$PREFIX" || PREFIX="alert"
+            file)
+                log 1 "Save data to file"
+                eval DIR=\$ACTION_${i}_${j}_DIR
+                [ "$DIR" ] || error_exit "Directory is required! (ACTION_${i}_${j}_DIR)"
 
-				eval TEXT=\$ACTION_${i}_${j}_TEXT
-				test "$TEXT" || TEXT="{NAME}: {VALUE}"
-				TEXT=$(replace_vars "$TEXT")
+                eval PREFIX=\$ACTION_${i}_${j}_PREFIX
+                [ "$PREFIX" ] || PREFIX="alert"
 
-				file=$(mktemp $DIR/$PREFIX.$(date +"%F.%X").XXXXXX)
+                eval TEXT=\$ACTION_${i}_${j}_TEXT
+                [ "$TEXT" ] || TEXT="{NAME}: {VALUE}"
+                TEXT=$(replace_vars "$TEXT")
 
-				log 1 "Text: $TEXT"
-				log 1 "File: $file"
+                file=$(mktemp $DIR/$PREFIX.$(date +"%F.%X").XXXXXX)
 
-				test "$TEST" || echo "$TEXT" >$file
-				;;
+                lkv 1 Text "$TEXT"
+                lkv 1 File "$file"
 
-			*)
-				### Prepare command
-				ACTION=$(replace_vars "$ACTION")
-				### Execute command
-				log 1 "$ACTION"
-				test "$TEST" || eval "$ACTION"
-				;;
-		esac
+                [ "$TEST" ] || echo "$TEXT" >$file
+                ;;
 
-	done
+            *)
+                log 1 "Custom command"
+                ### Prepare command
+                ACTION=$(replace_vars "$ACTION")
+                ### Execute command
+                log 1 "$ACTION"
+                [ "$TEST" ] || eval "$ACTION"
+                ;;
+        esac
+
+    done
 
 done
 
-test "$TEST" && reset
-
-set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Alert on channels conditions
-
-Usage: $scriptname [options] config_file
-
-Options:
-
-	-t  Test mode, don't save to PVLng
-	    Sets verbosity to info level
-	-v  Set verbosity level to info level
-	-vv Set verbosity level to debug level
-	-h  Show this help
-
-See $pwd/alert.conf.dist for details.
-
-# << USAGE
+[ "$TEST" ] && reset

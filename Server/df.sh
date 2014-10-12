@@ -34,13 +34,16 @@ GUID_N=$(int "$GUID_N")
 ##############################################################################
 ### Go
 ##############################################################################
-df >$TMPFILE
+DF_FILE=$(temp_file)
+on_exit_rm $DF_FILE
 
-log 2 "$(printf "df:\n%s" "$(<$TMPFILE)")"
+df >$DF_FILE
+
+log 2 @$DF_FILE
 
 i=0
 
-while test $i -lt $GUID_N; do
+while [ $i -lt $GUID_N ]; do
 
     i=$(($i+1))
 
@@ -50,15 +53,17 @@ while test $i -lt $GUID_N; do
     [ "$GUID" ] || error_exit "Channel GUID is required (GUID_$i)"
 
     var1 MOUNT $i
+    df="$(grep -e ${MOUNT}$ $DF_FILE | head -n1)"
 
-    set $(grep $MOUNT $TMPFILE)
+    [ "$df" ] || continue
 
-    [ "$1" ] || continue
+    lkv 1 Found "$(echo $df | sed 's~\t~ ~g')"
 
+    set $df
     value=$(calc "$3 * 100 / $2")
-    log 1 "Value     : $value"
+    lkv 1 Value $value
 
     ### Save data
-    [ "$TEST" ] || PVLngPUT $GUID $value 2
+    [ "$TEST" ] || PVLngPUT $GUID $value
 
 done

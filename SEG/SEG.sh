@@ -76,14 +76,7 @@ while [ $i -lt $STREAM_N ]; do
     [ "$GUID" ] || error_exit "Missing GUID (GUID_$i)"
     lkv 2 GUID $GUID
 
-    ### Buffer meter attribute
-    mfile=$(run_file SEG $GUID meter)
-    if test -f "$mfile"; then
-        meter=$(<$mfile)
-    else
-        meter=$(int $(PVLngGET channel/$GUID/meter.txt))
-        echo -n $meter >$mfile
-    fi
+#    PVLngChannelAttr $GUID meter
 
 #    if test $meter -eq 1; then
 #        fetch="start=midnight&period=1d"
@@ -107,14 +100,7 @@ while [ $i -lt $STREAM_N ]; do
     set $row
     value="$2"
 
-    ### Buffer numeric attribute
-    nfile=$(run_file SEG $GUID numeric)
-    if test -f "$nfile"; then
-        numeric=$(<$nfile)
-    else
-        numeric=$(int $(PVLngGET channel/$GUID/numeric.txt))
-        echo -n $numeric >$nfile
-    fi
+    PVLngChannelAttr $GUID numeric
 
     ### Factor for this channel
     if test $numeric -eq 1; then

@@ -20,25 +20,28 @@ test -f $pwd/.tokens || error_exit "Missing token file! Did you run setup.sh?"
 . $pwd/.tokens
 
 while getopts "dtvxh" OPTION; do
-	case "$OPTION" in
-		d) DELETE=y ;;
-		t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-		v) VERBOSE=$((VERBOSE + 1)) ;;
-		x) TRACE=y ;;
-		h) usage; exit ;;
-		?) usage; exit 1 ;;
-	esac
+    case "$OPTION" in
+        d) DELETE=y ;;
+        t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
+        v) VERBOSE=$((VERBOSE + 1)) ;;
+        x) TRACE=y ;;
+        h) usage; exit ;;
+        ?) usage; exit 1 ;;
+    esac
 done
 
 shift $((OPTIND-1))
 
 read_config "$1"
 
-PATTERN_N=$(int "$PATTERN_N")
-test $PATTERN_N -gt 0  || error_exit "No file patterns defined (\$PATTERN_N)"
-
 ##############################################################################
 ### Start
+##############################################################################
+PATTERN_N=$(int "$PATTERN_N")
+[ $PATTERN_N -gt 0 ] || error_exit 'No file patterns defined ($PATTERN_N)'
+
+##############################################################################
+### Go
 ##############################################################################
 test "$TRACE" && set -x
 
@@ -46,58 +49,56 @@ i=0
 
 while test $i -lt $PATTERN_N; do
 
-	i=$((i+1))
+    i=$((i+1))
 
-	log 1 "--- $i ---"
+    log 1 "--- $i ---"
 
-	eval PATTERN=\$PATTERN_$i
-	log 1 "Pattern : $PATTERN"
+    var1 PATTERN $i
+    lkv 1 Pattern "$PATTERN"
 
-	files="$(ls $PATTERN 2>/dev/null)"
+    files="$(ls $PATTERN 2>/dev/null)"
 
-	if test -z "$files"; then
-		log 1 "No files."
-		continue
-	fi
+    if [ -z "$files" ]; then
+        log 1 "No files."
+        continue
+    fi
 
-	if test "$DELETE"; then
-		log 1 "Delete: $files"
-		test "$TEST" || rm $files
-		continue
-	fi
+    if [ "$DELETE" ]; then
+        log 1 "Delete $files"
+        [ "$TEST" ] || rm $files
+        continue
+    fi
 
-	for file in $files; do
+    for file in $files; do
 
-		log 1 "--- $file ---"
+        log 1 "--- $file ---"
 
-		### Trim status
-		STATUS=$(cat $file | sed -e 's~^ ~~' -e 's~ $~~')
+        ### Trim status
+        STATUS=$(cat $file | sed -e 's~^ ~~' -e 's~ $~~')
 
-		log 1 "Status  : $STATUS"
-		log 1 "Length  : $(echo $STATUS | wc -c)"
+        lkv 1 Status "$STATUS"
+        lkv 1 Length $(echo $STATUS | wc -c)
 
-		if test -z "$STATUS"; then
-			continue
-		fi
+        [ "$STATUS" ] || continue
+        [ "$TEST" ] && continue
 
-		if test -z "$TEST"; then
-			$(dirname $0)/twitter.php \
-			  --consumer_key=$CONSUMER_KEY \
-			  --consumer_secret=$CONSUMER_SECRET \
-			  --oauth_token=$OAUTH_TOKEN \
-			  --oauth_secret=$OAUTH_TOKEN_SECRET \
-			  --status="$STATUS" --location="$LOCATION"
+        $(dirname $0)/twitter.php \
+          --consumer_key=$CONSUMER_KEY \
+          --consumer_secret=$CONSUMER_SECRET \
+          --oauth_token=$OAUTH_TOKEN \
+          --oauth_secret=$OAUTH_TOKEN_SECRET \
+          --ignore_duplicates \
+          --status="$STATUS" --location="$LOCATION"
 
-			eval move="\$FILE_${i}_MOVE"
+        eval move="\$FILE_${i}_MOVE"
 
-			if test -z "$move"; then
-				rm "$file"
-			else
-				test -d "$move" || mkdir -p "$move"
-				mv "$file" "$move" 2>/dev/null
-			fi
-		fi
-	done
+        if [ "$move" ]; then
+            [ -d "$move" ] || mkdir -p "$move"
+            mv "$file" "$move" 2>/dev/null
+        else
+            rm "$file"
+        fi
+    done
 
 done
 
@@ -113,11 +114,11 @@ Post status from file content to twitter
 Usage: $scriptname [options] config_file
 
 Options:
-	-t   Test mode, don't post
-	     Sets verbosity to info level
-	-v   Set verbosity level to info level
-	-vv  Set verbosity level to debug level
-	-h   Show this help
+    -t   Test mode, don't post
+         Sets verbosity to info level
+    -v   Set verbosity level to info level
+    -vv  Set verbosity level to debug level
+    -h   Show this help
 
 See $pwd/twitter-file.conf.dist for details.
 

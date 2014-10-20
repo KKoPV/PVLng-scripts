@@ -204,6 +204,7 @@ function check_lock {
     lkv 2 "Lock file" $lockfile
 
     if [ -L $lockfile ]; then
+        lkv 2 "Lock file" "exists, exit"
         exit ${2:-0}
     else
         ### Make fake link file as lock file
@@ -320,16 +321,10 @@ function PVLngPUT {
             ### Only data, use timestamp from destination
             data="{\"data\":\"$(JSON_quote "$data")\"}"
         else
-            ### 1 - Send local timestamp
-            ### 2 - Send local timestamp rounded to full minute
-            timestamp=$(date +%s)
-            if [ $LocalTime == 2 ]; then
-                log 1 "Use local time rounded to full minute"
-                timestamp=$(echo "scale=0; $timestamp / 60 * 60" | bc)
-            else
-                log 1 "Use local time"
-            fi
-            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":$timestamp}"
+            ### Send local timestamp rounded to $LocalTime secods
+            lkv 1 "Use local time" "rounded to $LocalTime seconds"
+            timestamp=$(echo "scale=0; $(date +%s) / $LocalTime * $LocalTime" | bc)
+            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
         fi
         lkv 2 Send "$data"
     else

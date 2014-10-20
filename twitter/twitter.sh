@@ -107,15 +107,17 @@ while [ $i -lt $ITEM_N ]; do
         lkv 1 Value $value
     fi
 
-    PARAMS+="$value "
+    PARAMS+="$value;"
 
 done
 
 log 1 '--- Status ---'
-lkv 1 Status "$STATUS"
+lkv 1 Status    "$STATUS"
 lkv 1 Parameter "$PARAMS"
 
-STATUS=$(printf "$STATUS" $PARAMS)
+IFS=';'
+set -- $PARAMS
+printf -v STATUS "$STATUS" $@
 
 ##############################################################################
 lkv 1 Result "$STATUS"

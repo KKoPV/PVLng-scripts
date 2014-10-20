@@ -12,7 +12,7 @@
 source $(dirname $0)/../PVLng.sh
 
 ### check owread binary
-owread=${owread:=$(which owread)}
+owread=${owread:-$(which owread)}
 [ "$owread" ] || error_exit "Missing owread binary!"
 
 ### Script options
@@ -33,31 +33,35 @@ read_config "$1"
 ##############################################################################
 ### Start
 ##############################################################################
-[ "$TRACE" ] && set -x
-
 GUID_N=$(int "$GUID_N")
 [ $GUID_N -gt 0 ] || error_exit "No sections defined (GUID_N)"
 
 ##############################################################################
 ### Go
 ##############################################################################
+[ "$TRACE" ] && set -x
+
 [ $(bool "$CACHED") -eq 0 ] && CACHED='/uncached' || CACHED=
 [ -z "$CACHED" ] && log 1 "Use cached channel values"
 [ -z "$UNIT" ] && UNIT=C
 
 i=0
 
-while test $i -lt $GUID_N; do
+while [ $i -lt $GUID_N ]; do
 
     i=$(($i+1))
 
-    log 1 "--- GUID $i ---"
+    ### Comment given?
+    var1 COMMENT $i
+    [ "$COMMENT" ] && COMMENT="[$i] $COMMENT" || COMMENT="GUID $i"
+    log 1 "--- $COMMENT ---"
 
+    ### GUID given?
     var1 GUID $i
-    test "$GUID" || error_exit "Sensor GUID is required (GUID_$i)"
+    if [ -z "$GUID" ]; then log 1 'Disabled, skip'; continue; fi
 
     var1 SERIAL $i
-    if test -z "$SERIAL"; then
+    if [ -z "$SERIAL" ]; then
         ### Read from API
         PVLngChannelAttr $GUID SERIAL
 #       SERIAL=$(PVLngNC "$GUID,serial")
@@ -70,11 +74,20 @@ while test $i -lt $GUID_N; do
 #       CHANNEL=$(PVLngNC "$GUID,channel")
     fi
 
+    if [ "$TEST" ]; then
+        lkv 1 Channel "/${SERIAL}/${CHANNEL}"
+        rc=$(owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL})
+        if [ $rc -ne 1 ]; then
+            log 1 "FAILED, please check your configuration!"
+            continue
+        fi
+    fi
+
     ### read value
     cmd="$owread -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
-    log 2 $cmd
+    lkv 2 Request "$cmd"
     value=$($cmd)
-    log 1 "Value        = $value"
+    lkv 1 Value "$value"
 
     ### Save data
     [ "$TEST" ] || PVLngPUT $GUID $value

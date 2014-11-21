@@ -346,9 +346,16 @@ function PVLngPUT {
     ### Clear temp. file before
     rm $TMPFILE >/dev/null 2>&1
 
+#    ### For debugging only, register a "request bin" before at http://requestb.in/
+#    binUrl=http://requestb.in/...
+#    $(curl_cmd) --header "Content-Type: application/json" \
+#                --header "X-PVLng-key: $PVLngAPIkey" \
+#                --header "X-URL-for: $PVLngURL/data/$GUID.txt" \
+#                --request PUT --data-binary $data $binUrl >/dev/null 2>&1
+
     set $($(curl_cmd) --request PUT \
-                      --header "X-PVLng-key: $PVLngAPIkey" \
                       --header "Content-Type: application/json" \
+                      --header "X-PVLng-key: $PVLngAPIkey" \
                       --write-out %{http_code} \
                       --output $TMPFILE \
                       --data-binary $data \

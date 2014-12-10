@@ -23,7 +23,7 @@ function log {
             cat $file | sed '/^$/d' | while read l; do echo "$d $l"; done
             echo "$d <<< $file"
         else
-            echo -e "$d $*"
+            echo -e "$d $@"
         fi
     } >&2
 }
@@ -40,8 +40,8 @@ function lkv {
 ##############################################################################
 function sec {
     local level=$1
-    shift
-    log $level --------------- $@ ---------------
+    shift # Move out level
+    log $level "--- $@ ---"
 }
 
 ##############################################################################
@@ -79,7 +79,7 @@ function read_config {
         exit 1
     fi
 
-    log 2 "--- $file ---"
+    sec 2 $(basename $file)
 
     while read var value; do
         [ "$var" -a "${var:0:1}" != '#' ] || continue
@@ -87,6 +87,8 @@ function read_config {
         lkv 2 $var "$value"
         eval "$var=\$value"
     done <"$file"
+
+    sec 2
 }
 
 ##############################################################################
@@ -95,7 +97,7 @@ function read_config {
 ### Return 1 for TRUE, 0 for FALSE
 ##############################################################################
 function bool {
-    case $(echo "$1" | tr [:upper:] [:lower:]) in
+    case ${1,,} in
         1|x|on|yes|true) echo 1 ;;
         *)               echo 0 ;;
     esac
@@ -117,8 +119,7 @@ function int {
 ### $2 - decimal places, optional; default 4
 ##############################################################################
 function calc {
-    local scale=${2:-4}
-    echo "scale=$scale; ((10^$scale * $1) + 0.5) / 10^$scale" | bc -l
+    awk "BEGIN { printf \"%.${2:-4}f\", $1 }"
 }
 
 ##############################################################################
@@ -686,6 +687,21 @@ function realpath {
     fi
     dir=$(cd "$dir" && /bin/pwd);
     echo "$dir$base"
+}
+
+##############################################################################
+### urlencode <string>
+### https://gist.github.com/cdown/1163649
+##############################################################################
+function urlencode {
+    local length=${#1}
+    for ((i=0; i<length; i++)); do
+        local c="${1:i:1}"
+        case $c in
+            [a-zA-Z0-9.~_-]) printf "$c" ;;
+            *)               printf '%%%02X' "'$c"
+        esac
+    done
 }
 
 ##############################################################################

@@ -6,31 +6,26 @@
 ### @version     $Id$
 ##############################################################################
 
+APIURL='https://api.twitter.com/1.1/statuses/update.json'
+
 ##############################################################################
 ### Init
 ##############################################################################
 pwd=$(dirname $0)
 
-. $pwd/../PVLng.conf
 . $pwd/../PVLng.sh
 
-test -f $pwd/.tokens || error_exit "Missing token file! Did you run setup.sh?"
+[ -f $pwd/.consumer ] || error_exit "Missing token file! Did you run setup.sh?"
 
-. $pwd/.pvlng
-. $pwd/.tokens
+### Script options
+opt_help      "Post status from file content to twitter"
+opt_help_args "<config file>"
+opt_help_hint "See twitter-file.conf.dist for details."
 
-while getopts "dtvxh" OPTION; do
-    case "$OPTION" in
-        d) DELETE=y ;;
-        t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-        v) VERBOSE=$((VERBOSE + 1)) ;;
-        x) TRACE=y ;;
-        h) usage; exit ;;
-        ?) usage; exit 1 ;;
-    esac
-done
+### PVLng default options
+opt_define_pvlng
 
-shift $((OPTIND-1))
+. $(opt_build)
 
 read_config "$1"
 
@@ -43,15 +38,16 @@ PATTERN_N=$(int "$PATTERN_N")
 ##############################################################################
 ### Go
 ##############################################################################
-test "$TRACE" && set -x
+[ "$TRACE" ] && set -x
+[ $VERBOSE -gt 0 ] && opts="-v"
 
 i=0
 
-while test $i -lt $PATTERN_N; do
+while [ $i -lt $PATTERN_N ]; do
 
     i=$((i+1))
 
-    log 1 "--- $i ---"
+    sec 1 $i
 
     var1 PATTERN $i
     lkv 1 Pattern "$PATTERN"
@@ -63,15 +59,9 @@ while test $i -lt $PATTERN_N; do
         continue
     fi
 
-    if [ "$DELETE" ]; then
-        log 1 "Delete $files"
-        [ "$TEST" ] || rm $files
-        continue
-    fi
-
     for file in $files; do
 
-        log 1 "--- $file ---"
+        sec 1 $file
 
         ### Trim status
         STATUS=$(cat $file | sed -e 's~^ ~~' -e 's~ $~~')
@@ -82,13 +72,17 @@ while test $i -lt $PATTERN_N; do
         [ "$STATUS" ] || continue
         [ "$TEST" ] && continue
 
-        $(dirname $0)/twitter.php \
-          --consumer_key=$CONSUMER_KEY \
-          --consumer_secret=$CONSUMER_SECRET \
-          --oauth_token=$OAUTH_TOKEN \
-          --oauth_secret=$OAUTH_TOKEN_SECRET \
-          --ignore_duplicates \
-          --status="$STATUS" --location="$LOCATION"
+        STATUSENC=$(urlencode "$STATUS")
+
+        ### Put all data into one -d for curlicue
+        $pwd/contrib/curlicue -f $pwd/.consumer $opts -- \
+            -d status="$STATUSENC&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
+
+        if grep -q 'errors' $TMPFILE; then
+            echo "Status: $STATUS"
+            cat $TMPFILE
+            echo
+        fi
 
         eval move="\$FILE_${i}_MOVE"
 
@@ -101,25 +95,3 @@ while test $i -lt $PATTERN_N; do
     done
 
 done
-
-set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Post status from file content to twitter
-
-Usage: $scriptname [options] config_file
-
-Options:
-    -t   Test mode, don't post
-         Sets verbosity to info level
-    -v   Set verbosity level to info level
-    -vv  Set verbosity level to debug level
-    -h   Show this help
-
-See $pwd/twitter-file.conf.dist for details.
-
-# << USAGE

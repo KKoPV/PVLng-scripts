@@ -2,6 +2,5 @@ test-all.sh
 *.conf
 .notes/
 data/*
-!data/.githold
 run/*
-!run/.githold
+!.githold

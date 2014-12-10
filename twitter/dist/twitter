@@ -6,32 +6,19 @@
 ##############################################################################
 
 ##############################################################################
-### Account credentials
-### Run ./setup.sh for details
-### required
-##############################################################################
-OAUTH_TOKEN         ""
-OAUTH_TOKEN_SECRET  ""
-
-##############################################################################
 ### Status
 ### required
 ##############################################################################
-STATUS  "Leistung aktuell: %.0f W • Ø Stunde: %.0f W • Heute: %.1f kWh (%.2f kWh/kWp) • Gesamt: %.2f MWh • http://kk.my-pv.info"
-#STATUS "Actual power: %.0f W • Ø hour: %.0f W • Today: %.1f kWh (%.2f kWh/kWp) • Overall: %.2f MWh • http://kk.my-pv.info"
-#STATUS "Power today: Ø %.0f W / max. %.0f W • Working: %.1f h • Production: %.1f kWh (%.2f kWh/kWp) • Overall: %.3f MWh (%.3f MWh/kWp)"
+STATUS  "Leistung aktuell: %.0f W - avg. Stunde: %.0f W - Heute: %.1f kWh (%.2f kWh/kWp) - Gesamt: %.2f MWh #Solar #PV"
+#STATUS "Actual power: %.0f W - avg. hour: %.0f W - Today: %.1f kWh (%.2f kWh/kWp) - Overall: %.2f MWh #Solar #PV"
+#STATUS "Power today: avg. %.0f W / max. %.0f W - Working: %.1f h - Production: %.1f kWh (%.2f kWh/kWp) - Overall: %.3f MWh (%.3f MWh/kWp)"
 
 ##############################################################################
-### Plant/Inverter GUID
-### required
+### Loaction
+### decimal, optional
 ##############################################################################
-GUID             ""
-
-##############################################################################
-### Loaction, latitude,longitude
-### 2 decimals: 1.2345,1.2345, optional
-##############################################################################
-LAT_LON          ""
+LAT              ""
+LONG             ""
 
 ##############################################################################
 ### How many items are used in status
@@ -44,23 +31,25 @@ ITEM_N           5
 ITEM_1           "last"
 GUID_1           ""
 FACTOR_1         1
-# GUID delivers watt hours * 0.001 = kilo watt hours
-#FACTOR_1         0.001
+# GUID delivers watt hours / 1000 = kilo watt hours
+#FACTOR_1         "1 / 1000"
 
 ### Start at today midnight and aggregate 24 hours > 1 row as result
 ITEM_2           "average midnight"
 GUID_2           ""
-PARAM_2          ""
+FACTOR_2         1
 
 ITEM_3           "last"
 GUID_3           ""
+FACTOR_3         1
 
 ITEM_4           "last"
 GUID_4           ""
 ### relative values
 ### in kilo watt hours / installed power = kilo watt hours per kilo watt peak
-FACTOR_4         "0.001 / <installed power>"
+FACTOR_4         "1 / 1000 / <installed power>"
 
 ITEM_5           "readlast"
 GUID_5           ""
+FACTOR_5         1
 

@@ -1,9 +1,13 @@
-#!/bin/bash
+#!/bin/sh
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
 ### @copyright   2012-2014 Knut Kohl
 ### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
+##############################################################################
+
+APIURL='https://api.twitter.com/1.1/statuses/update.json'
+
 ##############################################################################
 
 function listItems {
@@ -22,6 +26,8 @@ function listItems {
 pwd=$(dirname $0)
 
 . $pwd/../PVLng.sh
+
+[ -f $pwd/.consumer ] || error_exit "Missing token file! Did you run setup.sh?"
 
 ### Script options
 opt_help      "Post status to twitter"
@@ -44,12 +50,7 @@ if [ "$LIST" ]; then
     exit
 fi
 
-[ -f $pwd/.tokens ] || error_exit "Missing token file! Did you run setup.sh?"
-
 read_config "$1"
-
-. $pwd/.pvlng
-. $pwd/.tokens
 
 ##############################################################################
 [ "$STATUS" ] || error_exit "Missing status!"
@@ -62,17 +63,13 @@ ITEM_N=$(int "$ITEM_N")
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-TWITTER_URL="https://api.twitter.com/1/statuses/update.json"
-
-curl="$(curl_cmd)"
-
 i=0
 
 while [ $i -lt $ITEM_N ]; do
 
     i=$((i+1))
 
-    log 1 "--- $i ---"
+    sec 1 $i
 
     ### Check for reused value, skip API call
     var1 USE $i
@@ -96,16 +93,19 @@ while [ $i -lt $ITEM_N ]; do
     ### Exit if no value is found, e.g. no actual power outside daylight times
     [ "$value" ] && [ "$value" != "0" ] || [ "$FORCE" ] || exit
 
-    ### In case of force set to zero to work properly
-    value=${value:-0}
+    PVLngChannelAttr $GUID NUMERIC
 
-    eval FACTOR=\$FACTOR_$i
-    lkv 1 Factor "$FACTOR"
+    if [ $NUMERIC -eq 1 ]; then
+        ### In case of force set to zero to work properly
+        value=${value:-0}
 
-    if [ "$FACTOR" ]; then
-        value=$(calc "$value * $FACTOR")
-        lkv 1 Value $value
+        eval FACTOR=\$FACTOR_$i
+        lkv 1 Factor "${FACTOR:=1}"
+
+        value=$(calc "$value * ${FACTOR:-1}")
     fi
+
+    lkv 1 Value $value
 
     PARAMS+="$value;"
 
@@ -121,17 +121,27 @@ printf -v STATUS "$STATUS" $@
 
 ##############################################################################
 lkv 1 Result "$STATUS"
-lkv 1 Length $(echo $STATUS | wc -c)
+lkv 1 Length $(echo "$STATUS" | wc -c)
 
 [ "$TEST" ] && exit
+[ $VERBOSE -gt 0 ] && opts="-v"
 
-[ $VERBOSE -gt 0 ] && opts="--debug"
+STATUS=$(urlencode "$STATUS")
 
-$pwd/twitter.php $opts \
-    --consumer_key=$CONSUMER_KEY \
-    --consumer_secret=$CONSUMER_SECRET \
-    --oauth_token=$OAUTH_TOKEN \
-    --oauth_secret=$OAUTH_TOKEN_SECRET \
-    --status="$STATUS" --location="$LAT_LON"
+if [ $VERBOSE -gt 0 ]; then
+    opts="-v"
+    set -x
+fi
+
+### Put all data into one -d for curlicue
+$pwd/contrib/curlicue -f $pwd/.consumer $opts -- \
+    -d status="$STATUS&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
+
+set +x
+
+if grep -q 'errors' $TMPFILE; then
+    cat $TMPFILE
+    echo
+fi
 
 exit $?

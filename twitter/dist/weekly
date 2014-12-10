@@ -11,23 +11,22 @@
 ###
 ##############################################################################
 ### cron tab
-### # Monthly stats each last day of month at 10PM
-### 0 22 28-31 * *  test "$(date +%d -d tomorrow)" = "01" && .../public_html/bin/twitter/twitter.sh .../public_html/bin/twitter/monthly.conf
+### # Weekly stats on sunday at 10PM
+### 0 22 * * 0  .../twitter/twitter.sh weekly.conf
 ##############################################################################
 
 ##############################################################################
 ### Status
 ### required
 ##############################################################################
-#STATUS  "Ø Stunde: %.0f W • Heute: %.1f kWh (%.2f kWh/kWp) • Gesamt: %.2f MWh (%.2f MWh/kWp) • powered by http://pvlng.com"
-#STATUS "Actual power: %.0f W • Ø hour: %.0f W • Today: %.1f kWh (%.2f kWh/kWp) • Overall: %.2f MWh • http://kk.my-pv.info"
-STATUS "Month: Ø %.0f W / max. %.0f W • Production: %.1f kWh (%.2f kWh/kWp) • Overall: %.2f MWh (%.2f MWh/kWp)"
+STATUS "Week: avg %.0f W / max. %.0f W - Production: %.1f kWh (%.2f kWh/kWp) - Overall: %.2f MWh (%.2f MWh/kWp) #Solar #PV"
 
 ##############################################################################
-### Loaction, latitude,longitude
-### 2 decimals: 1.2345,1.2345, optional
+### Loaction
+### decimal, optional
 ##############################################################################
-LAT_LON          ""
+LAT              ""
+LONG             ""
 
 ##############################################################################
 ### How many items are used in status, in correct order!
@@ -38,22 +37,21 @@ ITEM_N           6
 ### Items
 ##############################################################################
 ### Pac channel of inverter or an accumulator of many Pac
-### last month
-ITEM_1           "average first+day+of+this+month+midnight"
+### last week
+ITEM_1           "average first+day+of+this+week+midnight"
 GUID_1           ""
 
 ### Pac channel of inverter or an accumulator of many Pac
-ITEM_2           "maximum first+day+of+this+month+midnight"
+ITEM_2           "maximum first+day+of+this+week+midnight"
 GUID_2           ""
 
 ### E-Total channel of inverter or an accumulator of many E-Total
-ITEM_3           "last_meter first+day+of+this+month+midnight"
+ITEM_3           "last_meter first+day+of+this+week+midnight"
 GUID_3           ""
-FACTOR_3         "1 / 1000"
+FACTOR_3         0.001
 
 ### E-Total channel of inverter or an accumulator of many E-Total
-ITEM_4           "last_meter first+day+of+this+month+midnight"
-GUID_4           ""
+USE_4            3
 ###              relative values in kWh / installed power in kWp = kWh/kWp
 FACTOR_4         "1 / 1000 / <your installed power here>"
 
@@ -63,7 +61,6 @@ GUID_5           ""
 FACTOR_5         "1 / 1000 / 1000"
 
 ### E-Total channel of inverter or an accumulator of many E-Total
-ITEM_6           "readlast"
-GUID_6           ""
+USE_6            5
 ###              relative values in MWh / installed power in kWp = MWh/kWp
 FACTOR_6         "1 / 1000 / 1000 / <your installed power here>"

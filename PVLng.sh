@@ -23,7 +23,7 @@ function log {
             cat $file | sed '/^$/d' | while read l; do echo "$d $l"; done
             echo "$d <<< $file"
         else
-            echo -e "$d $@"
+            echo "$d $@"
         fi
     } >&2
 }
@@ -32,6 +32,7 @@ function log {
 ### Show "key : value" message depending of verbosity level on stderr
 ##############################################################################
 function lkv {
+    [ $VERBOSE -ge $1 ] || return
     log $1 "$(printf "%-15s = %s" "$2" "$3")"
 }
 
@@ -39,6 +40,7 @@ function lkv {
 ### Show a section header
 ##############################################################################
 function sec {
+    [ $VERBOSE -ge $1 ] || return
     local level=$1
     shift # Move out level
     log $level "--- $@ ---"
@@ -83,7 +85,7 @@ function read_config {
 
     while read var value; do
         [ "$var" -a "${var:0:1}" != '#' ] || continue
-        value=$(echo -e "$value" | sed -e 's/^"[ \t]*//g' -e 's/[ \t]*"$//g')
+        value=$(echo -e "$value" | sed -e 's/^"[ \t]*//g;s/[ \t]*"$//g')
         lkv 2 $var "$value"
         eval "$var=\$value"
     done <"$file"
@@ -204,7 +206,7 @@ function check_lock {
 
     lkv 2 "Lock file" $lockfile
 
-    if [ -L $lockfile ]; then
+    if [ -e $lockfile ]; then
         lkv 2 "Lock file" "exists, exit"
         exit ${2:-0}
     else

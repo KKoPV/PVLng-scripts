@@ -62,7 +62,7 @@ while read file; do
         continue
     fi
 
-    log 0 Process $(basename $file) ...
+    log 0 Process $file ...
 
     i=$((i+1))
 
@@ -96,7 +96,7 @@ while read file; do
 
             if test -z "$KEEP"; then
                 rm "$file" && msg="$msg - deleted"
-                if echo $file | grep -q 'data/fail'; then
+                if echo $file | grep -q '/fail/'; then
                     ### Delete afterwards empty directories
                     find $(dirname $file) -type d -empty -delete
                 fi
@@ -119,7 +119,7 @@ exit
 # USAGE >>
 
 Load CSV data files via API, delete successful imported files and
-if full file name contains 'data/fail' also empty directories!
+if full file name contains '/fail/' also empty directories!
 
 Usage: $scriptname [-c GUID] [options] [-f file | files]
 

@@ -72,14 +72,17 @@ while [ $i -lt $PATTERN_N ]; do
         [ "$STATUS" ] || continue
         [ "$TEST" ] && continue
 
+        printf -v STATUS "$(echo "$STATUS" | sed -e 's/ *|| */\\n/g')"
         STATUSENC=$(urlencode "$STATUS")
 
         ### Put all data into one -d for curlicue
         $pwd/contrib/curlicue -f $pwd/.consumer $opts -- \
-            -d status="$STATUSENC&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
+            -sS -d status="$STATUSENC&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
 
-        if grep -q 'errors' $TMPFILE; then
+        ### Ignore {"errors":[{"code":187,"message":"Status is a duplicate."}]}
+        if grep 'errors' $TMPFILE | grep -qv '"code":187'; then
             echo "Status: $STATUS"
+            echo
             cat $TMPFILE
             echo
         fi

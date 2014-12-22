@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
 ### @copyright   2012-2014 Knut Kohl
@@ -93,7 +93,7 @@ while [ $i -lt $GUID_N ]; do
 
     EMPTY=
 
-    log 1 "--- $i ---"
+    sec 1 $i
 
     eval GUID_i_N=\$GUID_${i}_N
     GUID_i_N=$(int "$GUID_i_N")
@@ -107,7 +107,7 @@ while [ $i -lt $GUID_N ]; do
 
         j=$((j+1))
 
-        eval GUID="\$GUID_${i}_${j}"
+        var2 GUID $i $j
 
         PVLngChannelAttr $GUID name
         PVLngChannelAttr $GUID description
@@ -151,7 +151,8 @@ while [ $i -lt $GUID_N ]; do
         result=$(calc "$CONDITION")
     else
         ### String condition
-        eval [ $CONDITION ]; [ $? -eq 0 ] && result=1 || result=0
+        eval [ $CONDITION ]
+        result=$?
     fi
 
     ### Skip if condition is not true
@@ -164,8 +165,8 @@ while [ $i -lt $GUID_N ]; do
 
     ### Condition was true
 
-    eval ONCE=\$ONCE_$i
-    ONCE=$(int "$ONCE")
+    var1 ONCE $i
+    ONCE=$(bool "$ONCE")
 
     ### Skip if flag file exists, condition was true before && ONCE is set
     if [ $ONCE -eq 1 -a -f $flagfile ]; then
@@ -191,9 +192,9 @@ while [ $i -lt $GUID_N ]; do
 
         j=$((j+1))
 
-        log 1 "--- Action $j ---"
+        sec 1 "Action $j"
 
-        eval ACTION=\$ACTION_${i}_${j}
+        var2 ACTION $i $j
 
         eval EMPTY=\$ACTION_${i}_${j}_EMPTY
         [ "$EMPTY" ] || EMPTY="<empty>"

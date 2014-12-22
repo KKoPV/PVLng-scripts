@@ -111,6 +111,8 @@ while [ $i -lt $ITEM_N ]; do
 
 done
 
+STATUS=$(echo "$STATUS" | sed -e 's/ *|| */\\n/g')
+
 log 1 '--- Status ---'
 lkv 1 Status    "$STATUS"
 lkv 1 Parameter "$PARAMS"
@@ -135,7 +137,7 @@ fi
 
 ### Put all data into one -d for curlicue
 $pwd/contrib/curlicue -f $pwd/.consumer $opts -- \
-    -d status="$STATUS&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
+    -sS -d status="$STATUS&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
 
 set +x
 

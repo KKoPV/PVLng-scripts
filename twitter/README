@@ -1,1 +1,7 @@
 You find in directory dist/ templates for several tweets.
+
+You can also use new lines in status, but here mask them with || (2 pipes):
+
+STATUS "Stunde: %.0f W || Heute: %.1f kWh (%.2f kWh/kWp) || Gesamt: %.2f MWh (%.2f MWh/kWp) || http://PVLng.com #Solar #PV"
+
+Spaces before/after || will be ignored

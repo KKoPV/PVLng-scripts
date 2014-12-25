@@ -4,3 +4,4 @@ test-all.sh
 data/*
 run/*
 !.githold
+!**/dist/*

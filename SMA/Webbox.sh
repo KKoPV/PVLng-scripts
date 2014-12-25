@@ -13,9 +13,9 @@
 . $(dirname $0)/../PVLng.sh
 
 ### Script options
-opt_help      "Read Inverter or Sensorbox data from SMA Webbox"
+opt_help      "Read Inverter or Sensorbox data from a SMA Webbox"
 opt_help_args "<config file>"
-opt_help_hint "See Webbox.conf.dist for details."
+opt_help_hint "See dist/Webbox.conf for details."
 
 ### PVLng default options with flag for save data
 opt_define_pvlng x
@@ -34,24 +34,24 @@ read_config "$1"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-[ "$WEBBOX" ] || error_exit "IP address is required!"
+[ "$WEBBOX" ] || error_exit "IP address / host name is required (WEBBOX)!"
 
 GUID_N=$(int "$GUID_N")
 [ $GUID_N -gt 0 ] || error_exit "No GUIDs defined (GUID_N)"
+
+### Run only during daylight ± 60 min
+daylight=$(PVLngGET daylight/60.txt)
+lkb 2 "Daylight ± 60m" ${daylight:=0}
+[ $daylight -eq 1 ] || exit 127
 
 ##############################################################################
 ### Go
 ##############################################################################
 RESPONSEFILE=$(temp_file)
-on_exit_rm $RESPONSEFILE
 
 curl="$(curl_cmd)"
 
-### Run only during daylight +- 60 min
-daylight=$(PVLngGET "daylight/60.txt")
-log 2 "Daylight: $daylight"
-[ $daylight -eq 1 ] || exit 127
-
+### Check for provided installer password
 [ "$PASSWORD" ] && PASSWORD=',"passwd":"'$(echo -n "$PASSWORD" | md5sum | cut -d' ' -f1)'"'
 
 i=0

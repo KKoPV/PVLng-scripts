@@ -15,7 +15,7 @@ source $(dirname $0)/../PVLng.sh
 ### Script options
 opt_help      "Fetch data from Wunderground API"
 opt_help_args "<config file>"
-opt_help_hint "See station.conf.dist for details."
+opt_help_hint "See dist/station.conf for details."
 
 ### PVLng default options
 opt_define_pvlng
@@ -30,13 +30,12 @@ read_config "$1"
 [ "$TRACE" ] && set -x
 
 [ "$APIURL" ] || error_exit "Missing API URL (APIURL)!"
-[ "$GUID" ] || error_exit "Missing Wunderground group channel GUID (GUID)!"
+[ "$GUID" ]   || error_exit "Missing Wunderground group channel GUID (GUID)!"
 
 ##############################################################################
 ### Go
 ##############################################################################
 RESPONSEFILE=$(temp_file)
-on_exit_rm $RESPONSEFILE
 
 log 2 "$APIURL"
 

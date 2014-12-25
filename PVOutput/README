@@ -1,2 +1,7 @@
+You need at least 2 config. files:
+
+1st pvoutput.conf with your API key
+2nd a copy of dist/system.conf with the settings for a system
+
 Run the system.sh script in cron in the same interval as you configured your 
-system on PVOutput.
+system on PVOutput!

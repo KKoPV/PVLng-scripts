@@ -44,7 +44,6 @@ GUID_N=$(int "$GUID_N")
 ### Go
 ##############################################################################
 DATAFILE=$(temp_file)
-on_exit_rm $DATAFILE
 
 ### Read data
 $pwd/bin/IEC-62056-21.py -d $DEVICE >$DATAFILE

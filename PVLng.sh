@@ -29,11 +29,21 @@ function log {
 }
 
 ##############################################################################
-### Show "key : value" message depending of verbosity level on stderr
+### Show "key = value" message depending of verbosity level on stderr
 ##############################################################################
 function lkv {
     [ $VERBOSE -ge $1 ] || return
     log $1 "$(printf "%-15s = %s" "$2" "$3")"
+}
+
+##############################################################################
+### Show "key = yes|no" message depending of verbosity level on stderr
+##############################################################################
+function lkb {
+    [ $VERBOSE -ge $1 ] || return
+    local value=
+    [ $(bool "$3") -eq 1 ] && value=yes || value=no
+    log $1 "$(printf "%-15s = %s" "$2" $value)"
 }
 
 ##############################################################################
@@ -220,7 +230,9 @@ function check_lock {
 ### Make a temporary file
 ##############################################################################
 function temp_file {
-    mktemp /tmp/pvlng.XXXXXX
+    local f=$(mktemp /tmp/pvlng.XXXXXX)
+    on_exit 'rm -f "'$f'" >/dev/null 2>&1'
+    echo $f
 }
 
 ##############################################################################
@@ -284,7 +296,7 @@ function PVLngNC {
 ##############################################################################
 function PVLngChannelAttr {
     local GUID=$1
-    local attr=$(echo ${2} | tr [:upper:] [:lower:]) ### convert to lowercase
+    local attr=$(echo ${2,,}) ### convert to lowercase
     local mfile=$(run_file attr $GUID $attr)
 
     [ -f "$mfile" ] || PVLngGET channel/$GUID/$attr.txt >$mfile

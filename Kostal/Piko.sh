@@ -11,21 +11,17 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-. $pwd/../PVLng.conf
-. $pwd/../PVLng.sh
+source $pwd/../PVLng.sh
 
-while getopts "stvxh" OPTION; do
-    case "$OPTION" in
-        s) SAVEDATA=y ;;
-        t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-        v) VERBOSE=$((VERBOSE + 1)) ;;
-        x) TRACE=y ;;
-        h) usage; exit ;;
-        ?) usage; exit 1 ;;
-    esac
-done
+### Script options
+opt_help      "Read data from Kostal Piko inverters"
+opt_help_args "<config file>"
+opt_help_hint "See dist/Piko.conf for details."
 
-shift $((OPTIND-1))
+### PVLng default options with flag for save data
+opt_define_pvlng x
+
+source $(opt_build)
 
 HEADER=6
 
@@ -34,28 +30,19 @@ read_config "$1"
 ##############################################################################
 ### Start
 ##############################################################################
-test "$TRACE" && set -x
+[ "$TRACE" ] && set -x
 
 GUID_N=$(int "$GUID_N")
-test $GUID_N -gt 0  || error_exit "No GUIDs defined (GUID_N)"
+[ $GUID_N -gt 0 ] || error_exit "No GUIDs defined (GUID_N)"
 
-if test "$LOCATION"; then
-    ### Location given, test for daylight time
-    loc=$(echo $LOCATION | sed -e 's/,/\//g')
-    daylight=$(PVLngGET "daylight/$loc/60.txt")
-    log 2 "Daylight: $daylight"
-    test $daylight -eq 1 || exit 127
-fi
+[ $(PVLngGET "daylight/60.txt") -eq 1 ] || exit 127
 
 ##############################################################################
 ### Go
 ##############################################################################
-TMPFILE2=$(mktemp /tmp/pvlng.XXXXXX)
-on_exit_rm "$TMPFILE2"
-CNTFILE=$(mktemp /tmp/pvlng.XXXXXX)
-on_exit_rm "$CNTFILE"
-RESPONSEFILE=$(mktemp /tmp/pvlng.XXXXXX)
-on_exit_rm "$RESPONSEFILE"
+TMPFILE2=$(temp_file)
+CNTFILE=$(temp_file)
+RESPONSEFILE=$(temp_file)
 
 curl="$(curl_cmd)"
 
@@ -65,21 +52,21 @@ i=0
 
 while test $i -lt $GUID_N; do
 
-    i=$((i + 1))
+    i=$((i+1))
 
     log 1 "--- $i ---"
 
     var1 PIKOURL $i
-    test "$PIKOURL" || error_exit "Kostal Piko API URL is required (PIKOURL_$i)"
+    [ "$PIKOURL" ] || error_exit "Kostal Piko API URL is required (PIKOURL_$i)"
 
     var1 GUID $i
-    test "$GUID" || error_exit "Inverter GUID is required (GUID_$i)"
+    [ "$GUID" ] || error_exit "Inverter GUID is required (GUID_$i)"
 
     ### Fetch data
     $curl --output $TMPFILE $PIKOURL
     rc=$?
 
-    if test $rc -ne 0; then
+    if [ $rc -ne 0 ]; then
         curl_error_exit $rc $PIKOURL
     fi
 
@@ -94,7 +81,7 @@ while test $i -lt $GUID_N; do
     ### Extract data rows behind header and send each prepended with header row to API
     tail -n +$(( $HEADER + 2)) $TMPFILE | while read line; do
 
-        test "$line" || continue
+        [ "$line" ] || continue
 
         lines=$(( $lines + 1 ))
         log 2 "Line: $lines"
@@ -108,40 +95,17 @@ while test $i -lt $GUID_N; do
                    --output $RESPONSEFILE --data-binary @$TMPFILE2 \
                    $PVLngURL/jsonencode)
 
-        if test $rc -ne 200; then
+        if [ $rc -ne 200 ]; then
             echo "RC $rc: JSON encode failed for $TMPFILE"
             cat $TMPFILE
             exit 1
         fi
 
         ### Save data
-        test "$TEST" || PVLngPUT $GUID @$RESPONSEFILE
+        [ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
     done
 
 done
 
 log 1 "Data lines: $(<$CNTFILE)"
 log 1 $(run_time x)
-
-set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Read data from Kostal Piko inverters
-
-Usage: $scriptname [options] config_file
-
-Options:
-    -s  Save data also into log file
-    -t  Test mode, read only and show the results, don't save to PVLng
-        Sets verbosity to info level
-    -v  Set verbosity level to info level
-    -vv Set verbosity level to debug level
-    -h  Show this help
-
-See $pwd/Piko.conf.dist for reference.
-
-# << USAGE

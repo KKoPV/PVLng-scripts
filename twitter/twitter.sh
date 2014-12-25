@@ -32,7 +32,7 @@ pwd=$(dirname $0)
 ### Script options
 opt_help      "Post status to twitter"
 opt_help_args "<config file>"
-opt_help_hint "See twitter.conf.dist for details."
+opt_help_hint "See dist/twitter.conf for details."
 
 opt_define short=l long=list desc="List implemented items" variable=LIST value=y
 ### Hidden option to force update also with no valid data

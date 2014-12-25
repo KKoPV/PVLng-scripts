@@ -11,49 +11,63 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-. $pwd/../PVLng.conf
-. $pwd/../PVLng.sh
+source $pwd/../PVLng.sh
 
-while getopts "stvxh" OPTION; do
-    case "$OPTION" in
-        s) SAVEDATA=y ;;
-        t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-        v) VERBOSE=$((VERBOSE + 1)) ;;
-        x) TRACE=y ;;
-        h) usage; exit ;;
-        ?) usage; exit 1 ;;
-    esac
-done
+### Script options
+opt_help      "Read data from Fronius inverters/SensorCards"
+opt_help_args "<config file>"
+opt_help_hint "See dist/Comcard.conf for details."
 
-shift $((OPTIND-1))
+### PVLng default options with flag for save data
+opt_define_pvlng x
+
+source $(opt_build)
 
 read_config "$1"
 
 ##############################################################################
-### Start
+### Init
 ##############################################################################
-test "$TRACE" && set -x
-
-test "$APIURL" || error_exit "Solar Net API URL is required (APIURL)"
+[ "$APIURL" ] || error_exit "Solar Net API URL is required (APIURL)"
 
 GUID_N=$(int "$GUID_N")
-test $GUID_N -gt 0  || error_exit "No GUIDs defined (GUID_N)"
+[ $GUID_N -gt 0 ]|| error_exit "No GUIDs defined (GUID_N)"
 
-if test "$LOCATION"; then
-    ### Location given, test for daylight time
-    loc=$(echo $LOCATION | sed -e 's/,/\//g')
-    daylight=$(PVLngGET "daylight/$loc/60.txt")
-    log 2 "Daylight: $daylight"
-    test $daylight -eq 1 || exit 127
-fi
+daylight=$(PVLngGET "daylight/60.txt")
+log 2 "Daylight: $daylight"
+[ $daylight -eq 1 ] || exit 127
+
+##############################################################################
+### Start
+##############################################################################
+[ "$TRACE" ] && set -x
 
 ##############################################################################
 ### Go
 ##############################################################################
-. $pwd/func.sh
+### Process the request, $1 - Request, $2 - DataCollection, $3 - DeviceId
+function requestComCard {
 
-RESPONSEFILE=$(mktemp /tmp/pvlng.XXXXXX)
-on_exit_rm "$RESPONSEFILE"
+    url="$APIURL/$1.cgi?Scope=Device&DataCollection=$2&DeviceId=$3"
+    log 2 "$url"
+
+    ### Empty response file
+    echo -n >$RESPONSEFILE
+    $curl --output $RESPONSEFILE $url
+    rc=$?
+
+    [ $rc -ne 0 ] && curl_error_exit $rc "$1/$2/$3"
+
+    ### Test mode
+    log 2 "$1 response:"
+    log 2 @$RESPONSEFILE
+
+    ### Save data
+    [ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
+
+}
+
+RESPONSEFILE=$(temp_file)
 
 curl="$(curl_cmd --header 'Content-Type=application/json')"
 
@@ -61,50 +75,27 @@ i=0
 
 while test $i -lt $GUID_N; do
 
-    i=$((i + 1))
+    i=$((i+1))
 
-    log 1 "--- $i ---"
+    sec 1 $i
 
-    eval GUID=\$GUID_$i
-    test "$GUID" || error_exit "Inverter GUID is required (GUID_$i)"
+    var1 GUID $i
+    [ "$GUID" ] || error_exit "Inverter GUID is required (GUID_$i)"
 
-    ### request serial and type, required fields
-    DEVICEID=$(PVLngGET $GUID/serial.txt)
-    TYPE=$(int $(PVLngGET $GUID/channel.txt))
+    ### Request serial and type, required fields
+    PVLngChannelAttr $GUID SERIAL
+    PVLngChannelAttr $GUID CHANNEL
 
-    if test $TYPE -eq 1 -o $TYPE -eq 2; then
-        requestComCard GetInverterRealtimeData CommonInverterData
+    if [ $CHANNEL -eq 1 -o $CHANNEL -eq 2 ]; then
+        requestComCard GetInverterRealtimeData CommonInverterData $SERIAL
     fi
 
-    if test $TYPE -eq 2; then
-        requestComCard GetStringRealtimeData NowStringControlData
+    if [ $CHANNEL -eq 2 ]; then
+        requestComCard GetStringRealtimeData NowStringControlData $SERIAL
     fi
 
-    if test $TYPE -eq 3; then
-        requestComCard GetSensorRealtimeData NowSensorData
+    if [ $CHANNEL -eq 3 ]; then
+        requestComCard GetSensorRealtimeData NowSensorData $SERIAL
     fi
 
 done
-
-set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Read data from Fronius inverters/SensorCards
-
-Usage: $scriptname [options] config_file
-
-Options:
-    -s  Save data also into log file
-    -t  Test mode, read only from ComCard and show the results, don't save to PVLng
-        Sets verbosity to info level
-    -v  Set verbosity level to info level
-    -vv Set verbosity level to debug level
-    -h  Show this help
-
-See $pwd/System.conf.dist for reference.
-
-# << USAGE

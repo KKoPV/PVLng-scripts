@@ -16,7 +16,7 @@ source $(dirname $0)/../PVLng.sh
 ### Script options
 opt_help      "Update ThingSpeak channel"
 opt_help_args "<config file>"
-opt_help_hint "See channel.conf.dist for details."
+opt_help_hint "See dist/channel.conf for details."
 
 opt_define short=i long=interval variable=INTERVAL desc='Fix Average interval in minutes'
 

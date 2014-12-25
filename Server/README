@@ -1,9 +1,14 @@
- loadavg.sh
-============
+loadavg.sh
+==========
 
 Save load average for last minute, last 5 minutes and last 15 minutes
 
- df.sh
-=======
+df.sh
+=====
 
 Save disk used in percent for a mount point
+
+memory.sh
+=========
+
+Save memory usage value(s)

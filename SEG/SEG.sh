@@ -6,6 +6,8 @@
 ### @version    1.0.0
 ##############################################################################
 
+APIURL="http://api.smartenergygroups.com/api_sites/stream"
+
 ##############################################################################
 ### Init
 ##############################################################################
@@ -14,7 +16,7 @@ source $(dirname $0)/../PVLng.sh
 ### Script options
 opt_help      "Update Smart Energy Group streams for one device"
 opt_help_args "<config file>"
-opt_help_hint "See device.conf.dist for details."
+opt_help_hint "See dist/device.conf for details."
 
 opt_define short=i long=interval variable=INTERVAL desc='Fix Average interval in minutes'
 
@@ -23,7 +25,6 @@ opt_define_pvlng
 
 source $(opt_build)
 
-read_config $pwd/SEG.conf
 read_config "$1"
 
 ##############################################################################
@@ -31,7 +32,6 @@ read_config "$1"
 ##############################################################################
 test "$TRACE" && set -x
 
-test "$APIURL" || error_exit "SEG API URL is required, see SEG.conf.dist"
 test "$SITE_TOKEN" || error_exit "SEG site name is required (SITE_TOKEN)"
 test "$NODE_NAME" || error_exit "SEG node name is required (NODE_NAME)"
 

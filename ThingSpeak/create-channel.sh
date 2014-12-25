@@ -11,15 +11,31 @@ APIURL='https://api.thingspeak.com/channels.json'
 ##############################################################################
 ### Init
 ##############################################################################
-source $(dirname $0)/../PVLng.sh
+pwd=$(dirname "$0")
+
+source $pwd/../PVLng.sh
 
 ### Script options
 opt_help      "Create ThingSpeak channel from GUIDs file"
 opt_help_args "<GUIDs file>"
+opt_help_hint "Create a text file with PVLng channel GUIDs (one per line) to put into
+the new ThingSpeak channel and run
+
+$ ./createChannel.sh <TextFileName>
+
+This will create
+- the ThingSpeak channel
+- a draft configuration file 'TextFileName.conf'
+
+Open your channels list in your browser and check the just created channel.
+https://thingspeak.com/channels
+
+You have to adjust afterwards in the created configuration file at least the
+channels API key."
 
 opt_define short=k long=key variable=APIKEY desc='ThingSpeak User API key' required=y
-opt_define short=u long=unit variable=ADDUNIT desc='Add unit to field name' value=y
 opt_define short=d long=description variable=ADDDESC desc='Add description to field name' value=y
+opt_define short=u long=unit variable=ADDUNIT desc='Add unit to field name' value=y
 
 ### PVLng default options
 opt_define_pvlng
@@ -34,17 +50,12 @@ GUIDS="$1"
 [ "$TRACE" ] && set -x
 
 [ "$APIKEY" ] || error_exit "ThingSpeak User API key is required"
-[ "$GUIDS" ] || error_exit "GUIDs file is required"
+[ "$GUIDS" ]  || error_exit "GUIDs file is required"
 
 ##############################################################################
 ### Go
 ##############################################################################
-pwd=$(dirname "$0")
-
-if [ -z "$TEST" ]; then
-    conf_tmp=$(temp_file)
-    on_exit_rm $conf_tmp
-fi
+[ "$TEST" ] || conf_tmp=$(temp_file)
 
 log 0 Fetch channel attributes...
 
@@ -75,8 +86,7 @@ while read GUID; do
 
     ### Prepare config file
     if [ -z "$TEST" ]; then
-        (
-            echo
+        (   echo
             echo "### $name"
             echo "GUID_$i         $GUID"
             echo "#FACTOR_$i      1"
@@ -118,6 +128,8 @@ if [ $rc -eq 200 ]; then
         echo
         echo '### Count of following fields'
         echo "FIELD_N        $field_cnt"
+        echo
+        echo '### Channels'
         cat $conf_tmp
     ) >"$pwd/$conf.conf"
 
@@ -125,5 +137,3 @@ else
     ### error
     cat $TMPFILE
 fi
-
-set +x

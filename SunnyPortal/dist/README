@@ -1,0 +1,11 @@
+There are not so much information available.
+
+pvin-001 = PV Wechselrichter
+emet-001 = Stromzähler
+gmet-001 = Gaszähler
+wmet-001 = Wasserzähler
+sens-001 = Sensor ???
+
+The only confirmed type ist emet-001 with channel "total energy"
+
+Can be used for forecast or consumption or energy export.

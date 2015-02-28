@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
+### @copyright   2012-2015 Knut Kohl
 ### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
 ### @version     $Id$
 ##############################################################################
@@ -17,13 +17,13 @@ pwd=$(dirname $0)
 CACHED=false
 
 while getopts "tvxh" OPTION; do
-	case "$OPTION" in
-		t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-		v) VERBOSE=$((VERBOSE + 1)) ;;
-		x) TRACE=y ;;
-		h) usage; exit ;;
-		?) usage; exit 1 ;;
-	esac
+  case "$OPTION" in
+    t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
+    v) VERBOSE=$((VERBOSE + 1)) ;;
+    x) TRACE=y ;;
+    h) usage; exit ;;
+    ?) usage; exit 1 ;;
+  esac
 done
 
 shift $((OPTIND-1))
@@ -56,59 +56,59 @@ found=
 
 while test $i -lt $GUID_N; do
 
-	i=$((i + 1))
+  i=$((i + 1))
 
-	log 1 "--- $i ---"
+  log 1 "--- $i ---"
 
-	### required parameters
-	eval GUID=\$GUID_$i
-	log 2 "GUID     : $GUID"
-	test "$GUID" || error_exit "Sensor GUID is required (GUID_$i)"
+  ### required parameters
+  eval GUID=\$GUID_$i
+  log 2 "GUID     : $GUID"
+  test "$GUID" || error_exit "Sensor GUID is required (GUID_$i)"
 
-	eval CHANNEL=\$CHANNEL_$i
-	log 2 "Channel  : $CHANNEL"
-	test "$CHANNEL" || error_exit "Xively channel name is required (CHANNEL_$i)"
+  eval CHANNEL=\$CHANNEL_$i
+  log 2 "Channel  : $CHANNEL"
+  test "$CHANNEL" || error_exit "Xively channel name is required (CHANNEL_$i)"
 
-	### read value, get last row
-	row=$(PVLngGET2 data/$GUID.tsv?start=-${INTERVAL}minutes&period=${INTERVAL}minutes | tail -n1)
-	log 2 "Data:    : $row"
+  ### read value, get last row
+  row=$(PVLngGET2 data/$GUID.tsv?start=-${INTERVAL}minutes&period=${INTERVAL}minutes | tail -n1)
+  log 2 "Data:    : $row"
 
-	### Just after 0:00 no data for today yet
-	test "$row" || continue
+  ### Just after 0:00 no data for today yet
+  test "$row" || continue
 
-	if echo "$row" | egrep -q '[[:alpha:]]'; then
-		error_exit "$row"
-	fi
+  if echo "$row" | egrep -q '[[:alpha:]]'; then
+    error_exit "$row"
+  fi
 
-	### set timestamp and data to $1 and $2
-	set $row
-	timestamp=$1
+  ### set timestamp and data to $1 and $2
+  set $row
+  timestamp=$1
 
-	### Format for this channel defined?
-	eval FORMAT=\$FORMAT_$i
+  ### Format for this channel defined?
+  eval FORMAT=\$FORMAT_$i
 
-	if test "$FORMAT"; then
-		log 2 "Format   : $FORMAT"
-	    value=$(printf "$FORMAT" "$2")
-	else
+  if test "$FORMAT"; then
+    log 2 "Format   : $FORMAT"
+      value=$(printf "$FORMAT" "$2")
+  else
         value=$2
-	fi
+  fi
 
-	age=$(echo "scale=0; ( $NOW - $timestamp ) / 60" | bc -l)
-	log 2 "Last     : $(date -d @$timestamp)"
-	log 2 "Age      : $age min."
+  age=$(echo "scale=0; ( $NOW - $timestamp ) / 60" | bc -l)
+  log 2 "Last     : $(date -d @$timestamp)"
+  log 2 "Age      : $age min."
 
-	### test for valid timestamp
-	if test $age -gt $INTERVAL; then
-		log 1 "Skip timestamp outside update interval."
-		continue
-	fi
+  ### test for valid timestamp
+  if test $age -gt $INTERVAL; then
+    log 1 "Skip timestamp outside update interval."
+    continue
+  fi
 
-	log 1 "Value    : $value"
+  log 1 "Value    : $value"
 
-	echo $CHANNEL,$value >>$TMPFILE
+  echo $CHANNEL,$value >>$TMPFILE
 
-	found=y
+  found=y
 
 done
 
@@ -130,11 +130,11 @@ set $($curl --request PUT \
 
 ### Check result, ONLY 200 is ok
 if test $1 -eq 200; then
-	### Ok, data added
-	log 1 "Ok"
+  ### Ok, data added
+  log 1 "Ok"
 else
-	### log error
-	save_log "Xively" "Failed: $(cat $TMPFILE)"
+  ### log error
+  save_log "Xively" "Failed: $(cat $TMPFILE)"
 fi
 
 set +x
@@ -150,11 +150,11 @@ Usage: $scriptname [options] config_file
 
 Options:
 
-	-t  Test mode, don't put to Xively
-	    Sets verbosity to info level
-	-v  Set verbosity level to info level
-	-vv Set verbosity level to debug level
-	-h  Show this help
+  -t  Test mode, don't put to Xively
+      Sets verbosity to info level
+  -v  Set verbosity level to info level
+  -vv Set verbosity level to debug level
+  -h  Show this help
 
 See $pwd/device.conf.dist for details.
 

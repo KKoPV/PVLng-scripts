@@ -1,6 +1,6 @@
 ##############################################################################
 ### @author     Knut Kohl <github@knutkohl.de>
-### @copyright  2012-2014 Knut Kohl
+### @copyright  2012-2015 Knut Kohl
 ### @license    MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version    1.0.0
 ##############################################################################
@@ -20,6 +20,19 @@ PVLngHost="http://$PVLngDomain:80"
 PVLngAPIkey=""
 
 ##############################################################################
+### Directory for temporary "run" files
+### Put into a ram disk if possible
+### default: ./run
+##############################################################################
+RunDir=
+
+##############################################################################
+### Global setting for log data
+### default: ./data
+##############################################################################
+SaveDataDir=
+
+##############################################################################
 ### Curl executable if not automatic detected or in different path
 ##############################################################################
 #CURL=/path/to/curl
@@ -29,12 +42,6 @@ PVLngAPIkey=""
 ### More at http://curl.haxx.se/docs/manpage.html
 ##############################################################################
 CurlOpts="--connect-timeout 10 --retry 3 --retry-max-time 60"
-
-##############################################################################
-### Global setting for log data
-### default: .../PVLng-scripts/data
-##############################################################################
-SaveDataDir=
 
 ##############################################################################
 ### Port for Socket Server

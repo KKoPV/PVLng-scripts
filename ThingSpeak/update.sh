@@ -1,17 +1,23 @@
-#!/bin/sh
+#!/bin/bash
 ##############################################################################
 ### @author     Knut Kohl <github@knutkohl.de>
-### @copyright  2012-2014 Knut Kohl
+### @copyright  2012-2015 Knut Kohl
 ### @license    MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version    1.0.0
 ##############################################################################
 
-APIURL='https://api.thingspeak.com/update'
+##############################################################################
+### Constants
+##############################################################################
+pwd=$(dirname $0)
+
+### ThingSpeak API URL
+_APIURL='https://api.thingspeak.com/update'
 
 ##############################################################################
 ### Init
 ##############################################################################
-source $(dirname $0)/../PVLng.sh
+. $pwd/../PVLng.sh
 
 ### Script options
 opt_help      "Update ThingSpeak channel"
@@ -23,25 +29,26 @@ opt_define short=i long=interval variable=INTERVAL desc='Fix Average interval in
 ### PVLng default options
 opt_define_pvlng
 
-source $(opt_build)
+. $(opt_build)
 
-read_config "$1"
+CONFIG=$1
+
+read_config "$CONFIG"
 
 ##############################################################################
 ### Start
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-[ "$APIURL" ] || error_exit "ThingSpeak API URL is required, see ThingSpeak.conf.dist"
-[ "$APIKEY" ] || error_exit "ThingSpeak channel API Write key is required (APIKEY)"
+check_default APIURL $_APIURL
+check_required APIKEY 'ThingSpeak channel API Write key'
 
 FIELD_N=$(int "$FIELD_N")
-[ $FIELD_N -gt 0 ] || error_exit "No field sections defined (FIELD_N)"
+[ $FIELD_N -gt 0 ] || exit_required "Field sections" FIELD_N
 
 ##############################################################################
 ### Go
 ##############################################################################
-
 if [ -z "$INTERVAL" ]; then
     ifile=$(run_file ThingSpeak "$1" last)
     if [ -s "$ifile" ]; then
@@ -62,32 +69,26 @@ while [ $i -lt $FIELD_N ]; do
 
     i=$((i+1))
 
-    sec 1 Field $i
+    sec 1 $i
 
     var1 GUID $i
-    [ "$GUID" ] || error_exit "Missing GUID (GUID_$i)"
-    lkv 2 GUID $GUID
+    [ -z "$GUID" ] && log 1 Skip && continue
 
     ### Fetch for sensor channels average of last x minutes
     fetch="start=-${INTERVAL}minutes&period=${INTERVAL}minutes"
 
-    ### Read value, get last row
-    row=$(PVLngGET data/$GUID.tsv?$fetch | tail -n1)
-    lkv 2 Data "$row"
+    ### Read data, get last row
+    set -- $(PVLngGET "data/$GUID.tsv?$fetch" | tail -n1)
 
-    ### No data for last $INTERVAL minutes
-    [ "$row" ] || continue
+    [ "$1" ] || continue
 
-    ### Set "data" to $2
-    set $row
     value="${2:-<empty>}"
 
-    PVLngChannelAttr $GUID numeric
+    PVLngChannelAttr $GUID NUMERIC
 
     ### Factor for this channel, only for numeric channels!
-    if [ $numeric -eq 1 ]; then
-        var1 FACTOR $i
-        lkv 2 Factor ${FACTOR:=1} # Set to 1 if not defined
+    if [ $NUMERIC -eq 1 ]; then
+        var1 FACTOR $i 1
         value=$(calc "$value * $FACTOR")
     fi
 
@@ -112,7 +113,7 @@ rc=$($(curl_cmd) --data "$data" $APIURL)
 lkv 2 "API response" $rc
 
 ### Check result, ONLY not zero is ok
-if [ $rc -gt 0 ]; then
+if [ "$rc" -a $rc -gt 0 ]; then
     ### Ok, state added
     log 1 "Ok"
 else

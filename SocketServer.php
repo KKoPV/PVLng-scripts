@@ -1,3 +1,4 @@
+#!/usr/bin/env php
 <?php
 
 // No Timeout
@@ -71,7 +72,7 @@ $tables = array('pvlng_reading_str', 'pvlng_reading_num');
 $client = array();
 
 // Server loop
-while (TRUE){
+while (TRUE) {
     socket_set_block($sock);
     // Setup clients listen socket for reading
     $read = array($sock);

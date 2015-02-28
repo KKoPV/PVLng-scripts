@@ -1,11 +1,12 @@
 ##############################################################################
 ### @author     Knut Kohl <github@knutkohl.de>
-### @copyright  2012-2014 Knut Kohl
+### @copyright  2012-2015 Knut Kohl
 ### @license    MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version    1.0.0
 ###
 ### Idea from Optparse - a BASH wrapper for getopts
 ### @author : nk412 / nagarjuna.412@gmail.com
+### Adapted to work not only with bash and extended
 ##############################################################################
 
 _opt_usage=
@@ -22,7 +23,7 @@ _opt_help_hint=
 ##############################################################################
 ### Throw error and halt
 ##############################################################################
-function __opt_error() {
+__opt_error () {
     local message="$1"
     echo "ERROR: $message"
     exit 1
@@ -31,27 +32,27 @@ function __opt_error() {
 ##############################################################################
 ### Helper function
 ##############################################################################
-function __opt_help() {
-    _opt_usage+="#TB$(printf "%s, %-20s %s" "$1" "$2" "$3")#NL"
+__opt_help () {
+    _opt_usage+="#T$(printf "%s, %-20s %s" "$1" "$2" "$3")#N"
 }
 
 ##############################################################################
-function opt_help() {
-    _opt_help="#NL$1#NL"
+opt_help () {
+    _opt_help="#N$1#N"
 }
 
 ##############################################################################
-function opt_help_hint() {
+opt_help_hint () {
     _opt_help_hint="$1"
 }
 
 ##############################################################################
-function opt_help_args() {
+opt_help_args () {
     _opt_help_args="$1"
 }
 
 ##############################################################################
-function opt_define() {
+opt_define () {
     if [ $# -lt 3 ]; then
         __opt_error 'opt_define short= long= variable= [desc=] [default=] [value=] [callback=] [required]'
     fi
@@ -118,10 +119,10 @@ function opt_define() {
         __opt_help "-$short" "--$long" "$desc"
     fi
 
-    _opt_cont+="#TB#TB--${long})#NL#TB#TB#TBparams=\"\$params -${short}\";;#NL"
+    _opt_cont+="#T#T--${long})#N#T#T#Tparams=\"\$params -${short}\";;#N"
 
     ### Initialize all variables, also empty once
-    _opt_defs+="${variable}=${default}#NL"
+    _opt_defs+="${variable}=${default}#N"
 
     if [ "$val" = "\$OPTARG" ]; then
         ### Option requires parameter
@@ -131,32 +132,32 @@ function opt_define() {
     fi
 
     if [ "$callback" ]; then
-        _opt_process+="#TB#TB${short}) ${callback};;#NL"
+        _opt_process+="#T#T${short}) ${callback};;#N"
     else
-        _opt_process+="#TB#TB${short}) ${variable}=\"$val\";;#NL"
+        _opt_process+="#T#T${short}) ${variable}=\"$val\";;#N"
     fi
 }
 
 ##############################################################################
-function opt_define_quiet() {
+opt_define_quiet () {
     opt_define short=q long=quiet variable=QUIET desc='Quiet mode' value=1 \
                callback='VERBOSE=-1'
 }
 
 ##############################################################################
-function opt_define_verbose() {
+opt_define_verbose () {
     opt_define short=v long=verbose variable=VERBOSE \
                desc='Verbosity, use multiple times for higher level' \
                default=0 value=1 callback='VERBOSE=$(($VERBOSE+1))'
 }
 
 ##############################################################################
-function opt_define_test() {
+opt_define_test () {
     opt_define short=t long=test variable=TEST desc='Test mode' value=yes
 }
 
 ##############################################################################
-function opt_define_trace() {
+opt_define_trace () {
     ### Prepare a TRACE variable to "set -x" after preparation
     ### No description > not shown in help
     opt_define short=x long=trace variable=TRACE value=X
@@ -165,7 +166,7 @@ function opt_define_trace() {
 ##############################################################################
 ### Usage: source $(opt_build)
 ##############################################################################
-function opt_build() {
+opt_build () {
     local build_file=$(mktemp /tmp/optparse-XXXXXX.tmp)
 
     ### Add default help option
@@ -173,7 +174,7 @@ function opt_build() {
 
     ### Function usage
     cat << EOF > $build_file
-function usage() {
+usage () {
 cat << EOT
 $_opt_help
 usage: \$0 ${_opt_help_args_req}[options] ${_opt_help_args}
@@ -224,7 +225,7 @@ for par in \${_opt_req}; do
     eval var=\\\$\$var
     if [ "\$var" ]; then
         ### Remember error
-        error+="#NL#TB- Option -\$(echo "\$par" | cut -d: -f2) is required!"
+        error+="#N#T- Option -\$(echo "\$par" | cut -d: -f2) is required!"
     fi
 done
 
@@ -233,7 +234,7 @@ while getopts ":$_opt_args" option; do
     case \$option in
 $_opt_process
         ### Remember error
-        :) error+="#NL#TB- Option -\$OPTARG requires an argument!";;
+        :) error+="#N#T- Option -\$OPTARG requires an argument!";;
         *) usage; exit 1;;
     esac
 done
@@ -256,9 +257,11 @@ ARGS="\$@"
 ### Clean up after self
 rm $build_file
 
+[ "\$TEST" ] && log 1 Test mode
+
 EOF
 
-    local -A o=( ['#NL']='\n' ['#TB']='    ' )
+    local -A o=( ['#N']='\n' ['#T']='    ' )
     for i in "${!o[@]}"; do sed -i "s/${i}/${o[$i]}/g" $build_file; done
 
     # Unset global variables

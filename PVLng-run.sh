@@ -1,8 +1,8 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
+### @copyright   2012-2015 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
@@ -23,7 +23,7 @@ opt_define short=p long=period desc="Period in seconds (5..60)" variable=PERIOD 
 opt_define short=n long=nice desc="Niceness range from -20 (most favorable) to 19 (least favorable)" variable=NICE default=10
 opt_define_pvlng
 
-source $(opt_build)
+. $(opt_build)
 
 CMD="$@"
 
@@ -41,26 +41,26 @@ fi
 [ $PERIOD -gt 60 ] && error_exit "Valid period values: 5..60"
 
 NICE=$(int $NICE)
-test $NICE -lt -20 && error_exit "Valid nice level: -20..19"
-test $NICE -gt  19 && error_exit "Valid nice level: -20..19"
+[ $NICE -lt -20 ] && error_exit "Valid nice level: -20..19"
+[ $NICE -gt  19 ] && error_exit "Valid nice level: -20..19"
 
 test "$CMD" || error_exit "No command defined!"
 
 ##############################################################################
 ### Go
 ##############################################################################
-test "$TRACE" && set -x
+[ "$TRACE" ] && set -x
 
 LOOPS=$((60 / $(int $PERIOD)))
 
-log 1 "Period        : ${PERIOD}s"
-log 1 "Calls         : $LOOPS"
-log 1 "Command given : $CMD"
+lkv 1 Period "${PERIOD}s"
+lkv 1 Calls $LOOPS
+lkv 1 "Command given" "$CMD"
 CMD="nice --adjustment=$NICE $CMD &"
-log 1 "Command to run: $CMD"
+lkv 1 "Command to run" "$CMD"
 
 while :; do
-    if test "$TEST"; then
+    if [ "$TEST" ]; then
         log 1 Test ...
     else
         log 1 Run now
@@ -74,7 +74,7 @@ while :; do
         exit
     fi
 
-    log 1 "$LOOPS left ..."
+    lkv 1 "Loop(s) left" $LOOPS
     ### Wait ...
     sleep $PERIOD
 done

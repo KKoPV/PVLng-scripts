@@ -1,16 +1,50 @@
-#!/bin/sh
+#!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2014 Knut Kohl
+### @copyright   2012-2015 Knut Kohl
 ### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
-### Init
+### Constants
 ##############################################################################
 pwd=$(dirname $0)
 
+##############################################################################
+### Functions
+##############################################################################
+replace_vars () {
+    ### Prepare conditions
+    local str="$1" ### save for looping
+    local i=0
+    local value=
+    local name=
+    local last=
+
+    ### On replacing in Condition, $EMPTY is not set, so it works on real data
+
+    ### max. 10 parameters :-)
+    while [ $i -lt 10 ]; do
+        i=$((i+1))
+
+        var1 name $i
+        var1 last $i
+        var1 value $i
+        [ -z "$value" ] && value=$EMPTY
+
+        str=$(echo "$str" | sed "s~[{]VALUE_$i[}]~$value~g;s~[{]NAME_$i[}]~$name~g;s~[{]LAST_$i[}]~$last~g")
+    done
+
+    ### VALUE, NAME and LAST stands also for *_1
+    [ -z "$value_1" ] && value_1=$EMPTY
+    echo "$str" | sed "s~[{]VALUE[}]~$value_1~g;s~[{]NAME[}]~$name_1~g;s~[{]LAST[}]~$last_1~g"
+}
+
+
+##############################################################################
+### Init
+##############################################################################
 . $pwd/../PVLng.sh
 
 ### Script options
@@ -18,96 +52,54 @@ opt_help      "Alert on channels conditions"
 opt_help_args "<config file>"
 opt_help_hint "See alert.conf.dist for details."
 
-opt_define short=x long=trace variable=RESET value=y
+opt_define short=r long=reset desc='Reset run files' variable=RESET value=y
 
 ### PVLng default options
 opt_define_pvlng
 
 . $(opt_build)
 
-CONFIG="$1"
+if [ "$RESET" ]; then
+    ### Reset run files
+    sec 1 Reset
+    files=$(ls $(run_file alert $CONFIG '*'))
+    log 1 "rm $files"
+    rm $files
+    exit
+fi
+
+CONFIG=$1
 
 read_config "$CONFIG"
-
-GUID_N=$(int "$GUID_N")
-test $GUID_N -gt 0 || error_exit "No sections defined (GUID_N)"
 
 ##############################################################################
 ### Start
 ##############################################################################
-test "$TRACE" && set -x
+[ "$TRACE" ] && set -x
 
-### Prepare conditions
-function replace_vars {
-  local str="$1" ### save for looping
-  local i=0
-  local value=
-  local name=
-  local last=
+GUID_N=$(int "$GUID_N")
+[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
 
-  ### On replacing in Condition, $EMPTY is not set, so it works on real data
-
-  ### max. 100 parameters :-)
-  while test $i -lt 100; do
-    i=$((i+1))
-
-    eval value="\$value_$i"
-    [ -z "$value" ] && value=$EMPTY
-
-    eval name="\$name_$i"
-    eval last="\$last_$i"
-
-    str=$(echo "$str" | sed -e "s~[{]VALUE_$i[}]~$value~g" \
-                            -e "s~[{]NAME_$i[}]~$name~g" \
-                            -e "s~[{]LAST_$i[}]~$last~g")
-  done
-
-  ### If only 1 is used, VALUE, NAME and LAST are also allowed
-  [ -z "$value_1" ] && value_1=$EMPTY
-  str=$(echo "$str" | sed -e "s~[{]VALUE[}]~$value_1~g" \
-                          -e "s~[{]NAME[}]~$name_1~g" \
-                          -e "s~[{]LAST[}]~$last_1~g")
-
-  echo "$str"
-}
-
-### Reset run files
-function reset {
-  files=$(ls $(run_file alert $CONFIG '*'))
-  log 1 "Reset, delete $files ..."
-  rm $files
-}
-
-if [ "$RESET" ]; then
-  reset
-  exit
-fi
-
-curl=$(curl_cmd)
-
+##############################################################################
+### Go
+##############################################################################
 i=0
 
 while [ $i -lt $GUID_N ]; do
 
     i=$((i+1))
 
-    EMPTY=
-
     sec 1 $i
 
-    eval GUID_i_N=\$GUID_${i}_N
-    GUID_i_N=$(int "$GUID_i_N")
-
-    [ $GUID_i_N -eq 0 ] && continue
-
     j=0
-    numeric=
+    EMPTY=
 
-    while test $j -lt $GUID_i_N; do
+    while :; do
 
         j=$((j+1))
 
         var2 GUID $i $j
+        [ "$GUID" ] || break
 
         PVLngChannelAttr $GUID name
         PVLngChannelAttr $GUID description
@@ -115,162 +107,128 @@ while [ $i -lt $GUID_N ]; do
         [ "$description" ] && name="$name ($description)"
         eval name_$j="\$name"
 
-        data=$(PVLngGET data/$GUID.tsv?period=readlast)
-        lkv 2 Data "$data"
-
-        ### Extract 2nd value == data
-        value=$(echo "$data" | cut -f2)
-        lkv 2 Result "$name - $value"
-
-        ### Test for numerics
-        case $value in (*[0-9.]*) numeric=y;; esac
+        set -- $(PVLngGET data/$GUID.tsv?period=readlast)
+        shift ### Shift out timestamp
+        value=$@
+        lkv 2 "$name" "$value"
 
         eval value_$j="\$value"
 
-        lastfile=$(run_file alert $CONFIG "$i.$j.last")
-        [ -f $lastfile ] && last=$(<$lastfile) || last=
+        lastkey=$(key_name alert $CONFIG $i.$j.last)
+        last=$(PVLngStoreGET $lastkey 0)
         eval last_$j="\$last"
-
-        echo -n "$value" >$lastfile
+        [ "$last" != "$value" ] && PVLngStorePUT $lastkey "$value"
 
     done
 
-    flagfile=$(run_file alert $CONFIG "$i.once")
+    oncekey=$(key_name alert $CONFIG $i.once)
 
     ### Prepare condition
-    eval CONDITION=\$CONDITION_$i
-    [ "$CONDITION" ] || error_exit "Condition is required (CONDITION_$i)"
+    var1 CONDITION $i
+    [ "$CONDITION" ] || exit_required Condition CONDITION_$i
 
     CONDITION=$(replace_vars "$CONDITION")
     lkv 1 Condition "$CONDITION"
 
-    echo "$CONDITION" | grep -qe "[<>]"
-
-    if [ $? -eq 0 ]; then
-        ### Numeric condition
-        result=$(calc "$CONDITION")
-    else
-        ### String condition
-        eval [ $CONDITION ]
-        result=$?
-    fi
+    result=$(calc "$CONDITION" 0)
 
     ### Skip if condition is not true
-    if [ $result != 0 ]; then
+    if [ $result -eq 0 ]; then
         log 1 "Skip, condition not apply."
-        ### remove flag file
-        rm $flagfile >/dev/null 2>&1
+        ### Remove flag
+        PVLngStorePUT $oncekey
         continue
     fi
 
     ### Condition was true
-
-    var1 ONCE $i
-    ONCE=$(bool "$ONCE")
+    var1bool ONCE $i
 
     ### Skip if flag file exists, condition was true before && ONCE is set
-    if [ $ONCE -eq 1 -a -f $flagfile ]; then
+    if [ $ONCE -eq 1 -a "$(PVLngStoreGET $oncekey)" ]; then
         log 1 "Skip, report condition '$CONDITION' only once"
         continue
     fi
 
     if [ $ONCE -eq 1 ]; then
         ### Mark condition was true
-        touch $flagfile
+        PVLngStorePUT $oncekey x
     else
-        ### remove flag file
-        rm $flagfile >/dev/null 2>&1
+        ### Remove flag
+        PVLngStorePUT $oncekey
     fi
 
-    ### Get actions count
-    eval ACTION_N=\$ACTION_${i}_N
-    ACTION_N=$(int $ACTION_N)
+    var1 ACTION $i
+    : ${ACTION:=log}
 
-    j=0
+    var1 EMPTY $i
+    : ${EMPTY:=<empty>}
 
-    while [ $j -lt $ACTION_N ]; do
+    lkv 1 Action "$ACTION"
 
-        j=$((j+1))
+    case "$ACTION" in
 
-        sec 1 "Action $j"
+        log)
+            lkv 1 "PVLng log" "$GUID - $value"
 
-        var2 ACTION $i $j
+            [ "$TEST" ] || save_log 'Alert' "{NAME}: {VALUE}"
+            ;;
 
-        eval EMPTY=\$ACTION_${i}_${j}_EMPTY
-        [ "$EMPTY" ] || EMPTY="<empty>"
+        logger)
+            var1 MESSAGE $i
+            MESSAGE=$(replace_vars "${$MESSAGE:-{NAME\}: {VALUE\}}")
 
-        case ${ACTION:-log} in
+            lkv 1 Logger "$MESSAGE"
 
-            log)
-                log 1 "Save data to PVLng log"
-                lkv 1 Log "$GUID - $value"
+            [ "$TEST" ] || logger -t PVLng "$MESSAGE"
+            ;;
 
-                [ "$TEST" ] || save_log 'Alert' "{NAME}: {VALUE}"
-                ;;
+        mail)
+            var1 EMAIL $i
+            [ "$EMAIL" ] || error_exit "Email is required! (ACTION_${i}_${j}_EMAIL)"
 
-            logger)
-                log 1 "Save data to syslog"
-                eval MESSAGE=\$ACTION_${i}_${j}_MESSAGE
-                test "$MESSAGE" || MESSAGE="{NAME}: {VALUE}"
-                MESSAGE=$(replace_vars "$MESSAGE")
+            var1 SUBJECT $i
+            SUBJECT=$(replace_vars "${SUBJECT:-[PVLng] {NAME\}: {VALUE\}}")
 
-                lkv 1 Logger "$MESSAGE"
+            var1 BODY $i
+            BODY=$(replace_vars "$BODY")
 
-                [ "$TEST" ] || logger -t PVLng "$MESSAGE"
-                ;;
+            lkv 1 "Send email" "$EMAIL"
+            lkv 1 Subject "$SUBJECT"
+            sec 1 Body "$BODY"
 
-            mail)
-                log 1 "Send email"
-                eval EMAIL=\$ACTION_${i}_${j}_EMAIL
-                [ "$EMAIL" ] || error_exit "Email is required! (ACTION_${i}_${j}_EMAIL)"
+            [ "$TEST" ] || echo -e "$BODY" | mail -s "$SUBJECT" $EMAIL >/dev/null
+            ;;
 
-                eval SUBJECT=\$ACTION_${i}_${j}_SUBJECT
-                [ "$SUBJECT" ] || SUBJECT="[PVLng] {NAME}: {VALUE}"
-                SUBJECT=$(replace_vars "$SUBJECT")
+        file)
+            var1 DIR $i
+            [ "$DIR" ] || exit_required Directory ACTION_${i}_DIR
 
-                eval BODY=\$ACTION_${i}_${j}_BODY
-                BODY=$(replace_vars "$BODY")
+            var1 TEXT $i
+            TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}")
+            lkv 1 Text "$TEXT"
 
-                lkv 1 "Send email" "$EMAIL"
-                lkv 1 Subject "$SUBJECT"
-                log 1 "Body:"
-                log 1 "$BODY"
+            eval PREFIX=\$ACTION_${i}_PREFIX
+            
+            [ "$TEST" ] || echo -n "$TEXT" >$(mktemp --tmpdir="$DIR" ${PREFIX:-alert}.XXXXXX)
+            ;;
 
-                [ "$TEST" ] || echo -e "$BODY" | mail -s "$SUBJECT" $EMAIL >/dev/null
-                ;;
+        twitter)
+            ### Like "file" but with fixed file name pattern for twitter-file.sh
+            var1 TEXT $i
+            TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}")
+            lkv 1 TEXT "$TEXT"
 
-            file)
-                log 1 "Save data to file"
-                eval DIR=\$ACTION_${i}_${j}_DIR
-                [ "$DIR" ] || error_exit "Directory is required! (ACTION_${i}_${j}_DIR)"
+            [ "$TEST" ] || echo -n "$TEXT" >$(mktemp --tmpdir="$RUNDIR" twitter.alert.XXXXXX)
+            ;;
 
-                eval PREFIX=\$ACTION_${i}_${j}_PREFIX
-                [ "$PREFIX" ] || PREFIX="alert"
-
-                eval TEXT=\$ACTION_${i}_${j}_TEXT
-                [ "$TEXT" ] || TEXT="{NAME}: {VALUE}"
-                TEXT=$(replace_vars "$TEXT")
-
-                file=$(mktemp $DIR/$PREFIX.$(date +"%F.%X").XXXXXX)
-
-                lkv 1 Text "$TEXT"
-                lkv 1 File "$file"
-
-                [ "$TEST" ] || echo "$TEXT" >$file
-                ;;
-
-            *)
-                log 1 "Custom command"
-                ### Prepare command
-                ACTION=$(replace_vars "$ACTION")
-                ### Execute command
-                log 1 "$ACTION"
-                [ "$TEST" ] || eval "$ACTION"
-                ;;
-        esac
-
-    done
+        *)
+            ### Prepare command
+            ACTION=$(replace_vars "$ACTION")
+            ### Execute command
+            log 1 "$ACTION"
+            [ "$TEST" ] || eval $ACTION
+            ;;
+    esac
 
 done
 
-[ "$TEST" ] && reset

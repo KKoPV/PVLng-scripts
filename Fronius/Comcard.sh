@@ -1,17 +1,45 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
+### @copyright   2012-2015 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
-### Init variables
+### Constants
 ##############################################################################
 pwd=$(dirname $0)
 
-source $pwd/../PVLng.sh
+##############################################################################
+### Functions
+##############################################################################
+requestComCard () {
+    ### $1 - Request
+    ### $2 - DataCollection
+
+    url="$APIURL/$1.cgi?Scope=Device&DataCollection=$2&DeviceId=$SERIAL"
+    log 2 "$url"
+
+    ### Empty response file
+    >$RESPONSEFILE
+
+    $curl --output $RESPONSEFILE $url
+    rc=$?
+
+    [ $rc -ne 0 ] && curl_error_exit $rc "$1/$2/$3"
+
+    log 2 @$RESPONSEFILE Response
+
+    ### Save data
+    [ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
+
+}
+
+##############################################################################
+### Init
+##############################################################################
+. $pwd/../PVLng.sh
 
 ### Script options
 opt_help      "Read data from Fronius inverters/SensorCards"
@@ -21,81 +49,56 @@ opt_help_hint "See dist/Comcard.conf for details."
 ### PVLng default options with flag for save data
 opt_define_pvlng x
 
-source $(opt_build)
+. $(opt_build)
 
-read_config "$1"
+CONFIG=$1
 
-##############################################################################
-### Init
-##############################################################################
-[ "$APIURL" ] || error_exit "Solar Net API URL is required (APIURL)"
+read_config "$CONFIG"
 
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ]|| error_exit "No GUIDs defined (GUID_N)"
-
-daylight=$(PVLngGET "daylight/60.txt")
-log 2 "Daylight: $daylight"
-[ $daylight -eq 1 ] || exit 127
+### Run only during daylight +- 60 min, except in test mode
+[ "$TEST" ] || check_daylight 60
 
 ##############################################################################
 ### Start
 ##############################################################################
 [ "$TRACE" ] && set -x
 
+check_required APIURL 'Solar Net API URL'
+
+GUID_N=$(int "$GUID_N")
+[ $GUID_N -gt 0 ]|| exit_required Sections GUID_N
+
 ##############################################################################
 ### Go
 ##############################################################################
-### Process the request, $1 - Request, $2 - DataCollection, $3 - DeviceId
-function requestComCard {
-
-    url="$APIURL/$1.cgi?Scope=Device&DataCollection=$2&DeviceId=$3"
-    log 2 "$url"
-
-    ### Empty response file
-    echo -n >$RESPONSEFILE
-    $curl --output $RESPONSEFILE $url
-    rc=$?
-
-    [ $rc -ne 0 ] && curl_error_exit $rc "$1/$2/$3"
-
-    ### Test mode
-    log 2 "$1 response:"
-    log 2 @$RESPONSEFILE
-
-    ### Save data
-    [ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
-
-}
-
-RESPONSEFILE=$(temp_file)
+temp_file RESPONSEFILE
 
 curl="$(curl_cmd --header 'Content-Type=application/json')"
 
 i=0
 
-while test $i -lt $GUID_N; do
+while [ $i -lt $GUID_N ]; do
 
     i=$((i+1))
 
     sec 1 $i
 
     var1 GUID $i
-    [ "$GUID" ] || error_exit "Inverter GUID is required (GUID_$i)"
+    [ -z "$GUID" ] && log 1 Skip && continue
 
-    ### Request serial and type, required fields
-    PVLngChannelAttr $GUID SERIAL
+    ### Request type and serial, required fields
     PVLngChannelAttr $GUID CHANNEL
+    [ "$CHANNEL" ] || log 1 "ERROR: No channel defined for GUID $GUID" && exit
+    lkv 2 Channel $CHANNEL
 
-    if [ $CHANNEL -eq 1 -o $CHANNEL -eq 2 ]; then
-        requestComCard GetInverterRealtimeData CommonInverterData $SERIAL
-    fi
+    PVLngChannelAttr $GUID SERIAL
+    [ "$SERIAL" ] || log 1 "ERROR: No type (serial) defined for GUID $GUID" && exit
+    lkv 2 Type $SERIAL
 
-    if [ $CHANNEL -eq 2 ]; then
-        requestComCard GetStringRealtimeData NowStringControlData $SERIAL
-    fi
-
-    if [ $CHANNEL -eq 3 ]; then
-        requestComCard GetSensorRealtimeData NowSensorData $SERIAL
-    fi
+    CHANNEL=$(int "$CHANNEL")
+    [ $CHANNEL -eq 1 ] && requestComCard GetInverterRealtimeData CommonInverterData
+    [ $CHANNEL -eq 2 ] && requestComCard GetInverterRealtimeData CommonInverterData
+    [ $CHANNEL -eq 2 ] && requestComCard GetStringRealtimeData NowStringControlData
+    [ $CHANNEL -eq 3 ] && requestComCard GetSensorRealtimeData NowSensorData
 
 done

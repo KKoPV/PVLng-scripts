@@ -1,7 +1,7 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2014 Knut Kohl
+### @copyright   2012-2015 Knut Kohl
 ### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
@@ -9,7 +9,9 @@
 ##############################################################################
 ### Init
 ##############################################################################
-. $(dirname $0)/../PVLng.sh
+pwd=$(dirname $0)
+
+. $pwd/../PVLng.sh
 
 ### Script options
 opt_help      "Load saved or failed Inverter or Sensorbox data for SMA Webbox"

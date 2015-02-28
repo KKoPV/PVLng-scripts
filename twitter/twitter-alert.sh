@@ -1,33 +1,38 @@
+#!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
+### @copyright   2012-2015 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
-### Loaction, latitude,longitude
-### 2 decimals: 1.2345,1.2345
-### required
+### Constants
 ##############################################################################
-LOCATION         ""
+pwd=$(dirname $0)
 
 ##############################################################################
-### I suggest to register at OpenWeatherMap to get your own APPID at
-### http://openweathermap.org/appid
-### optional
+### Init
 ##############################################################################
-APPID            ""
+. $pwd/../PVLng.sh
+
+### Script options
+opt_help      "Post status from alert/alert.sh - method 'twitter'"
+
+### PVLng default options
+opt_define_pvlng
+
+### Remember arguments and apply later to twitter-file.sh
+args=$@
+
+. $(opt_build)
 
 ##############################################################################
-### Language, especially for weather condition
-### http://openweathermap.org/API > Multilingual support
-### optional, default en
+### Start
 ##############################################################################
-LANGUAGE         "en"
+[ "$TRACE" ] && set -x
 
 ##############################################################################
-### OpenWeatherMap channel GUID
-### required
+### Go
 ##############################################################################
-GUID             ""
+$pwd/twitter-file.sh $args -p $RUNDIR/twitter.alert.\*

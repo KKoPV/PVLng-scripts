@@ -1,17 +1,20 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2014 Knut Kohl
+### @copyright   2012-2015 Knut Kohl
 ### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
-### Init
+### Constants
 ##############################################################################
 pwd=$(dirname $0)
 
-source $pwd/../PVLng.sh
+##############################################################################
+### Init
+##############################################################################
+. $pwd/../PVLng.sh
 
 ### Script options
 opt_help      "Read D0 data from energy meters"
@@ -21,7 +24,7 @@ opt_help_hint "See D0.conf.dist for details."
 ### PVLng default options with flag for save data
 opt_define_pvlng x
 
-source $(opt_build)
+. $(opt_build)
 
 CONFIG="$1"
 
@@ -35,22 +38,23 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-[ "$DEVICE" ] || error_exit "No Device defined (DEVICE)"
+check_required DEVICE Device
 
 GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || error_exit "No sections defined (GUID_N)"
+[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
 
 ##############################################################################
 ### Go
 ##############################################################################
-DATAFILE=$(temp_file)
+temp_file DATAFILE
+
+sec 1 Fetch data
 
 ### Read data
 $pwd/bin/IEC-62056-21.py -d $DEVICE >$DATAFILE
 
 [ -s $DATAFILE ] || exit
 
-log 1 "Fetched data:"
 log 1 @$DATAFILE
 
 i=0
@@ -59,29 +63,26 @@ while [ $i -lt $GUID_N ]; do
 
     i=$((i+1))
 
-    log 1 "--- Section $i ---"
+    sec 1 $i
 
     var1 GUID $i
-    if [ -z "$GUID" ]; then
-        echo "Skip"
-        continue
-    fi
-    log 1 "GUID      : $GUID"
+    [ -z "$GUID" ] && log 1 Skip && continue
 
-    eval CHANNEL=\$OBIS_$i
-
-    if [ -z "$CHANNEL" ]; then
+    var1 OBIS $i
+    if [ -z "$OBIS" ]; then
         ### Read from API
         PVLngChannelAttr $GUID CHANNEL
+        OBIS=$CHANNEL
     fi
 
-    [ "$CHANNEL" ] || error_exit "OBIS Id is required, maintain as 'channel' for channel $GUID"
-    log 1 "OBIS Id   : $CHANNEL"
+    [ "$OBIS" ] || error_exit "OBIS Id is required, maintain as 'channel' for channel $GUID"
+    lkv 1 "OBIS Id" "$OBIS"
 
     ### Mask * for grep
-    expr=$(echo $CHANNEL | sed -e 's/\*/[*]/g')
-    value=$(grep $expr $DATAFILE | cut -f2)
-    log 1 "Value     : $value"
+    expr=$(echo $OBIS | sed 's~\*~[*]~g')
+    set -- $(grep $expr $DATAFILE)
+    value=$1
+    lkv 1 Value "$value"
 
     [ "$value" ] || continue
     [ "$TEST" ] && continue

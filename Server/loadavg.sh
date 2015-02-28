@@ -1,7 +1,7 @@
 #!/bin/bash
 ##############################################################################
 ### @author     Knut Kohl <github@knutkohl.de>
-### @copyright  2012-2014 Knut Kohl
+### @copyright  2012-2015 Knut Kohl
 ### @license    MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version    1.0.0
 ##############################################################################
@@ -9,7 +9,9 @@
 ##############################################################################
 ### Init
 ##############################################################################
-. $(dirname $0)/../PVLng.sh
+pwd=$(dirname $0)
+
+. $pwd/../PVLng.sh
 
 ### Script options
 opt_help      "Save server load from /proc/loadavg"
@@ -26,7 +28,11 @@ read_config "$1"
 ##############################################################################
 ### Functions
 ##############################################################################
-function saveLoadAvg { lkv 1 $@; [ "$1" -a -z "$TEST" ] && PVLngPUT $@; }
+SaveLoadAvg () {
+    i=$((i+1))
+    [ "$1" ] && sec 1 $i
+    [ "$1" -a "$2" ] && PVLngPUT $@
+}
 
 ##############################################################################
 ### Start
@@ -39,18 +45,9 @@ function saveLoadAvg { lkv 1 $@; [ "$1" -a -z "$TEST" ] && PVLngPUT $@; }
 ### Get load and set load to $1, $2, $3
 ### set $4 to number of currently running processes
 ### set $5 to the total number of processes
-set $(sed -e 's~/~ ~' /proc/loadavg)
+set -- $(sed -e 's~/~ ~' /proc/loadavg)
 
 [ "$TEST" ] && exit
-
-i=0
-
-function SaveLoadAvg {
-    i=$((i+1))
-    log 1 "--- $i ---"
-    lkv 2 "$1" "$2"
-    [ "$1" -a "$2" ] && PVLngPUT $@
-}
 
 SaveLoadAvg "$LOADAVG_1"  $1
 SaveLoadAvg "$LOADAVG_5"  $2

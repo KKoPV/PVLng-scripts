@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 ##############################################################################
 ### @author     Knut Kohl <github@knutkohl.de>
-### @copyright  2012-2014 Knut Kohl
+### @copyright  2012-2015 Knut Kohl
 ### @license    MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version    1.0.0
 ##############################################################################
@@ -13,7 +13,7 @@ APIURL='https://api.thingspeak.com/channels.json'
 ##############################################################################
 pwd=$(dirname "$0")
 
-source $pwd/../PVLng.sh
+. $pwd/../PVLng.sh
 
 ### Script options
 opt_help      "Create ThingSpeak channel from GUIDs file"
@@ -40,7 +40,7 @@ opt_define short=u long=unit variable=ADDUNIT desc='Add unit to field name' valu
 ### PVLng default options
 opt_define_pvlng
 
-source $(opt_build)
+. $(opt_build)
 
 GUIDS="$1"
 
@@ -49,13 +49,13 @@ GUIDS="$1"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-[ "$APIKEY" ] || error_exit "ThingSpeak User API key is required"
-[ "$GUIDS" ]  || error_exit "GUIDs file is required"
+[ "$APIKEY" ] || exit_required "ThingSpeak User API key" --key
+[ "$GUIDS" ]  || exit_required "GUIDs file"
 
 ##############################################################################
 ### Go
 ##############################################################################
-[ "$TEST" ] || conf_tmp=$(temp_file)
+temp_file conf_tmp
 
 log 0 Fetch channel attributes...
 
@@ -109,12 +109,10 @@ lkv 2 Data "$data"
 log 0 Create ThingSpeak channel...
 
 ### Send
-rc=$($(curl_cmd) --write-out %{http_code} \
-                 --output $TMPFILE \
-                 --data "$data" $APIURL)
+rc=$($(curl_cmd) --write-out %{http_code} --output $TMPFILE --data "$data" $APIURL)
 
 lkv 2 "HTTP code" $rc
-lkv 2 "API Response" "$(<$TMPFILE)"
+log 2 @$TMPFILE "API Response"
 
 ### Check result, ONLY not zero is ok
 if [ $rc -eq 200 ]; then

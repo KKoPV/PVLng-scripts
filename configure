@@ -1,0 +1,223 @@
+#!/usr/bin/env php
+<?php
+
+$opts = getopt('cith');
+$test = array_key_exists('t', $opts);
+
+if (array_key_exists('h', $opts)) {
+    e('Usage: ', $argv[0], ' [options]');
+    e();
+    e('Options:');
+    e('    -t  Test mode, don\'t create file, just show result');
+    e('    -h  This help');
+    exit;
+}
+
+define('DS', DIRECTORY_SEPARATOR);
+
+$cwd = getcwd();
+
+/**
+ * Let's go
+ */
+$file = $cwd.'/dist/configure.json';
+
+if (!file_exists($file)) {
+    e('Missing configuration file: ', $file);
+    exit(1);
+}
+
+e();
+e('Use configuration from', $file);
+
+// Tokenize JSON and remove all comments and whitespaces
+$json = '';
+foreach (token_get_all('<?php '.file_get_contents($file)) as $token) {
+    if (!is_array($token)) {
+        $json .= $token;
+    } elseif ($token[0] == T_CONSTANT_ENCAPSED_STRING) {
+        $json .= $token[1];
+    }
+}
+
+$c = json_decode($json, TRUE);
+
+if (($err = json_last_error()) != JSON_ERROR_NONE) {
+    $errors = array(
+        JSON_ERROR_DEPTH            => 'Maximum stack depth exceeded',
+        JSON_ERROR_STATE_MISMATCH   => 'Underflow or the modes mismatch',
+        JSON_ERROR_CTRL_CHAR        => 'Unexpected control character found',
+        JSON_ERROR_SYNTAX           => 'Syntax error, malformed JSON',
+        JSON_ERROR_UTF8             => 'Malformed UTF-8 characters, possibly incorrectly encoded'
+    );
+    e('###');
+    e('### ERROR: ', array_key_exists($err, $errors) ? $errors[$err] : "Unknown error ({$err})");
+    e('###');
+    exit(127);
+}
+
+$c0 = &$c[0];
+$c1 = &$c[1];
+$c2 = &$c[2];
+
+// Header data
+$c0 = array_merge( array( 'sections' => 'GUID' ), $c0 );
+
+// Common data
+if (!empty($c1)) {
+    h('Common settings');
+    foreach ($c1 as $id => $data) $c1[$id] = readValue($data);
+}
+
+$n = 0;
+
+// Multiple data
+if (!empty($c2)) {
+    h('Multiple settings');
+    do {
+        h('Section '.++$n);
+        foreach ($c2 as $id => $data) {
+            $data = readValue($data);
+            $data['_value'][$n] = $data['value'];
+            $data['value'] = '';
+            $c2[$id] = $data;
+        }
+        echo PHP_EOL, 'More (y|n) [n] ';
+    } while (trim(fgets(STDIN)) == 'y');
+}
+
+// Generate config file
+$cfg = array();
+cc('Generated from '.$file);
+
+if (!empty($c1)) {
+    c0();
+    cc('Common settings');
+
+    foreach ($c1 as $data) {
+        c0();
+        cc($data['description']);
+        c2($data['name'], $data['value']);
+    }
+}
+
+if (!empty($c2)) {
+
+    c0();
+    cc('Count of sections');
+    c2($c0['sections'].'_N', $n);
+
+    for ($i=1; $i<=$n; $i++) {
+        c0();
+        cc($c0['sections'], $i);
+
+        foreach ($c2 as $data) {
+            c0();
+            cc($data['description']);
+            c2($data['name'].'_'.$i, $data['_value'][$i]);
+        }
+    }
+}
+
+c0();
+e();
+
+if ($test) {
+    e(implode(PHP_EOL, $cfg));
+} else {
+    echo 'Configuration file name (without ".conf") [config]', PHP_EOL, '? ';
+    $file = trim(fgets(STDIN));
+    $file = $cwd.DS.($file?:'config').'.conf';
+
+    e();
+    file_put_contents($file, implode(PHP_EOL, $cfg));
+    e('Saved to '.$file);
+}
+
+// ###########################################################################
+// Functions
+// ###########################################################################
+
+/**
+ * Configuration Comment
+ */
+function cc() {
+    global $cfg;
+    $cfg[] = '##############################################################################';
+    $cfg[] = '### '.implode(' ', func_get_args());
+    $cfg[] = '##############################################################################';
+}
+
+/**
+ * Configuration empty line
+ */
+function c0() {
+    global $cfg;
+    $cfg[] = NULL;
+}
+
+/**
+ * Configuration Key = Value
+ */
+function c2($k, $v ) {
+    global $cfg;
+    $cfg[] = is_numeric($v) ? sprintf('%-15s %s', $k, $v) : sprintf('%-15s "%s"', $k, $v);
+}
+
+/**
+ * echo with newline
+ */
+function e() {
+    echo implode(func_get_args()),PHP_EOL;
+}
+
+/**
+ * Header
+ */
+function h() {
+    echo PHP_EOL,
+         '---------- ', implode(func_get_args()), ' ----------',
+         PHP_EOL, PHP_EOL;
+}
+
+/**
+ * Read values for key fron STDIN
+ */
+function readValue( $key ) {
+    $key = array_merge(
+        array(
+            'type'     => 's',
+            'values'   => array(),
+            'default'  => '',
+            'value'    => '',
+            'required' => 0,
+            'help'     => ''
+        ),
+        $key
+    );
+
+    if ($key['value'] == '') $key['value'] = $key['default'];
+    if ($key['type'] == 'b') $key['values'] = array('y', 'n');
+
+    do {
+        if ($key['help']) e($key['help']);
+        echo $key['description'];
+        if (!empty($key['values'])) echo ' ('.implode('|', $key['values']).')';
+        if (!empty($key['value'])) echo ' ['.$key['value'].']';
+        echo PHP_EOL, '? ';
+        $v = trim(fgets(STDIN));
+        if ($v) $key['value'] = $v;
+
+        $ok = TRUE;
+        if (!$key['value'] AND $key['required']) {
+            e('--- Required!');
+            $ok = FALSE;
+        }
+        if (!empty($key['values']) AND !in_array($key['value'], $key['values'])) {
+            e('--- Invalid value!');
+            $key['value'] = $key['default'];
+            $ok = FALSE;
+        }
+    } while (!$ok);
+    return $key;
+}

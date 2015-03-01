@@ -5,6 +5,3 @@ data/*
 run/*
 !.githold
 !**/dist/*
-
-configure*
-*.ini

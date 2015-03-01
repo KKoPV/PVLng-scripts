@@ -1,0 +1,51 @@
+/**
+ * @author     Knut Kohl <github@knutkohl.de>
+ * @copyright  2012-2015 Knut Kohl
+ * @license    MIT License (MIT) http://opensource.org/licenses/MIT
+ * @version    1.0.0
+ *
+ * JSON with JavaScript comments
+ */
+[
+  {
+    "sections": "GUID"
+  },
+  [
+    {
+      "name": "SERVER",
+      "description": "OWFS Server[:Port]",
+      "default": "localhost:4304"
+    },
+    {
+      "name": "CACHED",
+      "description": "Use cached sensor values",
+      "type": "b",
+      "default": "n"
+    },
+    {
+      "name": "UNIT",
+      "description": "Unit for temperature sensors, see also \"owread -h\"",
+      "values": [ "C", "F", "K", "R" ],
+      "default": "C"
+    },
+    {
+      "name": "OWREAD",
+      "description": "Path to owread, if script can't detect"
+    }
+  ],
+  [
+    {
+      "name": "GUID",
+      "description": "PVLng sensor GUID",
+      "help": "If GUID is not given, the section will be ignored."
+    },
+    {
+      "name": "SERIAL",
+      "description": "PVLng sensor serial (read from API if empty)"
+    },
+    {
+      "name": "CHANNEL",
+      "description": "PVLng sensor channel (read from API if empty)"
+    }
+  ]
+]

@@ -169,6 +169,16 @@ function toFixed {
     local decimals=${2:-0}
     printf "%.${decimals}f" $value
 }
+
+##############################################################################
+### Test if $1 is a numeric value (e.g. valid timestamp or numeric reading value
+### $1 - value, required
+##############################################################################
+function numeric {
+    local value=$1
+    if ((value)) 2>/dev/null; then echo 1; else echo 0; fi
+}
+
 ##############################################################################
 ### Build md5 hash of file
 ##############################################################################

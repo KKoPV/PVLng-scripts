@@ -57,6 +57,8 @@ check_required TYPE   'Type'
 ### Send last reading with last timestamp
 set -- $(PVLngGET "data/$GUID.tsv?period=last")
 
+[ $(numeric "$1") -ne 1 ] && lkv 0 "Invalid reading" $@ && exit
+
 VALUE=$2
 
 ### No data, e.g. before inverter start

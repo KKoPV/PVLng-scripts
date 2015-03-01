@@ -99,9 +99,7 @@ while [ $i -lt $ITEM_N ]; do
     [ "$value" ] && [ "$value" != "0" ] || [ "$FORCE" ] || exit
 
     ### Check if result is numeric
-    if ((value)) 2>/dev/null; then numeric=y; else numeric= ; fi
-
-    if [ "$numeric" ]; then
+    if [ $(numeric "$value") -eq 1 ]; then
         PVLngChannelAttr $GUID NUMERIC
         if [ $(bool "$NUMERIC") -eq 1 ]; then
             var1 FACTOR $i 1
@@ -117,9 +115,8 @@ done
 
 STATUS=$(echo "$STATUS" | sed -e 's/ *|| */\\n/g')
 
-sec 2 Status
-lkv 2 Template "$STATUS"
-lkv 2 Parameter "$PARAMS"
+sec 2 Template "$STATUS"
+sec 2 Parameter "$PARAMS"
 
 (   ### Sub shell for IFS change
     IFS=';'

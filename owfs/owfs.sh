@@ -97,6 +97,6 @@ while [ $i -lt $GUID_N ]; do
     lkv 1 Value "$value"
 
     ### Save data
-    [ "$TEST" ] || PVLngPUT $GUID $value
+    PVLngPUT $GUID $value
 
 done

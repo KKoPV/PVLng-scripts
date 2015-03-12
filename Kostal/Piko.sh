@@ -33,8 +33,8 @@ CONFIG=$1
 
 read_config "$CONFIG"
 
-### Run only during daylight +- 60 min, except in test mode
-[ "$TEST" ] || check_daylight 60
+### Run only during daylight +- 60 min
+check_daylight 60
 
 read_config "$1"
 
@@ -110,7 +110,7 @@ while [ $i -lt $GUID_N ]; do
         fi
 
         ### Save data
-        [ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
+        PVLngPUT $GUID @$RESPONSEFILE
     done
 
 done

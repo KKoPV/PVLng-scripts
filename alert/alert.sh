@@ -14,9 +14,10 @@ pwd=$(dirname $0)
 ##############################################################################
 ### Functions
 ##############################################################################
-replace_vars () {
+function replace_vars {
     ### Prepare conditions
     local str="$1" ### save for looping
+    local count=$2
     local i=0
     local value=
     local name=
@@ -25,7 +26,7 @@ replace_vars () {
     ### On replacing in Condition, $EMPTY is not set, so it works on real data
 
     ### max. 10 parameters :-)
-    while [ $i -lt 10 ]; do
+    while [ $i -lt $count ]; do
         i=$((i+1))
 
         var1 name $i
@@ -41,6 +42,68 @@ replace_vars () {
     echo "$str" | sed "s~[{]VALUE[}]~$value_1~g;s~[{]NAME[}]~$name_1~g;s~[{]LAST[}]~$last_1~g"
 }
 
+### --------------------------------------------------------------------------
+function alert_log {
+    lkv 1 "PVLng log" "$GUID - $value"
+
+    [ "$TEST" ] && return
+    save_log 'Alert' "{NAME}: {VALUE}"
+}
+
+### --------------------------------------------------------------------------
+function alert_logger {
+    var1 MESSAGE $i
+    MESSAGE=$(replace_vars "${MESSAGE:-{NAME\}: {VALUE\}}" $j)
+    lkv 1 Logger "$MESSAGE"
+
+    [ "$TEST" ] && return
+    logger -t PVLng "$MESSAGE"
+}
+
+### --------------------------------------------------------------------------
+function alert_mail {
+    var1 EMAIL $i
+    [ "$EMAIL" ] || error_exit "Email is required! (ACTION_${i}_${j}_EMAIL)"
+
+    var1 SUBJECT $i
+    SUBJECT=$(replace_vars "${SUBJECT:-[PVLng] {NAME\}: {VALUE\}}" $j)
+
+    var1 BODY $i
+    BODY=$(replace_vars "$BODY" $j)
+
+    lkv 1 "Send email" "$EMAIL"
+    lkv 1 Subject "$SUBJECT"
+    sec 1 Body "$BODY"
+
+    [ "$TEST" ] && return
+    echo -e "$BODY" | mail -s "$SUBJECT" $EMAIL >/dev/null
+}
+
+### --------------------------------------------------------------------------
+function alert_file {
+    var1 DIR $i
+    [ "$DIR" ] || exit_required Directory DIR_${i}
+
+    var1 PREFIX $i
+
+    var1 TEXT $i
+    TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}" $j)
+    lkv 1 TEXT "$TEXT"
+
+    [ "$TEST" ] && return
+    echo -n "$TEXT" >$(mktemp --tmpdir="$DIR" ${PREFIX:-alert}.XXXXXX)
+}
+
+### --------------------------------------------------------------------------
+function alert_twitter {
+    ### Like "file" but with defined file name pattern for twitter-alert.sh
+    var1 TEXT $i
+    TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}" $j)
+    lkv 1 TEXT "$TEXT"
+
+    [ "$TEST" ] && return
+    echo -n "$TEXT" >$(mktemp --tmpdir="$RUNDIR" twitter.alert.XXXXXX)
+}
 
 ##############################################################################
 ### Init
@@ -52,21 +115,10 @@ opt_help      "Alert on channels conditions"
 opt_help_args "<config file>"
 opt_help_hint "See alert.conf.dist for details."
 
-opt_define short=r long=reset desc='Reset run files' variable=RESET value=y
-
 ### PVLng default options
 opt_define_pvlng
 
 . $(opt_build)
-
-if [ "$RESET" ]; then
-    ### Reset run files
-    sec 1 Reset
-    files=$(ls $(run_file alert $CONFIG '*'))
-    log 1 "rm $files"
-    rm $files
-    exit
-fi
 
 CONFIG=$1
 
@@ -91,34 +143,43 @@ while [ $i -lt $GUID_N ]; do
 
     sec 1 $i
 
-    j=0
     EMPTY=
 
-    while :; do
+    var1 USE $i
 
+    if [ "$USE" ]; then var1 GUID $USE; else var1 GUID $i; fi
+
+    j=0
+
+    ### Split comma separated GUIDs
+    for GUID in $(echo "$GUID" | sed 's/ *, */ /g'); do
+
+        ### Count GUIDs for function replace_vars
         j=$((j+1))
 
-        var2 GUID $i $j
-        [ "$GUID" ] || break
+        if [ "$USE" ]; then
+            eval name="\$name_$USE"
+            eval value="\$value_$USE"
+            eval last="\$last_$USE"
+        else
+            PVLngChannelAttr $GUID name
+            PVLngChannelAttr $GUID description
+            [ "$description" ] && name="$name ($description)"
 
-        PVLngChannelAttr $GUID name
-        PVLngChannelAttr $GUID description
+            set -- $(PVLngGET data/$GUID.tsv?period=readlast)
+            shift ### Shift out timestamp
+            value=$@
 
-        [ "$description" ] && name="$name ($description)"
+            lkv 2 "$name" "$value"
+
+            lastkey=$(key_name alert $CONFIG $i.$j.last)
+            last=$(PVLngStoreGET $lastkey)
+            [ "$TEST" -o "$last" == "$value" ] || PVLngStorePUT $lastkey "$value"
+        fi
+
         eval name_$j="\$name"
-
-        set -- $(PVLngGET data/$GUID.tsv?period=readlast)
-        shift ### Shift out timestamp
-        value=$@
-        lkv 2 "$name" "$value"
-
         eval value_$j="\$value"
-
-        lastkey=$(key_name alert $CONFIG $i.$j.last)
-        last=$(PVLngStoreGET $lastkey 0)
         eval last_$j="\$last"
-        [ "$last" != "$value" ] && PVLngStorePUT $lastkey "$value"
-
     done
 
     oncekey=$(key_name alert $CONFIG $i.once)
@@ -126,8 +187,9 @@ while [ $i -lt $GUID_N ]; do
     ### Prepare condition
     var1 CONDITION $i
     [ "$CONDITION" ] || exit_required Condition CONDITION_$i
+    CONDITION=$(echo "$CONDITION" | sed 's~'\''~\\'\''~g')
 
-    CONDITION=$(replace_vars "$CONDITION")
+    CONDITION=$(replace_vars "$CONDITION" $j)
     lkv 1 Condition "$CONDITION"
 
     result=$(calc "$CONDITION" 0)
@@ -136,7 +198,7 @@ while [ $i -lt $GUID_N ]; do
     if [ $result -eq 0 ]; then
         log 1 "Skip, condition not apply."
         ### Remove flag
-        PVLngStorePUT $oncekey
+        [ "$TEST" ] || PVLngStorePUT $oncekey
         continue
     fi
 
@@ -151,10 +213,10 @@ while [ $i -lt $GUID_N ]; do
 
     if [ $ONCE -eq 1 ]; then
         ### Mark condition was true
-        PVLngStorePUT $oncekey x
+        [ "$TEST" ] || PVLngStorePUT $oncekey x
     else
         ### Remove flag
-        PVLngStorePUT $oncekey
+        [ "$TEST" ] || PVLngStorePUT $oncekey
     fi
 
     var1 ACTION $i
@@ -163,72 +225,13 @@ while [ $i -lt $GUID_N ]; do
     var1 EMPTY $i
     : ${EMPTY:=<empty>}
 
-    lkv 1 Action "$ACTION"
-
-    case "$ACTION" in
-
-        log)
-            lkv 1 "PVLng log" "$GUID - $value"
-
-            [ "$TEST" ] || save_log 'Alert' "{NAME}: {VALUE}"
-            ;;
-
-        logger)
-            var1 MESSAGE $i
-            MESSAGE=$(replace_vars "${$MESSAGE:-{NAME\}: {VALUE\}}")
-
-            lkv 1 Logger "$MESSAGE"
-
-            [ "$TEST" ] || logger -t PVLng "$MESSAGE"
-            ;;
-
-        mail)
-            var1 EMAIL $i
-            [ "$EMAIL" ] || error_exit "Email is required! (ACTION_${i}_${j}_EMAIL)"
-
-            var1 SUBJECT $i
-            SUBJECT=$(replace_vars "${SUBJECT:-[PVLng] {NAME\}: {VALUE\}}")
-
-            var1 BODY $i
-            BODY=$(replace_vars "$BODY")
-
-            lkv 1 "Send email" "$EMAIL"
-            lkv 1 Subject "$SUBJECT"
-            sec 1 Body "$BODY"
-
-            [ "$TEST" ] || echo -e "$BODY" | mail -s "$SUBJECT" $EMAIL >/dev/null
-            ;;
-
-        file)
-            var1 DIR $i
-            [ "$DIR" ] || exit_required Directory ACTION_${i}_DIR
-
-            var1 TEXT $i
-            TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}")
-            lkv 1 Text "$TEXT"
-
-            eval PREFIX=\$ACTION_${i}_PREFIX
-            
-            [ "$TEST" ] || echo -n "$TEXT" >$(mktemp --tmpdir="$DIR" ${PREFIX:-alert}.XXXXXX)
-            ;;
-
-        twitter)
-            ### Like "file" but with fixed file name pattern for twitter-file.sh
-            var1 TEXT $i
-            TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}")
-            lkv 1 TEXT "$TEXT"
-
-            [ "$TEST" ] || echo -n "$TEXT" >$(mktemp --tmpdir="$RUNDIR" twitter.alert.XXXXXX)
-            ;;
-
-        *)
-            ### Prepare command
-            ACTION=$(replace_vars "$ACTION")
-            ### Execute command
-            log 1 "$ACTION"
-            [ "$TEST" ] || eval $ACTION
-            ;;
-    esac
+    ### Check if action function exists
+    eval f=$(declare -F alert_$ACTION)
+    if [ "$f" ]; then
+        eval alert_$ACTION
+    else
+        log 0 ERROR - Unknown function: $ACTION
+    fi
 
 done
 

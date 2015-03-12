@@ -17,7 +17,10 @@ pwd=$(dirname $0)
 S0StartListener () {
     local cmd="$S0 -d $CHANNEL -r $RESOLUTION -l $LOG"
 
-    [ "$TEST" ] && lkv 1 TEST "$cmd" && return
+    if [ "$TEST" ]; then
+        lkv 1 TEST "$cmd"
+        return
+    fi
 
     lkv 1 "Start listener" "$cmd"
     ### Start read of device in watt mode!
@@ -39,7 +42,7 @@ S0SaveData () {
     lkv 1 Impulses $1
     lkv 1 "Average power" "$2 W"
 
-    if [ $(bool $IMPULSES) -eq 1 ]; then
+    if [ $IMPULSES -eq 1 ]; then
         ### Save impulses
         PVLngPUT $GUID $1
     else
@@ -80,59 +83,72 @@ check_lock $(basename $CONFIG)
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-check_required GUID 'Channel GUID'
-
-check_default RESOLUTION 1000
-[ $RESOLUTION -gt 0 ] || exit_required "Sensor resolution (positive integer)" RESOLUTION
-
-check_default IMPULSES 0
-
-if [ ! "$CHANNEL" ]; then
-    ### Read from API
-    PVLngChannelAttr $GUID CHANNEL
-fi
-
-[ "$CHANNEL" ] || exit_required "Device (maintain as 'channel' for channel $GUID)" CHANNEL
-
-if [ ! -r "$CHANNEL" ]; then
-    echo
-    echo Device $CHANNEL is not readable for script running user!
-    echo
-    ls -l "$CHANNEL"
-    echo
-    echo Please make sure the user is at least added to the group which ownes the device.
-    exit 2
-fi
+GUID_N=$(int "$GUID_N")
+[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
 
 ##############################################################################
 ### Go
 ##############################################################################
-### Log file for measuring data
-LOG=$(run_file S0 "$CONFIG")
+i=0
 
-lkv 1 Device $CHANNEL
+while [ $i -lt $GUID_N ]; do
 
-### Identify S0 listener process by device attached to
-### Put whole "ps ax" output into an array, $pid then shows the same as ${pid[0]}
-pid=($(ps ax | grep -e "[ /]S0" | grep "$CHANNEL"))
+    i=$((i+1))
 
-if [ ! "$pid" ]; then
-    ### Mostly 1st run, start S0 listener
-    S0StartListener
+    sec 1 $i
 
-else
-    ### Fine, S0 listener is running
-    lkv 1 "S0 listener pid" $pid
+    var1 GUID $i
+    [ -z "$GUID" ] && log 1 Skip && continue
 
-    if [ "$ABORT" ]; then
-        log 0 "Stop listener daemon"
-        log 0 "Kill process $pid ..."
-        kill $pid
-        log 0 "Remove log $LOG ..."
-        rm "$LOG" 2>/dev/null
-        log 0 'Done'
-        exit
+    var1 CHANNEL $i
+    if [ -z "$CHANNEL" ]; then
+        ### Read from API
+        PVLngChannelAttr $GUID CHANNEL
     fi
 
-    S0SaveData
-fi
+    [ "$CHANNEL" ] || exit_required "Device (maintain as 'channel' for channel $GUID)" CHANNEL_$i
+
+    if [ ! -r "$CHANNEL" ]; then
+        echo
+        echo Device $CHANNEL is not readable for script running user!
+        echo
+        ls -l "$CHANNEL"
+        echo
+        echo Please make sure the user is at least added to the group which ownes the device.
+        exit 2
+    fi
+
+    var1int RESOLUTION $i 0
+    [ $RESOLUTION -gt 0 ] || exit_required "Sensor resolution (positive integer)" RESOLUTION_$i
+
+    var1bool IMPULSES $i 0
+
+    ### Log file for measuring data
+    LOG=$(run_file S0 "$CONFIG" $i.log)
+
+    ### Identify S0 listener process by device attached to
+    ### Put whole "ps ax" output into an array, $pid then shows the same as ${pid[0]}
+    pid=($(ps ax | grep -e "[ /]S0" | grep "$CHANNEL"))
+
+    if [ ! "$pid" ]; then
+        ### Mostly 1st run, start S0 listener
+        S0StartListener
+
+    else
+        ### Fine, S0 listener is running
+        lkv 1 "S0 listener pid" $pid
+
+        if [ "$ABORT" ]; then
+            log 0 "Stop listener daemon"
+            log 0 "Kill process $pid ..."
+            kill $pid
+            log 0 "Remove log $LOG ..."
+            rm "$LOG" 2>/dev/null
+            log 0 'Done'
+            exit
+        fi
+
+        S0SaveData
+    fi
+
+done

@@ -30,8 +30,7 @@ CONFIG="$1"
 
 read_config "$CONFIG"
 
-### Don't check lock file in test mode
-[ "$TEST" ] || check_lock $(basename $CONFIG)
+check_lock $(basename $CONFIG)
 
 ##############################################################################
 ### Start
@@ -48,14 +47,14 @@ GUID_N=$(int "$GUID_N")
 ##############################################################################
 temp_file DATAFILE
 
-sec 1 Fetch data
+sec 2 Fetch data ...
 
 ### Read data
 $pwd/bin/IEC-62056-21.py -d $DEVICE >$DATAFILE
 
 [ -s $DATAFILE ] || exit
 
-log 1 @$DATAFILE
+log 2 @$DATAFILE D0
 
 i=0
 
@@ -76,7 +75,7 @@ while [ $i -lt $GUID_N ]; do
     fi
 
     [ "$OBIS" ] || error_exit "OBIS Id is required, maintain as 'channel' for channel $GUID"
-    lkv 1 "OBIS Id" "$OBIS"
+    lkv 1 "Used OBIS" "$OBIS"
 
     ### Mask * for grep
     expr=$(echo $OBIS | sed 's~\*~[*]~g')
@@ -85,7 +84,6 @@ while [ $i -lt $GUID_N ]; do
     lkv 1 Value "$value"
 
     [ "$value" ] || continue
-    [ "$TEST" ] && continue
 
     PVLngPUT $GUID $value
 

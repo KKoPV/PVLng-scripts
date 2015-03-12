@@ -33,8 +33,8 @@ CONFIG=$1
 
 read_config "$CONFIG"
 
-### Run only during daylight +- 60 min, except in test mode
-[ "$TEST" ] || check_daylight 60
+### Run only during daylight +- 60 min
+check_daylight 60
 
 ##############################################################################
 ### Start
@@ -98,7 +98,7 @@ while [ $i -lt $GUID_N ]; do
 
     if [ -s $TMPFILE ]; then
         log 1 @$CSVFILE
-        [ "$TEST" ] || PVLngPUTraw $GUID @$TMPFILE
+        PVLngPUTraw $GUID @$TMPFILE
     else
         log 1 "No valid / empty response!"
     fi

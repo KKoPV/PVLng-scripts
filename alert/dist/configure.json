@@ -1,0 +1,18 @@
+/**
+ * @author     Knut Kohl <github@knutkohl.de>
+ * @copyright  2012-2015 Knut Kohl
+ * @license    MIT License (MIT) http://opensource.org/licenses/MIT
+ * @version    1.0.0
+ *
+ * JSON with JavaScript comments
+ */
+[
+  {},
+  [
+    {
+      "name": "Alerts have to be configured manually",
+      "help": "Sorry, but alerts have to be configured manually at the moment,",
+      "description": "please copy dist/alert.conf into this directory and adjust."
+    }
+  ]
+]

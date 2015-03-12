@@ -32,7 +32,7 @@ requestComCard () {
     log 2 @$RESPONSEFILE Response
 
     ### Save data
-    [ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
+    PVLngPUT $GUID @$RESPONSEFILE
 
 }
 
@@ -55,8 +55,8 @@ CONFIG=$1
 
 read_config "$CONFIG"
 
-### Run only during daylight +- 60 min, except in test mode
-[ "$TEST" ] || check_daylight 60
+### Run only during daylight +- 60 min
+check_daylight 60
 
 ##############################################################################
 ### Start

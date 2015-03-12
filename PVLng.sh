@@ -143,11 +143,7 @@ function int {
 ##############################################################################
 function calc {
     local term="$1"
-    local decimals=${2:-4}
-
-    ### Mask all " and replace all ' with " for awk!
-    term=$(echo "$term" | sed -e "s~\"~\\\\\"~g;s~'~\"~g")
-    local result=$(awk "BEGIN { printf \"%.${decimals}f\", ($term) }" 2>/dev/null)
+    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }" 2>/dev/null)
 
     ### Test for numeric string
     ### http://www.linuxquestions.org/questions/programming-9/bash-scripting-check-for-numeric-values-352226/#post3993863
@@ -176,7 +172,7 @@ function toFixed {
 ##############################################################################
 function numeric {
     local value=$1
-    if ((value)) 2>/dev/null; then echo 1; else echo 0; fi
+    if [ "$1" == 0 ] || ((value)) 2>/dev/null; then echo 1; else echo 0; fi
 }
 
 ##############################################################################
@@ -192,6 +188,8 @@ function hash {
 ### $2 - Default value if empty
 ##############################################################################
 function check_default {
+    eval local val=\$$1
+    [ "$val" ] || lkv 1 $1 "$2 (default)"
     eval : \${$1:=$2}
 }
 
@@ -201,9 +199,8 @@ function check_default {
 ### $2 - Error message
 ##############################################################################
 function check_required {
-    local var=$1
-    eval local val="\$$var"
-    [ "$val" ] || error_exit "$2 required ($var)!"
+    eval local val=\$$1
+    [ "$val" ] || error_exit "$2 required ($1)!"
 }
 
 ##############################################################################
@@ -261,7 +258,7 @@ function var2int {
 function var1bool {
     eval local val="\${${1}_${2}:-${3}}"
     eval $1=$(bool "$val")
-    lkv 1 $1 "$val"
+    lkb 1 $1 "$val"
 }
 
 ##############################################################################
@@ -271,7 +268,7 @@ function var1bool {
 function var2bool {
     eval local val="\${${1}_${2}_${3}:-${4}}"
     eval $1=$(bool "$val")
-    lkv 1 $1 "$val"
+    lkb 1 $1 "$val"
 }
 
 ##############################################################################
@@ -353,6 +350,9 @@ function run_file {
 ###          use as exit code
 ##############################################################################
 function check_lock {
+    ### Skip check in test mode
+    [ "$TEST" ] && return
+
     local file=$RUNDIR/$(echo $(basename "$0") | \
                sed -e 's~[.].*$~~g' -e 's~[^A-Za-z0-9-]~_~g')$([ "$1" ] && echo ".$1").pid
 
@@ -379,7 +379,8 @@ function check_lock {
 function check_daylight {
     local daylight=$(PVLngGET "daylight/${1:-0}.txt")
     lkb 2 Daylight $daylight
-    [ $daylight -eq 1 ] || exit 127
+
+    [ "$TEST" -o $daylight -eq 1 ] || exit 127
 }
 
 ##############################################################################
@@ -463,6 +464,8 @@ function PVLngStorePUT {
         log 2 $data "Send file"
     fi
 
+    [ "$TEST" ] && return
+
     temp_file _RESPONSE
 
     rc=$($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
@@ -526,6 +529,16 @@ function PVLngChannelAttr {
 }
 
 ##############################################################################
+### Get channel attribute value as boolean (0|1)
+### See PVLngChannelAttr above
+##############################################################################
+function PVLngChannelAttrBool {
+    PVLngChannelAttr $@
+    eval local v=\$$2
+    eval $2=$(bool "$v")
+}
+
+##############################################################################
 ### Get data from PVLng latest API release
 ### $1 = GUID plus add. parameters
 ##############################################################################
@@ -547,10 +560,11 @@ function PVLngPUT {
     local dataraw=
     local datafile=
 
+    sec 2 "API PUT data"
     lkv 2 GUID $GUID
     lkv 2 Data "$data"
 
-    if test "${data:0:1}" != "@"; then
+    if [ "${data:0:1}" != "@" ]; then
         ### No file
         dataraw="$data"
         if [ $LocalTime == 0 ]; then
@@ -571,7 +585,7 @@ function PVLngPUT {
         log 2 @$datafile
     fi
 
-    temp_file _RESPONSE
+    [ "$TEST" ] && return
 
     ### Log data
     if [ "$SAVEDATA" ]; then
@@ -588,6 +602,8 @@ function PVLngPUT {
 #                --header "X-PVLng-key: $PVLngAPIkey" \
 #                --header "X-URL-for: $PVLngURL/data/$GUID.txt" \
 #                --request PUT --data-binary $data $binUrl >/dev/null 2>&1
+
+    temp_file _RESPONSE
 
     set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
                          --header "Content-Type: application/json" \
@@ -639,6 +655,8 @@ function PVLngPUTraw {
         log 2 @$datafile
     fi
 
+    [ "$TEST" ] && return
+
     ### Log data
     [ "$SAVEDATA" ] && _saveFile "" $GUID $datafile
 
@@ -680,6 +698,8 @@ function PVLngPUTBatch {
     lkv 2 GUID $GUID
     lkv 2 "Data file" "$data"
 
+    [ "$TEST" ] && return
+
     temp_file _RESPONSE
 
     set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
@@ -715,6 +735,8 @@ function PVLngPUTCSV {
 
     lkv 2 GUID $GUID
     lkv 2 "Data file" "$data"
+
+    [ "$TEST" ] && return
 
     temp_file _RESPONSE
 

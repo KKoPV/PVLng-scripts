@@ -52,34 +52,33 @@ while test $i -lt $GUID_N; do
 
         log 0 Process $(basename $file) ...
 
-        if test -z "$TEST"; then
+        [ "$TEST" ] && continue
 
-            ### Clear temp. file before
-            >$TMPFILE
+        ### Clear temp. file before
+        >$TMPFILE
 
-            rc=$($curl --request PUT \
-                       --header "X-PVLng-key: $PVLngAPIkey" \
-                       --write-out %{http_code} \
-                       --output $TMPFILE \
-                       --data-binary "@$file" \
-                       $PVLngURL/data/$GUID.tsv)
+        rc=$($curl --request PUT \
+                   --header "X-PVLng-key: $PVLngAPIkey" \
+                   --write-out %{http_code} \
+                   --output $TMPFILE \
+                   --data-binary "@$file" \
+                   $PVLngURL/data/$GUID.tsv)
 
-            if echo "$rc" | grep -qe '^20[012]'; then
-                ### 200/201/202 Ok
-                msg="> Ok [$rc] $(cat $TMPFILE | tail -n 1)"
+        if echo "$rc" | grep -qe '^20[012]'; then
+            ### 200/201/202 Ok
+            msg="> Ok [$rc] $(cat $TMPFILE | tail -n 1)"
 
-                if test -z "$KEEP"; then
-                    rm "$file" && msg="$msg - deleted"
-                    ### Delete both levels (year-month/day) below GUID
-                    find $(dirname $file) -type d -empty -delete
-                    find $(dirname $(dirname $file)) -type d -empty -delete
-                fi
-
-                log 0 "$msg"
-            else
-                ### Any other is an error
-                error_exit "Failed [$rc] $(cat $TMPFILE | tail -n 1)"
+            if [ ! "$KEEP" ]; then
+                rm "$file" && msg="$msg - deleted"
+                ### Delete both levels (year-month/day) below GUID
+                find $(dirname $file) -type d -empty -delete
+                find $(dirname $(dirname $file)) -type d -empty -delete
             fi
+
+            log 0 "$msg"
+        else
+            ### Any other is an error
+            error_exit "Failed [$rc] $(cat $TMPFILE | tail -n 1)"
         fi
     done
 done

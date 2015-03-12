@@ -39,11 +39,11 @@ GUID_N=$(int "$GUID_N")
 ##############################################################################
 ### Go
 ##############################################################################
-temp_file memfile
+temp_file MEMFILE
 
-cat /proc/meminfo >$memfile
+cat /proc/meminfo >$MEMFILE
 
-log 2 @$memfile /proc/meminfo
+log 2 @$MEMFILE /proc/meminfo
 
 i=0
 
@@ -57,14 +57,13 @@ while [ $i -lt $GUID_N ]; do
     [ -z "$GUID" ] && log 1 Skip && continue
 
     var1 KEY $i
-    lkv 1 Key $KEY
 
-    set -- $(grep $KEY $memfile | sed -e 's/[: ]\+/\t/g')
+    set -- $(grep "$KEY" $MEMFILE | sed -e 's/[: ]\+/\t/g')
     [ "$1" ] || continue
 
     lkv 1 Value $2
 
     ### Save data
-    [ "$TEST" ] || PVLngPUT $GUID $2
+    PVLngPUT $GUID $2
 
 done

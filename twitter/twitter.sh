@@ -71,6 +71,7 @@ ITEM_N=$(int "$ITEM_N")
 ##############################################################################
 ### Go
 ##############################################################################
+### Used by twitter item functions for buffering
 temp_file ITEMTMPFILE
 
 i=0
@@ -134,6 +135,7 @@ STATUS=$(urlencode "$(<$TMPFILE)")
 
 if [ $VERBOSE -gt 0 ]; then
     opts="-v"
+    ### Heavy debug
     set -x
 fi
 
@@ -145,8 +147,7 @@ $pwd/contrib/curlicue \
 set +x
 
 if grep -q 'errors' $TMPFILE; then
-    cat $TMPFILE
-    echo
+    log -1 @$TMPFILE "Twitter response"
 fi
 
 exit $?

@@ -33,11 +33,10 @@ CONFIG=$1
 
 read_config "$CONFIG"
 
-### Run only during daylight +- 60 min, except in test mode
-[ "$TEST" ] || check_daylight 60
+### Run only during daylight +- 60 min
+check_daylight 60
 
-### Don't check lock file in test mode
-[ "$TEST" ] || check_lock $(basename $1)
+check_lock $(basename $1)
 
 ##############################################################################
 ### Start
@@ -79,12 +78,12 @@ while [ $i -lt $GUID_N ]; do
         PVLngChannelAttr $GUID SERIAL
     fi
     [ "$SERIAL" ] || error_exit "No serial number found for GUID: $GUID"
-    lkv 1 'Serial number' "$SERIAL"
+    lkv 1 "Use SERIAL" "$SERIAL"
 
     ### Build RPC request, catch all channels from equipment
     ### Response JSON holds no timestamp, use "id" paramter for this,
     ### relevant for loading failed data
-    cat >$TMPFILE <<EOT
+    cat <<EOT >$TMPFILE
 {"version":"1.0","proc":"GetProcessData","id":"$(date +%s)","format":"JSON","params":{"devices":[{"key":"$SERIAL"}]}$PASSWORD}
 EOT
 
@@ -105,6 +104,6 @@ EOT
     fi
 
     ### Save data
-    [ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
+    PVLngPUT $GUID @$RESPONSEFILE
 
 done

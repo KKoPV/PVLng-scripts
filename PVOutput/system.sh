@@ -44,7 +44,7 @@ opt_help      "Update a system on PVOutput.org"
 opt_help_args "<config file>"
 opt_help_hint "See dist/system.conf for details."
 
-opt_define short=r long=read desc="Re-read only system information (after update on pvoutput.org)" variable=REREAD value=y
+opt_define short=r long=read desc="Force re-read system information (after update on pvoutput.org)" variable=REREAD value=y
 
 ### PVLng default options
 opt_define_pvlng
@@ -133,8 +133,7 @@ DATA="-d d="$(date "+%Y%m%d")" -d t="$(date "+%H:%M")"$DATA"
 
 sec 1 Data $DATA
 
-### Skip further processing in test mode
-test_exit
+[ "$TEST" ] && exit
 
 #save_log "PVOutput" "$DATA"
 
@@ -150,9 +149,7 @@ log 1 @$TMPFILE
 [ $rc -eq 0 ] || curl_error_exit $rc "$DATA"
 
 ### Check result, ONLY 200 is ok
-if cat $TMPFILE | grep -q '200:'; then
-    : ### Ok, state added
-else
+if cat $TMPFILE | grep -qv '200:'; then
     ### log error
     save_log "PVOutput" "$SYSTEMID - Update failed: $(cat $TMPFILE)"
     save_log "PVOutput" "$SYSTEMID - Data: $DATA"

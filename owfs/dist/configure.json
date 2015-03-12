@@ -37,7 +37,7 @@
     {
       "name": "GUID",
       "description": "PVLng sensor GUID",
-      "help": "If GUID is not given, the section will be ignored."
+      "help": "If no GUID is given, the section will be ignored."
     },
     {
       "name": "SERIAL",

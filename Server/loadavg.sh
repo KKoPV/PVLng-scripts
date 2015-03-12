@@ -47,8 +47,6 @@ SaveLoadAvg () {
 ### set $5 to the total number of processes
 set -- $(sed -e 's~/~ ~' /proc/loadavg)
 
-[ "$TEST" ] && exit
-
 SaveLoadAvg "$LOADAVG_1"  $1
 SaveLoadAvg "$LOADAVG_5"  $2
 SaveLoadAvg "$LOADAVG_15" $3

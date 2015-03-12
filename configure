@@ -1,8 +1,12 @@
 #!/usr/bin/env php
 <?php
 
-$opts = getopt('cith');
+ini_set('display_errors', 0);
+error_reporting(0);
+
+$opts = getopt('c:th');
 $test = array_key_exists('t', $opts);
+$conf = array_key_exists('c', $opts) ? $opts['c'] : FALSE;
 
 if (array_key_exists('h', $opts)) {
     e('Usage: ', $argv[0], ' [options]');
@@ -30,15 +34,7 @@ if (!file_exists($file)) {
 e();
 e('Use configuration from', $file);
 
-// Tokenize JSON and remove all comments and whitespaces
-$json = '';
-foreach (token_get_all('<?php '.file_get_contents($file)) as $token) {
-    if (!is_array($token)) {
-        $json .= $token;
-    } elseif ($token[0] == T_CONSTANT_ENCAPSED_STRING) {
-        $json .= $token[1];
-    }
-}
+$json = stripJSON(file_get_contents($file));
 
 $c = json_decode($json, TRUE);
 
@@ -60,12 +56,16 @@ $c0 = &$c[0];
 $c1 = &$c[1];
 $c2 = &$c[2];
 
+if (!$conf) {
+
 // Header data
 $c0 = array_merge( array( 'sections' => 'GUID' ), $c0 );
 
 // Common data
 if (!empty($c1)) {
-    h('Common settings');
+    // Show header only if also multiple section occur
+    !empty($c2) AND h('Common settings');
+    e();
     foreach ($c1 as $id => $data) $c1[$id] = readValue($data);
 }
 
@@ -76,14 +76,19 @@ if (!empty($c2)) {
     h('Multiple settings');
     do {
         h('Section '.++$n);
+        e();
         foreach ($c2 as $id => $data) {
             $data = readValue($data);
             $data['_value'][$n] = $data['value'];
             $data['value'] = '';
             $c2[$id] = $data;
         }
-        echo PHP_EOL, 'More (y|n) [n] ';
+        echo PHP_EOL, 'More (y|n) [n] ? ';
     } while (trim(fgets(STDIN)) == 'y');
+}
+
+} else {
+    $i = 1;
 }
 
 // Generate config file
@@ -114,7 +119,7 @@ if (!empty($c2)) {
         foreach ($c2 as $data) {
             c0();
             cc($data['description']);
-            c2($data['name'].'_'.$i, $data['_value'][$i]);
+            c2($data['name'].'_'.$i, @$data['_value'][$i]);
         }
     }
 }
@@ -125,7 +130,8 @@ e();
 if ($test) {
     e(implode(PHP_EOL, $cfg));
 } else {
-    echo 'Configuration file name (without ".conf") [config]', PHP_EOL, '? ';
+    e('- Configuration file name (without ".conf")');
+    echo '[config] ? ';
     $file = trim(fgets(STDIN));
     $file = $cwd.DS.($file?:'config').'.conf';
 
@@ -175,9 +181,23 @@ function e() {
  * Header
  */
 function h() {
-    echo PHP_EOL,
-         '---------- ', implode(func_get_args()), ' ----------',
-         PHP_EOL, PHP_EOL;
+    echo PHP_EOL, '---------- ', implode(func_get_args()), ' ----------', PHP_EOL;
+}
+
+/**
+ * Remove comments from JSON
+ */
+function stripJSON( $json ) {
+    $result = '';
+    // Tokenize JSON and remove all comments and whitespaces
+    foreach (token_get_all('<?php '.$json) as $token) {
+        if (!is_array($token)) {
+            $result .= $token;
+        } elseif ($token[0] == T_CONSTANT_ENCAPSED_STRING) {
+            $result .= $token[1];
+        }
+    }
+    return $result;
 }
 
 /**
@@ -200,11 +220,11 @@ function readValue( $key ) {
     if ($key['type'] == 'b') $key['values'] = array('y', 'n');
 
     do {
+        e('- ', $key['description']);
         if ($key['help']) e($key['help']);
-        echo $key['description'];
-        if (!empty($key['values'])) echo ' ('.implode('|', $key['values']).')';
-        if (!empty($key['value'])) echo ' ['.$key['value'].']';
-        echo PHP_EOL, '? ';
+        if (!empty($key['values'])) echo '('.implode('|', $key['values']).') ';
+        if (!empty($key['value'])) echo '['.$key['value'].'] ';
+        echo '? ';
         $v = trim(fgets(STDIN));
         if ($v) $key['value'] = $v;
 

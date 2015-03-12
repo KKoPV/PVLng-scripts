@@ -20,7 +20,17 @@
     },
     {
       "name": "TYPE",
-      "description": "Gerätetyp;Serialnummer;Kanal (pvin-001|emet-001|gmet-001|wmet-001|sens-001);...",
+      "description": "device type (pvin-001|emet-001|gmet-001|wmet-001|sens-001)",
+      "required": 1
+    },
+    {
+      "name": "SERIAL",
+      "description": "Serial number",
+      "required": 1
+    },
+    {
+      "name": "CHANNEL",
+      "description": "Channel ('total energy' for meter channels)",
       "required": 1
     }
   ]

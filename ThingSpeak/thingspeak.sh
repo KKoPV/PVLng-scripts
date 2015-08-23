@@ -21,8 +21,7 @@ _APIURL='https://api.thingspeak.com/update'
 
 ### Script options
 opt_help      "Update ThingSpeak channel"
-opt_help_args "<config file>"
-opt_help_hint "See dist/channel.conf for details."
+opt_help_hint "See dist/thingspeak.conf for details."
 
 opt_define short=i long=interval variable=INTERVAL desc='Fix Average interval in minutes'
 
@@ -30,8 +29,6 @@ opt_define short=i long=interval variable=INTERVAL desc='Fix Average interval in
 opt_define_pvlng
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

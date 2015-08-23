@@ -21,15 +21,12 @@ SEIURL=http://monitoring.solaredge.com/solaredge-web/p
 
 ### Script options
 opt_help      "Read Solar Edge Optimizer data as CSV from portal"
-opt_help_args "<config file>"
-opt_help_hint "See dist/BoxCSV.conf.dist for details."
+opt_help_hint "See dist/optimizer.conf for details."
 
 ### PVLng default options with flag for save data
 opt_define_pvlng x
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

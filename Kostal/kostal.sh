@@ -21,15 +21,12 @@ HEADER=6
 
 ### Script options
 opt_help      "Read data from Kostal Piko inverters"
-opt_help_args "<config file>"
-opt_help_hint "See dist/Piko.conf for details."
+opt_help_hint "See dist/kostal.conf for details."
 
 ### PVLng default options with flag for save data
 opt_define_pvlng x
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

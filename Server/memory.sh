@@ -18,15 +18,14 @@ pwd=$(dirname $0)
 
 ### Script options
 opt_help      "Fetch memory usage"
-opt_help_args "<config file>"
-opt_help_hint "See memory.conf.dist for details."
+opt_help_hint "See dist/memory.conf for details."
 
 ### PVLng default options with flag for local time and save data
 opt_define_pvlng x
 
 . $(opt_build)
 
-read_config "$1"
+read_config "$CONFIG"
 
 ##############################################################################
 ### Start

@@ -21,7 +21,6 @@ _WEBBOX=192.168.0.168:80
 
 ### Script options
 opt_help      "Read Inverter or Sensorbox data from a SMA Webbox"
-opt_help_args "<config file>"
 opt_help_hint "See dist/Webbox.conf for details."
 
 ### PVLng default options with flag for save data
@@ -29,14 +28,12 @@ opt_define_pvlng x
 
 . $(opt_build)
 
-CONFIG=$1
-
 read_config "$CONFIG"
 
 ### Run only during daylight +- 60 min
 check_daylight 60
 
-check_lock $(basename $1)
+check_lock $(basename $CONFIG)
 
 ##############################################################################
 ### Start

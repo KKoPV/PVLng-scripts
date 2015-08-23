@@ -37,7 +37,6 @@ listItems () {
 
 ### Script options
 opt_help      "Post status to twitter"
-opt_help_args "<config file>"
 opt_help_hint "See dist/twitter.conf for details."
 
 opt_define short=l long=list desc="List implemented items" variable=LIST value=y
@@ -53,8 +52,6 @@ if [ "$LIST" ]; then
     listItems
     exit
 fi
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

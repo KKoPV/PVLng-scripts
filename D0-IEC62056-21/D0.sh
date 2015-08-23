@@ -18,15 +18,12 @@ pwd=$(dirname $0)
 
 ### Script options
 opt_help      "Read D0 data from energy meters"
-opt_help_args "<config file>"
 opt_help_hint "See D0.conf.dist for details."
 
 ### PVLng default options with flag for save data
 opt_define_pvlng x
 
 . $(opt_build)
-
-CONFIG="$1"
 
 read_config "$CONFIG"
 
@@ -40,21 +37,23 @@ check_lock $(basename $CONFIG)
 check_required DEVICE Device
 
 GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
+[ $GUID_N -gt 0 ] || exit_required GUID_N Sections
 
 ##############################################################################
 ### Go
 ##############################################################################
 temp_file DATAFILE
 
-sec 2 Fetch data ...
+fetch="$pwd/bin/IEC-62056-21.py -d $DEVICE >$DATAFILE"
+
+log 2 "Run $fetch"
 
 ### Read data
-$pwd/bin/IEC-62056-21.py -d $DEVICE >$DATAFILE
+eval $fetch
 
 [ -s $DATAFILE ] || exit
 
-log 2 @$DATAFILE D0
+log 2 @$DATAFILE
 
 i=0
 
@@ -80,7 +79,10 @@ while [ $i -lt $GUID_N ]; do
     ### Mask * for grep
     expr=$(echo $OBIS | sed 's~\*~[*]~g')
     set -- $(grep $expr $DATAFILE)
-    value=$1
+
+    ### Eliminate leading zeros
+    value=$(calc "$2")
+
     lkv 1 Value "$value"
 
     [ "$value" ] || continue

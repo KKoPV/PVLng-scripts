@@ -26,15 +26,12 @@ OWREAD=${OWREAD:-$(which owread)}
 
 ### Script options
 opt_help      "Fetch 1-wire sensor data"
-opt_help_args "<config file>"
 opt_help_hint "See dist/owfs.conf for details."
 
 ### PVLng default options with flag for local time and save data
 opt_define_pvlng x
 
 source $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

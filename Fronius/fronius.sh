@@ -43,15 +43,12 @@ requestComCard () {
 
 ### Script options
 opt_help      "Read data from Fronius inverters/SensorCards"
-opt_help_args "<config file>"
-opt_help_hint "See dist/Comcard.conf for details."
+opt_help_hint "See dist/fronius.conf for details."
 
 ### PVLng default options with flag for save data
 opt_define_pvlng x
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

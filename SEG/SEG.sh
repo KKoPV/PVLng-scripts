@@ -21,7 +21,6 @@ APIURL="http://api.smartenergygroups.com/api_sites/stream"
 
 ### Script options
 opt_help      "Update Smart Energy Group streams for one device"
-opt_help_args "<config file>"
 opt_help_hint "See dist/device.conf for details."
 
 opt_define short=i long=interval variable=INTERVAL desc='Fix Average interval in minutes'
@@ -30,8 +29,6 @@ opt_define short=i long=interval variable=INTERVAL desc='Fix Average interval in
 opt_define_pvlng
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

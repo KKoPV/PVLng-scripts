@@ -112,15 +112,12 @@ function alert_twitter {
 
 ### Script options
 opt_help      "Alert on channels conditions"
-opt_help_args "<config file>"
-opt_help_hint "See alert.conf.dist for details."
+opt_help_hint "See dist/alert.conf for details."
 
 ### PVLng default options
 opt_define_pvlng
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

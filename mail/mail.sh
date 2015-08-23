@@ -30,15 +30,12 @@ replaceBaseVars () {
 
 ### Script options
 opt_help      "Send channel readings by email"
-opt_help_args "<config file>"
 opt_help_hint "See dist/daily.conf for an example."
 
 ### PVLng default options
 opt_define_pvlng
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

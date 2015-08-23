@@ -59,7 +59,6 @@ S0=$pwd/bin/S0
 
 ### Script options
 opt_help      "Read S0 impulses"
-opt_help_args "<config file>"
 opt_help_hint "See dist/S0.conf for details."
 
 opt_define short=a long=abort desc="Abort listening, kill all running S0 processes" variable=ABORT value=y
@@ -68,8 +67,6 @@ opt_define short=a long=abort desc="Abort listening, kill all running S0 process
 opt_define_pvlng x
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

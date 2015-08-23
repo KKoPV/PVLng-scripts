@@ -15,15 +15,14 @@ pwd=$(dirname $0)
 
 ### Script options
 opt_help      "Save server load from /proc/loadavg"
-opt_help_args "<config file>"
-opt_help_hint "See loadavg.conf.dist for details."
+opt_help_hint "See dist/loadavg.conf for details."
 
 ### PVLng default options with flag for local time and save data
 opt_define_pvlng x
 
 source $(opt_build)
 
-read_config "$1"
+read_config "$CONFIG"
 
 ##############################################################################
 ### Functions

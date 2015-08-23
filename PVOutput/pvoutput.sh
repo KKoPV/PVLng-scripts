@@ -41,8 +41,7 @@ function readSystem {
 
 ### Script options
 opt_help      "Update a system on PVOutput.org"
-opt_help_args "<config file>"
-opt_help_hint "See dist/system.conf for details."
+opt_help_hint "See dist/pvoutput.conf for details."
 
 opt_define short=r long=read desc="Force re-read system information (after update on pvoutput.org)" variable=REREAD value=y
 
@@ -51,9 +50,7 @@ opt_define_pvlng
 
 . $(opt_build)
 
-CONFIG=$1
-
-read_config "$1"
+read_config "$CONFIG"
 
 intervalkey=$(key_name PVOutput "$CONFIG" interval)
 

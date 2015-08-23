@@ -65,10 +65,13 @@ function sec {
     local level=$1
     shift ### Move out level
     local header=$1
-    log $level "--- $header ---"
     shift ### Move out header
+    log $level "--- $header ---"
     ### Further content?
-    [ "$*" ] && log $level $@
+    if [ "$*" ]; then
+        log $level $@
+        log $level "--- --- ---"
+    fi
 }
 
 ##############################################################################
@@ -102,7 +105,6 @@ function read_config {
     [ -f "$file" ] || file="$(dirname $0)/$file"
     [ -r "$file" ] || error_exit "Configuration file is not readable!" 1
 
-#   sec 2 "$(basename $file)"
     sec 2 "$(basename $file) >>>"
 
     while read var value; do
@@ -112,7 +114,6 @@ function read_config {
         eval "$var=\$value"
     done <"$file"
 
-#   sec 2 ---
     sec 2 "<<< $(basename $file)"
 }
 
@@ -1025,13 +1026,17 @@ function run_time {
         t=$(printf "%.1f h" $(calc "$t / 3600"))
     fi
 
-    log 0 Run time: $t
+    lkv 0 "Run time" "$t"
 }
 
 ##############################################################################
 ### Default PVLng script options
 ##############################################################################
 function opt_define_pvlng {
+    ### Test mode with raise of verbosity level
+    ### Value is required to detect argument as flag
+    opt_define short=c long=config variable=CONFIG \
+               desc='Config file' default="$CONFIG"
     if [ "$1" ]; then
         ### Use local time or round to -l ? seconds
         opt_define short=l long=localtime variable=LocalTime default=0 \
@@ -1109,3 +1114,5 @@ scriptname=${0##*/}
 LocalTime=0
 
 VERBOSE=0
+
+CONFIG=$(echo "$0" | sed 's~\.[^.]*$~.conf~g')

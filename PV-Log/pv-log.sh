@@ -21,8 +21,7 @@ APIURL='https://pv-log.com/api/v1/$APIKEY/plant/yield/update/$PLANTKEY'
 
 ### Script options
 opt_help      "Push plant data to PV-Log API"
-opt_help_args "<config file>"
-opt_help_hint "See dist/plant.conf for details."
+opt_help_hint "See dist/pv-log.conf for details."
 
 ### Script specific options
 opt_define short=d long=date variable=DATE default=today \
@@ -35,8 +34,6 @@ opt_define short=p long=pretty variable=PRETTY value=y \
 opt_define_pvlng
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 

@@ -12,7 +12,7 @@
 pwd=$(dirname $0)
 
 ### API URL with placeholders
-APIURL='http://api.wunderground.com/api/$APIKEY/conditions/lang:$LANGUAGE/q/$LOCATION.json'
+APIURL='http://api.forecast.solar/r1/estimate/watts/0000-0000-0000/$LAT/$LON/$SLOPE/$AZIMUTH/$POWERPEAK'
 
 ##############################################################################
 ### Init
@@ -20,16 +20,13 @@ APIURL='http://api.wunderground.com/api/$APIKEY/conditions/lang:$LANGUAGE/q/$LOC
 . $pwd/../PVLng.sh
 
 ### Script options
-opt_help      "Fetch data from Wunderground API"
-opt_help_args "<config file>"
-opt_help_hint "See dist/station.conf for details."
+opt_help      "Fetch data from Forecast.Solar API"
+opt_help_hint "See dist/string.conf for details."
 
 ### PVLng default options
 opt_define_pvlng
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 
@@ -38,29 +35,24 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-check_default LANGUAGE EN
-
-check_required APIKEY   'Wunderground API key'
-check_required LOCATION 'Location'
-check_required GUID     'Wunderground group channel GUID'
+check_required LAT  'Latitude'
+check_required LON  'Longitude'
+check_required GUID 'Pac estimate channel GUID'
 
 ##############################################################################
 ### Go
 ##############################################################################
-temp_file RESPONSEFILE
+temp_file CSVFILE
 
 eval APIURL="$APIURL"
 log 2 Fetch $APIURL
 
-#curl="$(curl_cmd)"
-
-### Query Weather Underground API
-$(curl_cmd) --output $RESPONSEFILE $APIURL
+### Query API, get CSV
+$(curl_cmd) --header 'Accept: text/csv' --output $CSVFILE $APIURL
 rc=$?
 
-[ $rc -eq 0 ] || curl_error_exit $rc "Wunderground API"
+[ $rc -eq 0 ] || curl_error_exit $rc "Forecast.Solar API"
 
-### Test mode
-log 2 @$RESPONSEFILE "API response"
+log 2 @$CSVFILE "API response"
 
-[ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
+PVLngPUTCSV $GUID @$CSVFILE

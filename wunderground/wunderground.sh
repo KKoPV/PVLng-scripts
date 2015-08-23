@@ -11,17 +11,20 @@
 ##############################################################################
 pwd=$(dirname $0)
 
+### API URL with placeholders
+APIURL='http://api.wunderground.com/api/$APIKEY/conditions/lang:$LANGUAGE/q/$LOCATION.json'
+
 ##############################################################################
 ### Init
 ##############################################################################
 . $pwd/../PVLng.sh
 
 ### Script options
-opt_help      "Fetch disk usage"
-opt_help_hint "See dist/df.conf for details."
+opt_help      "Fetch data from Wunderground API"
+opt_help_hint "See dist/wunderground.conf for details."
 
-### PVLng default options with flag for local time and save data
-opt_define_pvlng x
+### PVLng default options
+opt_define_pvlng
 
 . $(opt_build)
 
@@ -32,40 +35,29 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
+check_default LANGUAGE EN
+
+check_required APIKEY   'Wunderground API key'
+check_required LOCATION 'Location'
+check_required GUID     'Wunderground group channel GUID'
 
 ##############################################################################
 ### Go
 ##############################################################################
-temp_file dffile
+temp_file RESPONSEFILE
 
-df >$dffile
-log 2 @$dffile df
+eval APIURL="$APIURL"
+log 2 Fetch $APIURL
 
-i=0
+#curl="$(curl_cmd)"
 
-while [ $i -lt $GUID_N ]; do
+### Query Weather Underground API
+$(curl_cmd) --output $RESPONSEFILE $APIURL
+rc=$?
 
-    i=$(($i+1))
+[ $rc -eq 0 ] || curl_error_exit $rc "Wunderground API"
 
-    sec 1 $i
+### Test mode
+log 2 @$RESPONSEFILE "API response"
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
-
-    var1 MOUNT $i
-    df="$(grep -e ${MOUNT}$ $dffile | head -n1)"
-
-    [ "$df" ] || continue
-
-    lkv 1 Found "$df"
-
-    set -- $df
-    value=$(calc "$3 * 100 / $2")
-    lkv 1 Value "$value %"
-
-    ### Save data
-    PVLngPUT $GUID $value
-
-done
+[ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE

@@ -12,8 +12,7 @@
 pwd=$(dirname $0)
 
 ### API URL with placeholders
-### http://www.intelligence.tuc.gr/renes/fixed/fixed/api.html
-APIURL='http://147.27.14.3:11884/solarAPI/$LAT/$LON/0/$SLOPE/$AZIMUTH/20/1012/19/$POWERPEAK/-0.5/Low/no/0/0/SlopedRoof/90'
+APIURL='http://api.forecast.solar/r1/estimate/watts/0000-0000-0000/$LAT/$LON/$SLOPE/$AZIMUTH/$POWERPEAK'
 
 ##############################################################################
 ### Init
@@ -21,7 +20,7 @@ APIURL='http://147.27.14.3:11884/solarAPI/$LAT/$LON/0/$SLOPE/$AZIMUTH/20/1012/19
 . $pwd/../PVLng.sh
 
 ### Script options
-opt_help      "Fetch data from RENES API"
+opt_help      "Fetch data from Forecast.Solar API"
 opt_help_args "<config file>"
 opt_help_hint "See dist/string.conf for details."
 
@@ -46,44 +45,17 @@ check_required GUID 'Pac estimate channel GUID'
 ##############################################################################
 ### Go
 ##############################################################################
-temp_file XMLFILE
-temp_file JSONFILE
 temp_file CSVFILE
 
 eval APIURL="$APIURL"
 log 2 Fetch $APIURL
 
-### Query RENES API
-$(curl_cmd) --output $XMLFILE $APIURL
+### Query API, get CSV
+$(curl_cmd) --header 'Accept: text/csv' --output $CSVFILE $APIURL
 rc=$?
 
-[ $rc -eq 0 ] || curl_error_exit $rc "RENES API"
+[ $rc -eq 0 ] || curl_error_exit $rc "Forecast.Solar API"
 
-log 2 @$XMLFILE "XML API response"
-
-xml2json $XMLFILE > $JSONFILE
-
-log 3 @$JSONFILE "JSON data"
-
-i=0
-
-while true; do
-
-    ### Extract timestamp
-    timestamp=$(jq @$JSONFILE "tuple[$i]->UTC_epoch")
-
-    [ -z "$timestamp" ] && break ### No data anymore for index $i
-
-    ### Extract estimate power, strip decimals
-    watts=$(calc $(jq @$JSONFILE "tuple[$i]->PV_power_output") 0)
-
-    lkv 2 "$(date --date=@$timestamp +'%Y-%m-%d %X')" $watts
-
-    ### Put into CSV file
-    echo "$timestamp;$watts" >>$CSVFILE
-
-    i=$((i+1))
-
-done
+log 2 @$CSVFILE "API response"
 
 PVLngPUTCSV $GUID @$CSVFILE

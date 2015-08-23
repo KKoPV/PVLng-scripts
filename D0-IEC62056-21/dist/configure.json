@@ -16,7 +16,7 @@
       "description": "Device where the D0 reader is conneted to",
       "default": "/dev/ttyUSB0",
       "required": "y"
-    },
+    }
   ],
   [
     {
@@ -27,7 +27,6 @@
     {
       "name": "OBIS",
       "description": "OBIS Id (read from API if empty)"
-    },
     }
   ]
 ]

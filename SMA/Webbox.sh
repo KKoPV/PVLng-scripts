@@ -93,7 +93,7 @@ EOT
     $curl --output $RESPONSEFILE --data-urlencode RPC@$TMPFILE http://$WEBBOX/rpc
     rc=$?
 
-    [ $rc -eq 0 ] || error_exit "cUrl error for Webbox: $rc"
+    [ $rc -eq 0 ] || curl_error_exit $rc Webbox
 
     ### Test mode
     log 2 @$RESPONSEFILE "Webbox response"

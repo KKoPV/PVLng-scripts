@@ -33,7 +33,9 @@ __opt_error () {
 ### Helper function
 ##############################################################################
 __opt_help () {
-    _opt_usage+="#T$(printf "%s, %-20s %s" "$1" "$2" "$3")#N"
+    local short="-$1"
+    local long="--$2"
+    _opt_usage+="#T$(printf "%s, %-20s %s" "$short" "$long" "$3")#N"
 }
 
 ##############################################################################
@@ -70,10 +72,10 @@ opt_define () {
     local val='$OPTARG'
 
     for option in "$@"; do
-        key=$( echo "$option" | cut -d= -f1 )
-        value="$( echo "$option" | cut -d= -f2- )"
+        key=$(echo "$option" | cut -d= -f1)
+        value="$(echo "$option" | cut -d= -f2-)"
 
-        ### Essentials: shortname, longname, description
+        ### Essentials: long, description
         case "$key" in
             short)
                 if [ ${#value} -ne 1 ]; then
@@ -116,7 +118,7 @@ opt_define () {
             _opt_help_args_req+="(-${short}|--${long}) <${long}> "
             desc+=" (required)"
         fi
-        __opt_help "-$short" "--$long" "$desc"
+        __opt_help "$short" "$long" "$desc"
     fi
 
     _opt_cont+="#T#T--${long})#N#T#T#Tparams=\"\$params -${short}\";;#N"
@@ -139,28 +141,28 @@ opt_define () {
 }
 
 ##############################################################################
-opt_define_quiet () {
-    opt_define short=q long=quiet variable=QUIET desc='Quiet mode' value=1 \
-               callback='VERBOSE=-1'
+opt_define_test () {
+    opt_define short=t long=test variable=TEST value=y desc='Test mode'
 }
 
 ##############################################################################
 opt_define_verbose () {
-    opt_define short=v long=verbose variable=VERBOSE \
+    opt_define short=v long=verbose variable=VERBOSE default=0 value=0 \
                desc='Verbosity, use multiple times for higher level' \
-               default=0 value=1 callback='VERBOSE=$(($VERBOSE+1))'
+               callback='VERBOSE=$(($VERBOSE+1))'
 }
 
 ##############################################################################
-opt_define_test () {
-    opt_define short=t long=test variable=TEST desc='Test mode' value=yes
+opt_define_quiet () {
+    opt_define short=q long=quiet variable=QUIET value=1 \
+               desc='Quiet mode, no output' callback='VERBOSE=-1'
 }
 
 ##############################################################################
 opt_define_trace () {
     ### Prepare a TRACE variable to "set -x" after preparation
-    ### No description > not shown in help
-    opt_define short=x long=trace variable=TRACE value=X
+    ### No description, not shown in help
+    opt_define short=x long=trace variable=TRACE value=y
 }
 
 ##############################################################################
@@ -170,7 +172,7 @@ opt_build () {
     local build_file=$(mktemp /tmp/optparse-XXXXXX.tmp)
 
     ### Add default help option
-    __opt_help -h --help 'This usage help'
+    __opt_help h help 'This usage help'
 
     ### Function usage
     cat << EOF > $build_file
@@ -196,6 +198,7 @@ while [ \$# -ne 0 ]; do
 $_opt_cont
         -h|--help)
             usage
+            rm $build_file
             exit 0;;
         *)
             if [[ "\$param" == -- ]]; then
@@ -205,6 +208,7 @@ $_opt_cont
             elif [[ "\$param" == --* ]]; then
                 echo -e "Unrecognized long option: \$param"
                 usage
+                rm $build_file
                 exit 1
             fi
             params="\$params \"\$param\"";;
@@ -244,6 +248,7 @@ if [ "\$error" ]; then
     echo
     echo "There where errors:\$error"
     usage
+    rm $build_file
     exit 127
 fi
 
@@ -261,10 +266,11 @@ rm $build_file
 
 EOF
 
-    local -A o=( ['#N']='\n' ['#T']='    ' )
-    for i in "${!o[@]}"; do sed -i "s/${i}/${o[$i]}/g" $build_file; done
+    ### Replace #N with new lines and #T with 4 spaces
+    sed -i "s/#N/\n/g" $build_file
+    sed -i "s/#T/    /g" $build_file
 
-    # Unset global variables
+    ### Unset global variables
     unset _opt_usage
     unset _opt_process
     unset _opt_args
@@ -274,6 +280,6 @@ EOF
     unset _opt_help_args
     unset _opt_help_hint
 
-    # Return file name to parent
+    ### Return file name to parent
     echo "$build_file"
 }

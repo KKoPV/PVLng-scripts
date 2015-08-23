@@ -12,7 +12,8 @@
 pwd=$(dirname $0)
 
 ### API URL with placeholders
-APIURL='http://api.wunderground.com/api/$APIKEY/conditions/lang:$LANGUAGE/q/$LOCATION.json'
+### http://www.intelligence.tuc.gr/renes/fixed/fixed/api.html
+APIURL='http://147.27.14.3:11884/solarAPI/$LAT/$LON/0/$SLOPE/$AZIMUTH/20/1012/19/$POWERPEAK/-0.5/Low/no/0/0/SlopedRoof/90'
 
 ##############################################################################
 ### Init
@@ -20,9 +21,9 @@ APIURL='http://api.wunderground.com/api/$APIKEY/conditions/lang:$LANGUAGE/q/$LOC
 . $pwd/../PVLng.sh
 
 ### Script options
-opt_help      "Fetch data from Wunderground API"
+opt_help      "Fetch data from RENES API"
 opt_help_args "<config file>"
-opt_help_hint "See dist/station.conf for details."
+opt_help_hint "See dist/string.conf for details."
 
 ### PVLng default options
 opt_define_pvlng
@@ -38,29 +39,51 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-check_default LANGUAGE EN
-
-check_required APIKEY   'Wunderground API key'
-check_required LOCATION 'Location'
-check_required GUID     'Wunderground group channel GUID'
+check_required LAT  'Latitude'
+check_required LON  'Longitude'
+check_required GUID 'Pac estimate channel GUID'
 
 ##############################################################################
 ### Go
 ##############################################################################
-temp_file RESPONSEFILE
+temp_file XMLFILE
+temp_file JSONFILE
+temp_file CSVFILE
 
 eval APIURL="$APIURL"
 log 2 Fetch $APIURL
 
-#curl="$(curl_cmd)"
-
-### Query Weather Underground API
-$(curl_cmd) --output $RESPONSEFILE $APIURL
+### Query RENES API
+$(curl_cmd) --output $XMLFILE $APIURL
 rc=$?
 
-[ $rc -eq 0 ] || curl_error_exit $rc "Wunderground API"
+[ $rc -eq 0 ] || curl_error_exit $rc "RENES API"
 
-### Test mode
-log 2 @$RESPONSEFILE "API response"
+log 2 @$XMLFILE "XML API response"
 
-[ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
+xml2json $XMLFILE > $JSONFILE
+
+log 3 @$JSONFILE "JSON data"
+
+i=0
+
+while true; do
+
+    ### Extract timestamp
+    timestamp=$(jq @$JSONFILE "tuple[$i]->UTC_epoch")
+
+    [ -z "$timestamp" ] && break ### No data anymore for index $i
+
+    ### Extract estimate power, strip decimals
+    watts=$(calc $(jq @$JSONFILE "tuple[$i]->PV_power_output") 0)
+
+    lkv 2 "$(date --date=@$timestamp +'%Y-%m-%d %X')" $watts
+
+    ### Put into CSV file
+    echo "$timestamp;$watts" >>$CSVFILE
+
+    i=$((i+1))
+
+done
+
+PVLngPUTCSV $GUID @$CSVFILE

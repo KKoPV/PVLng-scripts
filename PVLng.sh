@@ -1,9 +1,10 @@
 ##############################################################################
-###  _____  _____  __                    _____            _       _
-### |  _  ||  |  ||  |    ___  ___  ___ |   __| ___  ___ |_| ___ | |_  ___
-### |   __||  |  ||  |__ |   || . ||___||__   ||  _||  _|| || . ||  _||_ -|
-### |__|    \___/ |_____||_|_||_  |     |_____||___||_|  |_||  _||_|  |___|
-###                           |___|                         |_|
+###    ______     ___                                     _       _
+###   |  _ \ \   / / |    _ __   __ _       ___  ___ _ __(_)_ __ | |_ ___
+###   | |_) \ \ / /| |   | '_ \ / _` |_____/ __|/ __| '__| | '_ \| __/ __|
+###   |  __/ \ V / | |___| | | | (_| |_____\__ \ (__| |  | | |_) | |_\__ \
+###   |_|     \_/  |_____|_| |_|\__, |     |___/\___|_|  |_| .__/ \__|___/
+###                             |___/                      |_|
 ###
 ### @author     Knut Kohl <github@knutkohl.de>
 ### @copyright  2012-2015 Knut Kohl
@@ -29,7 +30,7 @@ function log {
             sec $level "${2:-Result}"
             ### cat ... read needs at least one new line at end of file...
             echo >>$file
-            sed '/^$/d' $file | while read l; do echo "$time $l"; done
+            sed '/^$/d' $file | while IFS="\n" read l; do echo "$time $l"; done
             sec $level ---
         else
             echo "$time $@"
@@ -86,6 +87,7 @@ function usage {
 
 ##############################################################################
 ### read config file
+### $1 - Config file name
 ##############################################################################
 function read_config {
     local file="$1"
@@ -105,7 +107,7 @@ function read_config {
 
     while read var value; do
         [ "$var" -a "${var:0:1}" != '#' ] || continue
-        value=$(echo -e "$value" | sed -e 's/^"[ \t]*//g;s/[ \t]*"$//g')
+        value=$(echo -e "$value" | sed -e 's/^[" \t]*//g;s/[" \t]*$//g')
         lkv 2 $var "$value"
         eval "$var=\$value"
     done <"$file"
@@ -362,12 +364,18 @@ function check_lock {
     ln -s pid=$$ $file 2>/dev/null
 
     if [ $? -eq 0 ]; then
-        ### Link not exists, created successful
+        ### Link not existed yet, remove on script end
         on_exit_rm "$file"
     else
-        ### Link exists, creation failed
-        lkv 2 "Lock file exists" "exit"
-        exit ${2:-0}
+        ### Link exists, check if the process mentioned still runs
+        local pid=$(stat -c %N "$file" | sed "s~.*pid=\([0-9]*\).*~\1~g")
+        if ps x | sed 's/^ *//' | cut -d' ' -f1 | grep "$pid" | grep -qv grep; then
+            log 2 "Lock file exists, process $pid still runs, exit"
+            exit ${2:-0}
+        else
+            log 2 "Lock file exists, process $pid missing, purge lock"
+            rm "$file"
+        fi
     fi
 }
 
@@ -440,7 +448,8 @@ function save_log {
 ### $1 = GUID or GUID,<attribute>
 ##############################################################################
 function PVLngNC {
-    echo "$1" | netcat $PVLngDomain $SocketServerPort
+    echo "$1" | netcat $PVLngDomain $SocketServerPort 2>/dev/null
+    echo $?
 }
 
 ##############################################################################
@@ -552,11 +561,13 @@ function PVLngGET {
 ### Save data to PVLng latest API release
 ### $1 = GUID
 ### $2 = value or @file_name with JSON data
+### $3 = timestamp
 ##############################################################################
 function PVLngPUT {
-    local GUID="$1"
+    local GUID=$1
     local raw="$2"
     local data="$2"
+    local timestamp=$3
     local dataraw=
     local datafile=
 
@@ -567,7 +578,17 @@ function PVLngPUT {
     if [ "${data:0:1}" != "@" ]; then
         ### No file
         dataraw="$data"
-        if [ $LocalTime == 0 ]; then
+        if [ "$timestamp" ]; then
+            ### Given timestamp
+            if echo "$timestamp" | grep -qe '[^0-9]'; then
+                ### Date time
+                lkv 2 'Datetime given' "$timestamp"
+            else
+                ### numeric timestamp
+                lkv 2 'Timestamp given' "$(date --date="@$timestamp")"
+            fi
+            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
+        elif [ $LocalTime == 0 ]; then
             ### Only data, use timestamp from destination
             data="{\"data\":\"$(JSON_quote "$data")\"}"
         else
@@ -575,6 +596,7 @@ function PVLngPUT {
             lkv 1 "Use local time" "rounded to $LocalTime seconds"
             ### force floor of division part, awk have no "round()" or "floor()"
             timestamp=$(calc "int($(date +%s) / $LocalTime) * $LocalTime" 0)
+            lkv 2 'Timestamp local' "$(date --date=@$timestamp)"
             data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
         fi
         lkv 2 Send "$data"
@@ -599,9 +621,18 @@ function PVLngPUT {
 #    ### For debugging only, register a "request bin" before at http://requestb.in/
 #    binUrl=http://requestb.in/...
 #    $(curl_cmd) --header "Content-Type: application/json" \
-#                --header "X-PVLng-key: $PVLngAPIkey" \
 #                --header "X-URL-for: $PVLngURL/data/$GUID.txt" \
 #                --request PUT --data-binary $data $binUrl >/dev/null 2>&1
+
+    ### Try to send to Queue server
+    if [ "$SocketServerPort" ]; then
+        if [ ! "$datafile" ]; then
+            rc=$(PVLngNC "SaveData|$GUID|$data")
+        else
+            rc=$(PVLngNC "SaveData|$GUID|$(<$datafile)")
+        fi
+        [ $rc -eq 0 ] && return
+    fi
 
     temp_file _RESPONSE
 
@@ -934,11 +965,14 @@ function realpath {
 ##############################################################################
 ### urlencode <string>
 ### https://gist.github.com/cdown/1163649
+### $1 - String to encode
 ##############################################################################
 function urlencode {
     local length=${#1}
+    local c=
+
     for ((i=0; i<length; i++)); do
-        local c="${1:i:1}"
+        c="${1:i:1}"
         case $c in
             [a-zA-Z0-9.~_-]) printf "$c" ;;
             *)               printf '%%%02X' "'$c"
@@ -947,15 +981,34 @@ function urlencode {
 }
 
 ##############################################################################
+### Transform XML file to JSON
+### $1 - XML file name
+##############################################################################
+function xml2json {
+    php -r "echo json_encode(simplexml_load_string(file_get_contents('$1')));"
+}
+
+##############################################################################
+### JSON query
+### $1 - JSON string or @filename
+### $2 - Query in object notation like "messages[0]->message"
+##############################################################################
+function jq {
+    local json=$1
+    [ "${1:0:1}" == @ ] && json=$(<${1:1})
+    php -r "\$d=json_decode('$json'); if (\$d && isset(\$d->$2)) echo \$d->$2;"
+}
+
+##############################################################################
 ### Show run time of script
-### Active on verbose level equal/upper 1
+### Active on verbose level from 2
 ##############################################################################
 function run_time {
-    [ $VERBOSE -ge 1 ] || return
+    [ $VERBOSE -ge 2 ] || return
 
     ### Time gone since script start
     local t=$(calc "$(now) - $REQUEST_TIME")
-    ### Full seconds (integer) for checks
+    ### Full seconds (integer) for further checks
     local s=$(toFixed $t)
 
     if [ $s -lt 10 ]; then
@@ -972,8 +1025,7 @@ function run_time {
         t=$(printf "%.1f h" $(calc "$t / 3600"))
     fi
 
-#    sec 1 "---"
-    lkv 1 "Run time" "$t"
+    log 0 Run time: $t
 }
 
 ##############################################################################
@@ -981,23 +1033,23 @@ function run_time {
 ##############################################################################
 function opt_define_pvlng {
     if [ "$1" ]; then
-        ### Flag to use local time
-        opt_define short=l long=localtime desc='Use local time, rounded to ? seconds' variable=LocalTime default=0
+        ### Use local time or round to -l ? seconds
+        opt_define short=l long=localtime variable=LocalTime default=0 \
+                   desc='Use local time, rounded to ? seconds'
         ### Flag to save data also into file
-        opt_define short=s long=save desc='Save data also into log file' variable=SAVEDATA value=y
+        opt_define short=s long=save variable=SAVEDATA value=y \
+                   desc='Save data also into log file'
     fi
     ### Test mode with raise of verbosity level
     ### Value is required to detect argument as flag
-    opt_define short=t long=test variable=TEST \
-               desc='Test mode, set verbosity to info level' value=y \
+    opt_define short=t long=test variable=TEST value=y \
+               desc='Test mode, set verbosity to info level' \
                callback='TEST=y; VERBOSE=$(($VERBOSE+1))'
     ### Multiple -v raises verbosity level
-    opt_define short=v long=verbose variable=VERBOSE \
-               desc='Verbosity, use multiple times for higher level' \
-               default=0 value=1 callback='VERBOSE=$(($VERBOSE+1))'
-    ### Prepare a TRACE variable to "set -x" after preparation
-    ### No description > not shown in help
-    opt_define short=x long=trace variable=TRACE value=y
+    opt_define_verbose
+    ### Prepare a hidden TRACE variable to "set -x" after preparation
+    ### No description, not shown in help
+    opt_define_trace
 }
 
 ##############################################################################
@@ -1018,6 +1070,9 @@ if [ ! -f $_ROOT/PVLng.conf ]; then
     echo I made one for you, you have to maintain it now...
     exit 2
 fi
+
+### Scripts disabled?
+[ -f $_ROOT/.paused ] && exit 254
 
 ### Load global configuration
 . $_ROOT/PVLng.conf

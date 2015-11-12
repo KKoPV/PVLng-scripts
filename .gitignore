@@ -1,7 +1,9 @@
 test-all.sh
+cron.sh
 *.conf
 .notes/
 data/*
 run/*
+SunnyPortal/*
 !.githold
 !**/dist/*

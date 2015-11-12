@@ -1,0 +1,57 @@
+/**
+ * @author     Knut Kohl <github@knutkohl.de>
+ * @copyright  2012-2015 Knut Kohl
+ * @license    MIT License (MIT) http://opensource.org/licenses/MIT
+ * @version    1.0.0
+ *
+ * JSON with JavaScript comments
+ */
+[
+  {},
+  [ // Common section
+    {
+      "name": "APIKEY",
+      "description": "Your API key, if you have a Professional account"
+    },
+    {
+      "name": "LAT",
+      "description": "Location latitude",
+      "help": "-90 (south) ... 90 (north)",
+      "type": "n",
+      "required": "y"
+    },
+    {
+      "name": "LON",
+      "description": "Location longitude",
+      "help": "-180 (west) ... 180 (east)",
+      "type": "n",
+      "required": "y"
+    },
+    {
+      "name": "DECLINATION",
+      "description": "Declination angle of the PV modules",
+      "help": "0 (horizontal) ... 90 (vertical)",
+      "type": "n",
+      "required": "y"
+    },
+    {
+      "name": "AZIMUTH",
+      "description": "Azimuth angle of the PV modules",
+      "help": "-180 ... 180 (-180 = north, -90 = east, 0 = south, 90 = west, 180 = north)",
+      "type": "n",
+      "required": "y"
+    },
+    {
+      "name": "POWERPEAK",
+      "description": "Peak Power of the PV modules in kilo watts (kWp)",
+      "type": "n",
+      "required": "y",
+      "default": 1
+    },
+    {
+      "name": "GUID",
+      "description": "PVLng channel GUID",
+      "required": "y"
+    }
+  ]
+]

@@ -12,7 +12,10 @@
 pwd=$(dirname $0)
 
 ### API URL with placeholders
-APIURL='http://api.forecast.solar/r1/estimate/watts/0000-0000-0000/$LAT/$LON/$SLOPE/$AZIMUTH/$POWERPEAK'
+### Personal URL without API key
+APIURL0='http://api.forecast.solar/latest/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
+### Professional URL with API key
+APIURL1='http://api.forecast.solar/latest/$APIKEY/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
 
 ##############################################################################
 ### Init
@@ -21,15 +24,12 @@ APIURL='http://api.forecast.solar/r1/estimate/watts/0000-0000-0000/$LAT/$LON/$SL
 
 ### Script options
 opt_help      "Fetch data from Forecast.Solar API"
-opt_help_args "<config file>"
-opt_help_hint "See dist/string.conf for details."
+opt_help_hint "See dist/update.conf for details."
 
 ### PVLng default options
 opt_define_pvlng
 
 . $(opt_build)
-
-CONFIG=$1
 
 read_config "$CONFIG"
 
@@ -47,7 +47,12 @@ check_required GUID 'Pac estimate channel GUID'
 ##############################################################################
 temp_file CSVFILE
 
-eval APIURL="$APIURL"
+if [ -z "$APIKEY" ]; then
+    eval APIURL="$APIURL0"
+else
+    eval APIURL="$APIURL1"
+fi
+
 log 2 Fetch $APIURL
 
 ### Query API, get CSV

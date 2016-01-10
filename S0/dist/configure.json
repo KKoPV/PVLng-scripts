@@ -8,12 +8,7 @@
  */
 [
   {},
-  [
-    {
-      "name": "GUID",
-      "description": "PVLng sensor GUID",
-      "help": "If no GUID is given, the section will be ignored."
-    },
+  [ // Common section
     {
       "name": "RESOLUTION",
       "description": "Sensor resolution, impulse per kilo watt hour",
@@ -30,6 +25,11 @@
     {
       "name": "CHANNEL",
       "description": "Device (read from API if empty)"
+    },
+    {
+      "name": "GUID",
+      "description": "PVLng channel GUID",
+      "required": "y"
     }
   ]
 ]

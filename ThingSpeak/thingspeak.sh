@@ -47,15 +47,16 @@ FIELD_N=$(int "$FIELD_N")
 ### Go
 ##############################################################################
 if [ -z "$INTERVAL" ]; then
-    ifile=$(run_file ThingSpeak "$1" last)
+    NOW=$(date +%s)
+    ifile=$(run_file ThingSpeak "$CONFIG" last)
     if [ -s "$ifile" ]; then
-        INTERVAL=$(calc "($(date +%s) - $(<$ifile)) / 60" 0)
+        INTERVAL=$(calc "($NOW - $(<$ifile)) / 60" 0)
     else
         ### Start with 10 minutes
         INTERVAL=10
     fi
     ### Remember actual timestamp
-    date +%s >$ifile
+    [ "$TEST" ] || echo $NOW >$ifile
 fi
 
 lkv 1 Interval $INTERVAL

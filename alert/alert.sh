@@ -184,16 +184,21 @@ while [ $i -lt $GUID_N ]; do
     ### Prepare condition
     var1 CONDITION $i
     [ "$CONDITION" ] || exit_required Condition CONDITION_$i
-    CONDITION=$(echo "$CONDITION" | sed 's~'\''~\\'\''~g')
-
     CONDITION=$(replace_vars "$CONDITION" $j)
     lkv 1 Condition "$CONDITION"
 
     result=$(calc "$CONDITION" 0)
 
+    lkb 1 Condition $result
+
+    ### Test result for integer
+    if [ "$result" -ne "$result" 2>/dev/null ]; then
+        lkv 0 'Invalid condition' "$CONDITION"
+        continue
+    fi
+
     ### Skip if condition is not true
-    if [ $result -eq 0 ]; then
-        log 1 "Skip, condition not apply."
+    if [ "$result" -eq 0 ]; then
         ### Remove flag
         [ "$TEST" ] || PVLngStorePUT $oncekey
         continue
@@ -231,4 +236,3 @@ while [ $i -lt $GUID_N ]; do
     fi
 
 done
-

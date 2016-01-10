@@ -4,14 +4,17 @@
 ini_set('display_errors', 0);
 error_reporting(0);
 
-$opts = getopt('c:th');
-$test = array_key_exists('t', $opts);
-$conf = array_key_exists('c', $opts) ? $opts['c'] : FALSE;
+$opts  = getopt('c:sth');
+$conf  = array_key_exists('c', $opts) ? $opts['c'] : FALSE;
+$short = array_key_exists('s', $opts);
+$test  = array_key_exists('t', $opts);
 
 if (array_key_exists('h', $opts)) {
     e('Usage: ', $argv[0], ' [options]');
     e();
     e('Options:');
+    e('    -c  Generate empty template config file');
+    e('    -s  Generate short config file without comments');
     e('    -t  Test mode, don\'t create file, just show result');
     e('    -h  This help');
     exit;
@@ -31,24 +34,22 @@ if (!file_exists($file)) {
     exit(1);
 }
 
+if ($test) {
+    e();
+    e('Test mode, don\'t create file');
+}
+
 e();
-e('Use configuration from', $file);
+e('Configuration file: ', $file);
 
 $json = stripJSON(file_get_contents($file));
 
 $c = json_decode($json, TRUE);
 
 if (($err = json_last_error()) != JSON_ERROR_NONE) {
-    $errors = array(
-        JSON_ERROR_DEPTH            => 'Maximum stack depth exceeded',
-        JSON_ERROR_STATE_MISMATCH   => 'Underflow or the modes mismatch',
-        JSON_ERROR_CTRL_CHAR        => 'Unexpected control character found',
-        JSON_ERROR_SYNTAX           => 'Syntax error, malformed JSON',
-        JSON_ERROR_UTF8             => 'Malformed UTF-8 characters, possibly incorrectly encoded'
-    );
-    e('###');
-    e('### ERROR: ', array_key_exists($err, $errors) ? $errors[$err] : "Unknown error ({$err})");
-    e('###');
+    e();
+    e('ERROR: ', json_last_error_msg());
+    e();
     exit(127);
 }
 
@@ -58,34 +59,32 @@ $c2 = &$c[2];
 
 if (!$conf) {
 
-// Header data
-$c0 = array_merge( array( 'sections' => 'GUID' ), $c0 );
+    // Header data
+    $c0 = array_merge( array( 'sections' => 'GUID' ), $c0 );
 
-// Common data
-if (!empty($c1)) {
-    // Show header only if also multiple section occur
-    !empty($c2) AND h('Common settings');
-    e();
-    foreach ($c1 as $id => $data) $c1[$id] = readValue($data);
-}
+    // Common data
+    if (!empty($c1)) {
+        // Show header only if also multiple section occur
+        !empty($c2) AND h('Common settings');
+        foreach ($c1 as $id => $data) $c1[$id] = readValue($data);
+    }
 
-$n = 0;
+    $n = 0;
 
-// Multiple data
-if (!empty($c2)) {
-    h('Multiple settings');
-    do {
-        h('Section '.++$n);
-        e();
-        foreach ($c2 as $id => $data) {
-            $data = readValue($data);
-            $data['_value'][$n] = $data['value'];
-            $data['value'] = '';
-            $c2[$id] = $data;
-        }
-        echo PHP_EOL, 'More (y|n) [n] ? ';
-    } while (trim(fgets(STDIN)) == 'y');
-}
+    // Multiple data
+    if (!empty($c2)) {
+        h('Multiple settings');
+        do {
+            h('Section '.++$n);
+            foreach ($c2 as $id => $data) {
+                $data = readValue($data);
+                $data['_value'][$n] = $data['value'];
+                $data['value'] = '';
+                $c2[$id] = $data;
+            }
+            echo PHP_EOL, 'More (y|n) [n] ? ';
+        } while (trim(fgets(STDIN)) == 'y');
+    }
 
 } else {
     $i = 1;
@@ -130,10 +129,11 @@ e();
 if ($test) {
     e(implode(PHP_EOL, $cfg));
 } else {
+    $conf = $conf ?: 'config';
     e('- Configuration file name (without ".conf")');
-    echo '[config] ? ';
+    echo '['.$conf.'] ? ';
     $file = trim(fgets(STDIN));
-    $file = $cwd.DS.($file?:'config').'.conf';
+    $file = $cwd.DS.($file?:$conf).'.conf';
 
     e();
     file_put_contents($file, implode(PHP_EOL, $cfg));
@@ -145,21 +145,22 @@ if ($test) {
 // ###########################################################################
 
 /**
- * Configuration Comment
- */
-function cc() {
-    global $cfg;
-    $cfg[] = '##############################################################################';
-    $cfg[] = '### '.implode(' ', func_get_args());
-    $cfg[] = '##############################################################################';
-}
-
-/**
  * Configuration empty line
  */
 function c0() {
-    global $cfg;
-    $cfg[] = NULL;
+    global $short, $cfg;
+    if (!$short) $cfg[] = NULL;
+}
+
+/**
+ * Configuration Comment
+ */
+function cc() {
+    global $short, $cfg;
+    if ($short) return;
+    $cfg[] = '##############################################################################';
+    $cfg[] = '### '.implode(' ', func_get_args());
+    $cfg[] = '##############################################################################';
 }
 
 /**
@@ -167,7 +168,9 @@ function c0() {
  */
 function c2($k, $v ) {
     global $cfg;
-    $cfg[] = is_numeric($v) ? sprintf('%-15s %s', $k, $v) : sprintf('%-15s "%s"', $k, $v);
+    $cfg[] = ($v == '' || strstr($v, ' '))
+           ? sprintf('%-15s "%s"', $k, $v)
+           : sprintf('%-15s %s', $k, $v);
 }
 
 /**
@@ -190,10 +193,11 @@ function h() {
 function stripJSON( $json ) {
     $result = '';
     // Tokenize JSON and remove all comments and whitespaces
-    foreach (token_get_all('<?php '.$json) as $token) {
+    foreach (token_get_all('<?php '.$json) as $token) { 
+        // if (is_array($token)) { $token[] = token_name($token[0]); print_r($token); }
         if (!is_array($token)) {
             $result .= $token;
-        } elseif ($token[0] == T_CONSTANT_ENCAPSED_STRING) {
+        } elseif ($token[0] == T_CONSTANT_ENCAPSED_STRING || $token[0] == T_LNUMBER) {
             $result .= $token[1];
         }
     }
@@ -217,27 +221,51 @@ function readValue( $key ) {
     );
 
     if ($key['value'] == '') $key['value'] = $key['default'];
+
+    // Handle boolean data via valid values array
     if ($key['type'] == 'b') $key['values'] = array('y', 'n');
 
+    $err = FALSE;
     do {
-        e('- ', $key['description']);
-        if ($key['help']) e($key['help']);
+        e();
+        $msg = $key['description'];
+        if ($key['required']) $msg .= ' (required)';
+        e('- ', $msg);
+        if ($key['help']) e('- '.$key['help']);
+        if ($err) e('! '.$err);
         if (!empty($key['values'])) echo '('.implode('|', $key['values']).') ';
         if (!empty($key['value'])) echo '['.$key['value'].'] ';
         echo '? ';
-        $v = trim(fgets(STDIN));
-        if ($v) $key['value'] = $v;
 
-        $ok = TRUE;
-        if (!$key['value'] AND $key['required']) {
-            e('--- Required!');
-            $ok = FALSE;
+        $err = FALSE;
+        $v = trim(fgets(STDIN)) ?: $key['default'];
+
+        if ($v) {
+            $key['value'] = $v;
+
+            switch ($key['type']) {
+                case 'i':
+                    if ($key['value'] != '' && !is_int($key['value'])) {
+                        $err = 'Integer value required';
+                        $key['value'] = NULL;
+                    }
+                    break;
+                case 'n':
+                    if (!is_numeric($key['value'])) {
+                        $err = 'Numeric value required';
+                        $key['value'] = NULL;
+                    }
+                    break;
+                default:
+                    if (!empty($key['values']) AND !in_array($key['value'], $key['values'])) {
+                        $err = 'Invalid value: ' . $key['value'];
+                        $key['value'] = $key['default'];
+                    }
+            }
+        } elseif ($key['required']) {
+            $err = 'Value is required';
         }
-        if (!empty($key['values']) AND !in_array($key['value'], $key['values'])) {
-            e('--- Invalid value!');
-            $key['value'] = $key['default'];
-            $ok = FALSE;
-        }
-    } while (!$ok);
+
+    } while ($err);
     return $key;
 }

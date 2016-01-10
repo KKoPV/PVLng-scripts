@@ -55,7 +55,7 @@ else
 fi
 
 INTERVAL=$(calc "($NOW - $LAST) / 60" 0)
-echo $NOW >$LASTFILE
+[ "$TEST" ] || echo $NOW >$LASTFILE
 
 eval APIURL="$APIURL"
 lkv 2 'API Endpoint' $APIURL

@@ -80,9 +80,9 @@ while [ $i -lt $GUID_N ]; do
 
     if [ "$TEST" ]; then
         lkv 1 Channel "/${SERIAL}/${CHANNEL}"
-        rc=$(owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL})
+        rc=$(owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL} 2>/dev/null)
         if [ $rc -ne 1 ]; then
-            log 1 "FAILED, please check your configuration!"
+            log 1 "FAILED, missing ${SERIAL}"
             continue
         fi
     fi
@@ -90,7 +90,7 @@ while [ $i -lt $GUID_N ]; do
     ### read value
     cmd="$OWREAD -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
     lkv 2 Request "$cmd"
-    value=$($cmd)
+    value="$($cmd 2>/dev/null)"
     lkv 1 Value "$value"
 
     ### Save data

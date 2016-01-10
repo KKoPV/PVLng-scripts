@@ -94,6 +94,7 @@ function usage {
 ##############################################################################
 function read_config {
     local file="$1"
+    local line=
 
     if [ -z "$file" ]; then
         echo
@@ -107,9 +108,22 @@ function read_config {
 
     sec 2 "$(basename $file) >>>"
 
-    while read var value; do
-        [ "$var" -a "${var:0:1}" != '#' ] || continue
-        value=$(echo -e "$value" | sed -e 's/^[" \t]*//g;s/[" \t]*$//g')
+#     while read var value; do
+#         [ "$var" -a "${var:0:1}" != '#' ] || continue
+#         value=$(echo -e "$value" | sed -e 's/^[" \t]*//g;s/[" \t]*$//g')
+#         lkv 2 $var "$value"
+#         eval "$var=\$value"
+#     done <"$file"
+
+    while read line; do
+        [ "$line" -a "${line:0:1}" != '#' ] || continue
+        set -- $line
+        ### 1st is variable
+        var=$1
+        shift
+        ### All others are value for variable
+        ### Trim leading/trailing spaces and ""
+        value=$(echo -e "$@" | sed -e 's/^[" \t]*//g;s/[" \t]*$//g')
         lkv 2 $var "$value"
         eval "$var=\$value"
     done <"$file"
@@ -140,22 +154,17 @@ function int {
 }
 
 ##############################################################################
-### Calculation via bc with correct rounding
-### $1 - formula
+### Calculation via awk
+### $1 - formula, required
 ### $2 - decimal places, optional; default 4
 ##############################################################################
 function calc {
-    local term="$1"
-    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }" 2>/dev/null)
+    ### Replace all ' in formula with "
+    local term=$(echo "${1:-0}" | sed 's/'\''/"/g')
+#    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }" 2>/dev/null)
+    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }")
 
-    ### Test for numeric string
-    ### http://www.linuxquestions.org/questions/programming-9/bash-scripting-check-for-numeric-values-352226/#post3993863
-    if [ $result == ${result//[^0-9\.+-]/} ]; then
-        ### numeric
-        echo $result
-    else
-        echo 0
-    fi
+    [ $(numeric "$result") -eq 1 ] && echo $result || echo 0
 }
 
 ##############################################################################
@@ -175,14 +184,17 @@ function toFixed {
 ##############################################################################
 function numeric {
     local value=$1
-    if [ "$1" == 0 ] || ((value)) 2>/dev/null; then echo 1; else echo 0; fi
+    ### http://www.linuxquestions.org/questions/programming-9/bash-scripting-check-for-numeric-values-352226/#post3993863
+    [ "$value" == "${value//[^0-9\.+-]/}" ] && echo 1 || echo 0
 }
 
 ##############################################################################
 ### Build md5 hash of file
+### $1 - term to hash, required
 ##############################################################################
 function hash {
-    md5sum "$1" | cut -d' ' -f1
+    local term=$1
+    md5sum "$term" | cut -d' ' -f1
 }
 
 ##############################################################################
@@ -216,7 +228,8 @@ function check_required {
 ##############################################################################
 function var1 {
     eval local val="\${${1}_${2}:-${3}}"
-    eval $1="'$val'"
+    ### Mask embeded '
+    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
     lkv 1 $1 "$val"
 }
 
@@ -230,7 +243,8 @@ function var1 {
 ##############################################################################
 function var2 {
     eval local val="\${${1}_${2}_${3}:-${4}}"
-    eval $1="'$val'"
+    ### Mask embeded '
+    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
     lkv 1 $1 "$val"
 }
 
@@ -305,7 +319,7 @@ function on_exit_rm () {
 ### $1 - Variable name
 ##############################################################################
 function temp_file {
-    local file=$(mktemp /tmp/pvlng.XXXXXX)
+    local file=$(mktemp $RUNDIR/pvlng.XXXXXX)
     if [ "$1" ]; then
         on_exit_rm "$file"
         eval ${1}=\$file
@@ -340,7 +354,7 @@ function run_file {
 
     lkv 2 "Run file" "$file"
 
-    ### If a 4th parameter was provided, create file with $4 as content
+    ### If a 4th parameter was provided, create file with $4 as initial content
     [ $# -eq 4 -a ! -f "$file" ] && echo -ne "$4" >$file
     echo $file
 }
@@ -574,6 +588,13 @@ function PVLngPUT {
 
     sec 2 "API PUT data"
     lkv 2 GUID $GUID
+
+    ### Skip empty data
+    if [ -z "$data" ]; then
+        log 2 "Skip empty data"
+        return
+    fi
+
     lkv 2 Data "$data"
 
     if [ "${data:0:1}" != "@" ]; then
@@ -648,6 +669,7 @@ function PVLngPUT {
         [ -f $_PUTRESPONSEFILE ] && log 2 @$_RESPONSE Response
     else
         ### errors
+        lkv 0 Data "$data"
         lkv 0 "HTTP code" $1
         [ -f $_PUTRESPONSEFILE ] && log 0 @$_RESPONSE Response
         save_log "$GUID" "HTTP code: $1"
@@ -1014,16 +1036,16 @@ function run_time {
 
     if [ $s -lt 10 ]; then
         ### In milli seconds below 10 sec
-        t=$(printf "%.1f ms" $(calc "$t * 1000"))
+        t="$(calc "$t * 1000" 1) ms"
     elif [ $s -lt 60 ]; then
         ### In seconds below 60 sec
         t=$(printf "%.1f s" $t)
     elif [ $s -lt 3600 ]; then
         ### In minutes below an hour
-        t=$(printf "%.1f min" $(calc "$t / 60"))
+        t="$(calc "$t / 60" 1)) min"
     else
         ### In hours otherwise
-        t=$(printf "%.1f h" $(calc "$t / 3600"))
+        t="$(calc "$t / 3600" 1)) h"
     fi
 
     lkv 0 "Run time" "$t"
@@ -1096,9 +1118,6 @@ CURL="$CURL $CURLCONNECT"
 ### Show run time on end from verbose level 1 onwards
 on_exit "run_time"
 
-### Create temp. file e.g. for curl --output and remove on exit
-temp_file TMPFILE
-
 ### Directory for the temporary "run" files
 RUNDIR=${RunDir:-$_ROOT/run}
 [ -d "$RUNDIR" ] || mkdir -p "$RUNDIR"
@@ -1112,6 +1131,9 @@ scriptname=${0##*/}
 
 ### Don't use local time
 LocalTime=0
+
+### Create temp. file e.g. for curl --output and remove on exit
+temp_file TMPFILE
 
 VERBOSE=0
 

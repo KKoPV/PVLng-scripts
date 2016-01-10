@@ -82,9 +82,7 @@ while [ $i -lt $GUID_N ]; do
 
     if [ $(bool "$NUMERIC") -eq 1 ]; then
         var1 FACTOR $i 1
-        lkv 1 Factor "$FACTOR"
-
-        value=$(calc "$value * $FACTOR")
+        value=$(calc "${value:-0} * $FACTOR")
         lkv 1 Value "$value"
     fi
 

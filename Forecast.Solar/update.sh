@@ -13,9 +13,9 @@ pwd=$(dirname $0)
 
 ### API URL with placeholders
 ### Personal URL without API key
-APIURL0='http://api.forecast.solar/latest/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
+APIURL0='https://forecast.solar/api/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
 ### Professional URL with API key
-APIURL1='http://api.forecast.solar/latest/$APIKEY/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
+APIURL1='https://forecast.solar/api/$APIKEY/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
 
 ##############################################################################
 ### Init
@@ -47,10 +47,10 @@ check_required GUID 'Pac estimate channel GUID'
 ##############################################################################
 temp_file CSVFILE
 
-if [ -z "$APIKEY" ]; then
-    eval APIURL="$APIURL0"
-else
+if [ "$APIKEY" ]; then
     eval APIURL="$APIURL1"
+else
+    eval APIURL="$APIURL0"
 fi
 
 log 2 Fetch $APIURL

@@ -230,7 +230,7 @@ for par in \${_opt_req}; do
     eval var=\\\$\$var
     if [ "\$var" ]; then
         ### Remember error
-        error+="#N#T- Option -\$(echo "\$par" | cut -d: -f2) is required!"
+        error+="#N- Option -\$(echo "\$par" | cut -d: -f2) is required!"
     fi
 done
 
@@ -239,15 +239,15 @@ while getopts ":$_opt_args" option; do
     case \$option in
 $_opt_process
         ### Remember error
-        :) error+="#N#T- Option -\$OPTARG requires an argument!";;
-        *) usage; exit 1;;
+        :) error+="#N- Option -\$OPTARG requires an argument!";;
+        *) error+="#N- Unknown option: -\$OPTARG";;
     esac
 done
 
 if [ "\$error" ]; then
     ### Errors occurred!
     echo
-    echo "There where errors:\$error"
+    echo "\$error"
     usage
     rm $build_file
     exit 127

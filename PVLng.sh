@@ -157,10 +157,12 @@ function int {
 ### Calculation via awk
 ### $1 - formula, required
 ### $2 - decimal places, optional; default 4
+### $3 - log level to show term, default 9 (never :-)
 ##############################################################################
 function calc {
     ### Replace all ' in formula with "
     local term=$(echo "${1:-0}" | sed 's/'\''/"/g')
+    lkv ${3:-9} CALC "$term"
 #    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }" 2>/dev/null)
     local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }")
 

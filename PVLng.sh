@@ -1,13 +1,13 @@
 ##############################################################################
-###    ______     ___                                     _       _
-###   |  _ \ \   / / |    _ __   __ _       ___  ___ _ __(_)_ __ | |_ ___
-###   | |_) \ \ / /| |   | '_ \ / _` |_____/ __|/ __| '__| | '_ \| __/ __|
-###   |  __/ \ V / | |___| | | | (_| |_____\__ \ (__| |  | | |_) | |_\__ \
-###   |_|     \_/  |_____|_| |_|\__, |     |___/\___|_|  |_| .__/ \__|___/
-###                             |___/                      |_|
+###  ______     ___                                     _       _
+### |  _ \ \   / / |    _ __   __ _       ___  ___ _ __(_)_ __ | |_ ___
+### | |_) \ \ / /| |   | '_ \ / _` |_____/ __|/ __| '__| | '_ \| __/ __|
+### |  __/ \ V / | |___| | | | (_| |_____\__ \ (__| |  | | |_) | |_\__ \
+### |_|     \_/  |_____|_| |_|\__, |     |___/\___|_|  |_| .__/ \__|___/
+###                           |___/                      |_|
 ###
 ### @author     Knut Kohl <github@knutkohl.de>
-### @copyright  2012-2015 Knut Kohl
+### @copyright  2012-2016 Knut Kohl
 ### @license    MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version    1.0.0
 ##############################################################################
@@ -16,6 +16,9 @@ REQUEST_TIME=$(date +%s.%N)
 
 ##############################################################################
 ### Show message depending of verbosity level on stderr
+### $1 - Show from verbose level upwards
+### $2 - Output, "string" or read from "@file"
+### $3 - Title for file content, default "Result"
 ##############################################################################
 function log {
     [ $VERBOSE -ge $1 ] || return
@@ -28,9 +31,13 @@ function log {
         if [ "${1:0:1}" == '@' ]; then
             file=${1:1}
             sec $level "${2:-Result}"
-            ### cat ... read needs at least one new line at end of file...
+
+            ### At least 1 line break at EOF is needed!
             echo >>$file
-            sed '/^$/d' $file | while IFS="\n" read l; do echo "$time $l"; done
+
+            while read l; do
+                echo "$time $l"
+            done <$file
             sec $level ---
         else
             echo "$time $@"
@@ -40,25 +47,33 @@ function log {
 
 ##############################################################################
 ### Show "key = value" message depending of verbosity level on stderr
+### $1 - Show from verbose level upwards
+### $2 - Key
+### $3 - Value
 ##############################################################################
 function lkv {
     [ $VERBOSE -ge $1 ] || return
     log $1 "$(printf "%-15s = %s" "$2" "$3")"
-#   log $1 "$(printf "[%-15s] %s" "$2" "$3")"
 }
 
 ##############################################################################
 ### Show "key = yes|no" message depending of verbosity level on stderr
+### $1 - Show from verbose level upwards
+### $2 - Key
+### $3 - Value
 ##############################################################################
 function lkb {
     [ $VERBOSE -ge $1 ] || return
     local value=
     [ $(bool "$3") -eq 1 ] && value=yes || value=no
-    log $1 "$(printf "%-15s = %s" "$2" $value)"
+    lkv $1 "$2" $value
 }
 
 ##############################################################################
 ### Show a section header
+### $1 - Show from verbose level upwards
+### $2 - Header
+### $@ - Output
 ##############################################################################
 function sec {
     [ $VERBOSE -ge $1 ] || return
@@ -81,20 +96,19 @@ function sec {
 ### ...
 ### # << USAGE
 ##############################################################################
-function usage {
-    s=$(cat "$0" | \
-        awk '{if($0~/^#+ +USAGE +>+/){while(getline>0){if($0~/^#+ *<+ *USAGE/)exit;print $0}}}')
-    eval s="$(echo \""$s"\")"
-    echo "$s" >&2
-}
+# function usage {
+#     s=$(cat "$0" | \
+#         awk '{if($0~/^#+ +USAGE +>+/){while(getline>0){if($0~/^#+ *<+ *USAGE/)exit;print $0}}}')
+#     eval s="$(echo \""$s"\")"
+#     echo "$s" >&2
+# }
 
 ##############################################################################
 ### read config file
 ### $1 - Config file name
 ##############################################################################
 function read_config {
-    local file="$1"
-    local line=
+    local file=$1
 
     if [ -z "$file" ]; then
         echo
@@ -106,29 +120,19 @@ function read_config {
     [ -f "$file" ] || file="$(dirname $0)/$file"
     [ -r "$file" ] || error_exit "Configuration file is not readable!" 1
 
-    sec 2 "$(basename $file) >>>"
+    ### Transform configuration into var="value" format
 
-#     while read var value; do
-#         [ "$var" -a "${var:0:1}" != '#' ] || continue
-#         value=$(echo -e "$value" | sed -e 's/^[" \t]*//g;s/[" \t]*$//g')
-#         lkv 2 $var "$value"
-#         eval "$var=\$value"
-#     done <"$file"
-
-    while read line; do
-        [ "$line" -a "${line:0:1}" != '#' ] || continue
-        set -- $line
-        ### 1st is variable
-        var=$1
-        shift
-        ### All others are value for variable
-        ### Trim leading/trailing spaces and ""
-        value=$(echo -e "$@" | sed -e 's/^[" \t]*//g;s/[" \t]*$//g')
-        lkv 2 $var "$value"
-        eval "$var=\$value"
-    done <"$file"
-
-    sec 2 "<<< $(basename $file)"
+    if [ $VERBOSE -lt 2 ]; then
+        ### eval() direct
+        eval $(sed '/^$/d;/^ *#/d;s/  *\(.*\)/="\1"/;s/""/"/g' $file)
+    else
+        ### Pipe through temp. file for log output
+        local cfg=$(temp_file)
+        on_exit_rm $cfg
+        sed '/^$/d;/^ *#/d;s/  *\(.*\)/="\1"/;s/""/"/g' $file >$cfg
+        log 2 @$cfg "$(basename $file)"
+        . $cfg
+    fi
 }
 
 ##############################################################################
@@ -157,10 +161,12 @@ function int {
 ### Calculation via awk
 ### $1 - formula, required
 ### $2 - decimal places, optional; default 4
+### $3 - log level to show term, default 9 (never :-)
 ##############################################################################
 function calc {
     ### Replace all ' in formula with "
     local term=$(echo "${1:-0}" | sed 's/'\''/"/g')
+    lkv ${3:-9} CALC "$term"
 #    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }" 2>/dev/null)
     local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }")
 
@@ -230,7 +236,7 @@ function var1 {
     eval local val="\${${1}_${2}:-${3}}"
     ### Mask embeded '
     eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
-    lkv 1 $1 "$val"
+    lkv 2 $1 "$val"
 }
 
 ##############################################################################
@@ -245,7 +251,7 @@ function var2 {
     eval local val="\${${1}_${2}_${3}:-${4}}"
     ### Mask embeded '
     eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
-    lkv 1 $1 "$val"
+    lkv 2 $1 "$val"
 }
 
 ##############################################################################
@@ -255,7 +261,7 @@ function var2 {
 function var1int {
     eval local val="\${${1}_${2}:-${3}}"
     eval $1=$(int "$val")
-    lkv 1 $1 "$val"
+    lkv 2 $1 "$val"
 }
 
 ##############################################################################
@@ -265,7 +271,7 @@ function var1int {
 function var2int {
     eval local val="\${${1}_${2}_${3}:-${4}}"
     eval $1=$(int "$val")
-    lkv 1 $1 "$val"
+    lkv 2 $1 "$val"
 }
 
 ##############################################################################
@@ -275,7 +281,7 @@ function var2int {
 function var1bool {
     eval local val="\${${1}_${2}:-${3}}"
     eval $1=$(bool "$val")
-    lkb 1 $1 "$val"
+    lkb 2 $1 "$val"
 }
 
 ##############################################################################
@@ -285,7 +291,7 @@ function var1bool {
 function var2bool {
     eval local val="\${${1}_${2}_${3}:-${4}}"
     eval $1=$(bool "$val")
-    lkb 1 $1 "$val"
+    lkb 2 $1 "$val"
 }
 
 ##############################################################################
@@ -308,7 +314,7 @@ on_exit_init true
 
 ##############################################################################
 ### Remove given file name on script exit
-### $1 : file name
+### $1 - file name
 ##############################################################################
 function on_exit_rm () {
     [ "$1" ] && on_exit 'rm -f "'$1'" >/dev/null 2>&1'
@@ -568,7 +574,7 @@ function PVLngChannelAttrBool {
 ##############################################################################
 function PVLngGET {
     local url="$PVLngURL/$1"
-    log 2 Fetch $url
+    lkv 2 'Fetch URL' $url
     $(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $url
 }
 
@@ -1024,10 +1030,14 @@ function jq {
 
 ##############################################################################
 ### Show run time of script
-### Active on verbose level from 2
+### $1 - Verbose level, default 2
+### $2 - Custom title for output in between scripts, default "Run time"
 ##############################################################################
 function run_time {
-    [ $VERBOSE -ge 2 ] || return
+
+    local level=${1:-2}
+
+    [ $VERBOSE -ge $level ] || return
 
     ### Time gone since script start
     local t=$(calc "$(now) - $REQUEST_TIME")
@@ -1042,13 +1052,13 @@ function run_time {
         t=$(printf "%.1f s" $t)
     elif [ $s -lt 3600 ]; then
         ### In minutes below an hour
-        t="$(calc "$t / 60" 1)) min"
+        t="$(calc "$t / 60" 1) min"
     else
         ### In hours otherwise
-        t="$(calc "$t / 3600" 1)) h"
+        t="$(calc "$t / 3600" 1) h"
     fi
 
-    lkv 0 "Run time" "$t"
+    lkv 0 "${2:-Run time}" "$t"
 }
 
 ##############################################################################

@@ -11,6 +11,8 @@
 ##############################################################################
 pwd=$(dirname $0)
 
+PUSHOVERAPI='https://api.pushover.net/1/messages.json'
+
 ##############################################################################
 ### Functions
 ##############################################################################
@@ -105,6 +107,21 @@ function alert_twitter {
     echo -n "$TEXT" >$(mktemp --tmpdir="$RUNDIR" twitter.alert.XXXXXX)
 }
 
+### --------------------------------------------------------------------------
+function alert_pushover {
+    var1 USER $i
+    var1 TOKEN $i
+    var1 DEVICE $i
+    var1 TITLE $i
+    var1 TEXT $i
+    var1 PRIORITY $i 0
+    TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}" $j)
+    lkv 1 TEXT "$TEXT"
+
+    [ "$TEST" ] && return
+    lkv 1 Response $($pwd/../bin/pushover.sh -u "$USER" -a "$TOKEN" -d "$DEVICE" -t "$TITLE" -m "$TEXT" -p $PRIORITY)
+}
+
 ##############################################################################
 ### Init
 ##############################################################################
@@ -116,6 +133,8 @@ opt_help_hint "See dist/alert.conf for details."
 
 ### PVLng default options
 opt_define_pvlng
+### Hidden option to force (ignore condition and once flag)
+opt_define short=f long=force variable=FORCE value=y
 
 . $(opt_build)
 
@@ -154,25 +173,19 @@ while [ $i -lt $GUID_N ]; do
         ### Count GUIDs for function replace_vars
         j=$((j+1))
 
-        if [ "$USE" ]; then
-            eval name="\$name_$USE"
-            eval value="\$value_$USE"
-            eval last="\$last_$USE"
-        else
-            PVLngChannelAttr $GUID name
-            PVLngChannelAttr $GUID description
-            [ "$description" ] && name="$name ($description)"
+        PVLngChannelAttr $GUID name
+        PVLngChannelAttr $GUID description
+        [ "$description" ] && name="$name ($description)"
 
-            set -- $(PVLngGET data/$GUID.tsv?period=readlast)
-            shift ### Shift out timestamp
-            value=$@
+        set -- $(PVLngGET data/$GUID.tsv?period=readlast)
+        shift ### Shift out timestamp
+        value=$@
 
-            lkv 2 "$name" "$value"
+        lkv 2 "$name" "$value"
 
-            lastkey=$(key_name alert $CONFIG $i.$j.last)
-            last=$(PVLngStoreGET $lastkey)
-            [ "$TEST" -o "$last" == "$value" ] || PVLngStorePUT $lastkey "$value"
-        fi
+        lastkey=$(key_name alert $CONFIG $i.$j.last)
+        last=$(PVLngStoreGET $lastkey)
+        [ "$TEST" -o "$last" == "$value" ] || PVLngStorePUT $lastkey "$value"
 
         eval name_$j="\$name"
         eval value_$j="\$value"
@@ -197,28 +210,31 @@ while [ $i -lt $GUID_N ]; do
         continue
     fi
 
-    ### Skip if condition is not true
-    if [ "$result" -eq 0 ]; then
-        ### Remove flag
-        [ "$TEST" ] || PVLngStorePUT $oncekey
-        continue
-    fi
 
-    ### Condition was true
-    var1bool ONCE $i
+    if [ -z "$FORCE" ]; then
+        ### Skip if condition is not true
+        if [ "$result" -eq 0 ]; then
+            ### Remove flag
+            [ "$TEST" ] || PVLngStorePUT $oncekey
+            continue
+        fi
 
-    ### Skip if flag file exists, condition was true before && ONCE is set
-    if [ $ONCE -eq 1 -a "$(PVLngStoreGET $oncekey)" ]; then
-        log 1 "Skip, report condition '$CONDITION' only once"
-        continue
-    fi
+        ### Condition was true
+        var1bool ONCE $i
 
-    if [ $ONCE -eq 1 ]; then
-        ### Mark condition was true
-        [ "$TEST" ] || PVLngStorePUT $oncekey x
-    else
-        ### Remove flag
-        [ "$TEST" ] || PVLngStorePUT $oncekey
+        ### Skip if flag exists, condition was true before && ONCE is set
+        if [ -z "$TEST" -a $ONCE -eq 1 -a "$(PVLngStoreGET $oncekey)" ]; then
+            log 1 "Skip, report condition '$CONDITION' only once"
+            continue
+        fi
+
+        if [ $ONCE -eq 1 ]; then
+            ### Mark condition was true
+            [ "$TEST" ] || PVLngStorePUT $oncekey x
+        else
+            ### Remove flag
+            [ "$TEST" ] || PVLngStorePUT $oncekey
+        fi
     fi
 
     var1 ACTION $i

@@ -169,7 +169,7 @@ opt_define_trace () {
 ### Usage: source $(opt_build)
 ##############################################################################
 opt_build () {
-    local build_file=$(mktemp /tmp/optparse-XXXXXX.tmp)
+    local build_file=$(mktemp)
 
     ### Add default help option
     __opt_help h help 'This usage help'
@@ -177,6 +177,7 @@ opt_build () {
     ### Function usage
     cat << EOF > $build_file
 usage () {
+[ "\$1" ] && echo && echo \$1
 cat << EOT
 $_opt_help
 usage: \$0 ${_opt_help_args_req}[options] ${_opt_help_args}
@@ -186,6 +187,7 @@ $_opt_usage
 $_opt_help_hint
 
 EOT
+[ "\$2" ] && exit \$2
 }
 
 ### Contract long options into short options

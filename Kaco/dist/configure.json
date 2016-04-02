@@ -1,0 +1,32 @@
+/**
+ * @author     Knut Kohl <github@knutkohl.de>
+ * @copyright  2016 Knut Kohl
+ * @license    MIT License (MIT) http://opensource.org/licenses/MIT
+ * @version    1.0.0
+ *
+ * JSON with JavaScript comments
+ */
+[
+  {
+    "sections": "GUID"
+  },
+  [
+    {
+      "name": "DEVICE",
+      "description": "Serial or USB device, e.g. /dev/ttyUSB0",
+      "required": 1
+    }
+  ],
+  [
+    {
+      "name": "GUID",
+      "description": "PVLng channel GUID",
+      "required": 1
+    },
+    {
+      "name": "INVERTER",
+      "description": "Bus address of inverter, 1..32",
+      "required": 1
+    }
+  ]
+]

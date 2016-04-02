@@ -235,7 +235,7 @@ function readValue( $key ) {
         if ($err) e('! '.$err);
         if (!empty($key['values'])) echo '('.implode('|', $key['values']).') ';
         if (!empty($key['value'])) echo '['.$key['value'].'] ';
-        echo '? ';
+        echo ': ';
 
         $err = FALSE;
         $v = trim(fgets(STDIN)) ?: $key['default'];

@@ -426,7 +426,8 @@ function test_exit {
 function curl_cmd {
     local mode='--silent' ### default
     [ $(int "$VERBOSE") -gt 2 ] && mode='--verbose'
-    echo "$CURL $mode $CurlOpts"
+    ### Always follow 3XX redirects
+    echo "$CURL $mode $CurlOpts --location"
 }
 
 ##############################################################################
@@ -667,7 +668,7 @@ function PVLngPUT {
     set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
                          --header "Content-Type: application/json" \
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
-                         --data-binary $data $PVLngURL/data/$GUID.txt)
+                         --data-binary "$data" $PVLngURL/data/$GUID.txt)
 
     if echo "$1" | grep -qe '^20[012]'; then
         ### 200/201/202 ok

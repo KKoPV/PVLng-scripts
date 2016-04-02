@@ -31,10 +31,10 @@ opt_define short=a long=token variable=TOKEN desc='Application token' required=y
 opt_define short=d long=device variable=DEVICE desc='Device or group [default:all devices]'
 opt_define short=t long=title variable=TITLE desc='Message title [default:application name]'
 opt_define short=m long=message variable=MESSAGE desc='Message to send' required=y
+opt_define short=p long=priority variable=PRIORITY desc='Message priority, (-2..2)' default=0
 opt_define short=r long=url variable=URL desc='Supplementary URL'
 opt_define short=l long=url_title variable=URLTITLE desc='Title for supplementary URL'
-opt_define short=p long=priority variable=PRIORITY desc='Message priority, (-2..2)' default=0
-opt_define short=s long=sound variable=SOUND desc='Name of one of the sounds' default=pushover
+opt_define short=s long=sound variable=SOUND desc='Name of one of the sounds'
 
 . $(opt_build)
 

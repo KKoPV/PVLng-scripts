@@ -13,9 +13,9 @@ pwd=$(dirname $0)
 
 ### API URL with placeholders
 ### Personal URL without API key
-APIURL0='https://api.forecast.solar/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
+APIURL0='http://api.forecast.solar/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
 ### Professional URL with API key
-APIURL1='https://api.forecast.solar/$APIKEY/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
+APIURL1='http://api.forecast.solar/$APIKEY/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
 
 ##############################################################################
 ### Init

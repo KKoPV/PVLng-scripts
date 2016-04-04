@@ -141,17 +141,15 @@ $pwd/contrib/curlicue \
     $opts -f $pwd/.consumer -- \
     -sS -d status="$STATUS&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
 
-set +x
-
 if grep -q 'errors' $TMPFILE; then
     ### Ignore {"errors":[{"code":187,"message":"Status is a duplicate."}]}
     ### Ignore {"errors":[{"code":186,"message":"Status is over 140 characters."}]}
 
     ### Extract code from JSON: errors > 0 > code
-    code=$($curl --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/code.txt)
+    code=$($(curl_cmd) --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/code.txt)
 
     if [ $code -ne 186 -a $code -ne 187 ]; then
-        msg=$($curl --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/message.txt)
+        msg=$($(curl_cmd) --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/message.txt)
         sec -1 'Twitter update error' "[$code] $msg"
     fi
 fi

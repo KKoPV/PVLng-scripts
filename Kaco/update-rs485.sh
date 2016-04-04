@@ -11,6 +11,8 @@
 ##############################################################################
 pwd=$(dirname $0)
 
+TIMEOUT=30
+
 ##############################################################################
 ### Init
 ##############################################################################
@@ -73,8 +75,8 @@ while [ $i -lt $GUID_N ]; do
     ### Initialize data string
     data=
 
-    ### Read char by char
-    while IFS= read -r -n1 c; do
+    ### Read char by char with defined timeout
+    while IFS= read -r -t $TIMEOUT -n 1 c; do
 
         ### Skip 1st \r (response is then still empty)
         [ -z "$c" -a "$data" ] && break
@@ -83,6 +85,8 @@ while [ $i -lt $GUID_N ]; do
         data="$data$c"
 
     done <$DEVICE
+
+    [ -z "$data" ] && log 1 'Got no data ...' && continue
 
     ### Extend response with actual timestamp
     data=$(date +'%F %H:%M:%S ')$data

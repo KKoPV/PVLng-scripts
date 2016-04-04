@@ -15,6 +15,11 @@
       "name": "DEVICE",
       "description": "Serial or USB device, e.g. /dev/ttyUSB0",
       "required": 1
+    },
+    {
+      "name": "TIMEOUT",
+      "description": "Timeout, wait up to ? seconds for device response",
+      "default": 30
     }
   ],
   [

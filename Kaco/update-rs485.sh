@@ -92,7 +92,7 @@ while [ $i -lt $GUID_N ]; do
     data=$(date +'%F %H:%M:%S ')$data
 
     ### Clean up response, translate non printable check digit
-    data=$(echo "$data" | tr -C '\12\40-\176' ?)
+    data=$(echo "$data" | tr -C '\12\40-\176' ? | sed 's/[^a-zA-Z0-9.*-]/ /g')
 
     ### Condense multiple spaces to one
     data=$(echo "$data" | sed 's/  */ /g')

@@ -88,16 +88,13 @@ while [ $i -lt $GUID_N ]; do
 
     [ -z "$data" ] && log 1 'Got no data ...' && continue
 
-    ### Extend response with actual timestamp
-    data=$(date +'%F %H:%M:%S ')$data
-
     ### Clean up response, translate non printable check digit
     data=$(echo "$data" | tr -C '\12\40-\176' ? | sed 's/[^a-zA-Z0-9.*-]/ /g')
 
     ### Condense multiple spaces to one
     data=$(echo "$data" | sed 's/  */ /g')
 
-    ### Save data
-    PVLngPUT $GUID "$data"
+    ### Save data, extend response with actual timestamp
+    PVLngPUT $GUID "$(date +'%F %H:%M:%S') $data"
 
 done

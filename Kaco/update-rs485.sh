@@ -81,6 +81,9 @@ while [ $i -lt $GUID_N ]; do
         ### Skip 1st \r (response is then still empty)
         [ -z "$c" -a "$data" ] && break
 
+        ### Remove invalid characters
+        c=$(echo "$c" | tr -C '\12\40-\176' ' ')
+
         ### Concatenate response string
         data="$data$c"
 
@@ -88,11 +91,8 @@ while [ $i -lt $GUID_N ]; do
 
     [ -z "$data" ] && log 1 'Got no data ...' && continue
 
-    ### Clean up response, translate non printable check digit
-    data=$(echo "$data" | tr -C '\12\40-\176' ? | sed 's/[^a-zA-Z0-9.*-]/ /g')
-
-    ### Condense multiple spaces to one
-    data=$(echo "$data" | sed 's/  */ /g')
+    ### Clean up response, condense multiple spaces to one
+    data=$(echo "$data" | sed 's/[^a-zA-Z0-9.*-]/ /g;s/  */ /g')
 
     ### Save data, extend response with actual timestamp
     PVLngPUT $GUID "$(date +'%F %H:%M:%S') $data"

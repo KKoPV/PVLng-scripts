@@ -158,6 +158,16 @@ function int {
 }
 
 ##############################################################################
+### Make $1 to integer
+### $1 - variable name
+##############################################################################
+function toInt {
+    eval local val="\$$1"
+    [ "$val" ] && val=$(expr "$val" \* 1 2>/dev/null)
+    eval $1=\${val:-0}
+}
+
+##############################################################################
 ### Calculation via awk
 ### $1 - formula, required
 ### $2 - decimal places, optional; default 4
@@ -233,7 +243,8 @@ function check_required {
 ### If var NOT exists: var1 FACTOR 1 1000 > $FACTOR will get 1000
 ##############################################################################
 function var1 {
-    eval local val="\${${1}_${2}:-${3}}"
+    eval local val="\$${1}_${2}"
+    [ "$val" ] || val="$3"
     ### Mask embeded '
     eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
     lkv 2 $1 "$val"
@@ -248,7 +259,8 @@ function var1 {
 ### example: var2 ACTION 1 1 > $ACTION will get value of $ACTION_1_1
 ##############################################################################
 function var2 {
-    eval local val="\${${1}_${2}_${3}:-${4}}"
+    eval local val="\$${1}_${2}_${3}"
+    [ "$val" ] || val="$4"
     ### Mask embeded '
     eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
     lkv 2 $1 "$val"
@@ -256,40 +268,50 @@ function var2 {
 
 ##############################################################################
 ### Define variable level 1 and make integer
-### see var1
+### $1 - Variable base name
+### $2 - Counter level 1
+### $3 - Default value, if not set/empty
 ##############################################################################
 function var1int {
-    eval local val="\${${1}_${2}:-${3}}"
+    eval local val="\$${1}_${2}"
+    [ "$val" ] || val="$3"
     eval $1=$(int "$val")
     lkv 2 $1 "$val"
 }
 
 ##############################################################################
 ### Define variable level 2 and make integer
-### see var2
+### $1 - Variable base name
+### $2 - Counter level 1
+### $3 - Counter level 2
+### $4 - Default value, if not set/empty
 ##############################################################################
 function var2int {
-    eval local val="\${${1}_${2}_${3}:-${4}}"
+    eval local val="\$${1}_${2}_${3}"
+    [ "$val" ] || val="$4"
     eval $1=$(int "$val")
     lkv 2 $1 "$val"
 }
 
 ##############################################################################
 ### Define variable level 1 and interpret as boolean
-### see var1
+### $1 - Variable base name
+### $2 - Counter level 1
 ##############################################################################
 function var1bool {
-    eval local val="\${${1}_${2}:-${3}}"
+    eval local val="\$${1}_${2}"
     eval $1=$(bool "$val")
     lkb 2 $1 "$val"
 }
 
 ##############################################################################
 ### Define variable level 2 and interpret as boolean
-### see var2
+### $1 - Variable base name
+### $2 - Counter level 1
+### $3 - Counter level 2
 ##############################################################################
 function var2bool {
-    eval local val="\${${1}_${2}_${3}:-${4}}"
+    eval local val="\$${1}_${2}_${3}"
     eval $1=$(bool "$val")
     lkb 2 $1 "$val"
 }
@@ -541,11 +563,11 @@ function PVLngStoreGET {
 ##############################################################################
 function PVLngChannelAttr {
     local GUID=$1
-    local attr=$(echo ${2,,}) ### lowercase
+    local attr=${2,,} ### lowercase
 
-    if [ ! -f "$pwd/.read" ]; then
+    if [ "$3" -o ! -f "$pwd/.read" ]; then
         ### Keep data in file
-        local file=$(run_file attr $GUID $attr)
+        local file=$(run_file $GUID $attr txt)
         ### If file is older than 1 day, delete to force re-read
         if [ -f "$file" ]; then
             [ $(calc "($(stat -c %Z $file) + 60*60*24) >= $(now)" 0) -eq 0 ] && rm "$file"

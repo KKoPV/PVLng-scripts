@@ -18,44 +18,43 @@ PUSHOVERAPI='https://api.pushover.net/1/messages.json'
 ##############################################################################
 function replace_vars {
     ### Prepare conditions
-    local str="$1" ### save for looping
-    local count=$2
+    local str="$1"
+    local count=${2:-1}
     local i=0
+
+    ### Helper
     local value=
+    local unit=
     local name=
     local last=
 
-    ### On replacing in Condition, $EMPTY is not set, so it works on real data
-
-    ### max. 10 parameters :-)
     while [ $i -lt $count ]; do
         i=$((i+1))
 
+        var1 value $i $EMPTY
+        var1 unit $i
         var1 name $i
         var1 last $i
-        var1 value $i
-        [ -z "$value" ] && value=$EMPTY
 
-        str=$(echo "$str" | sed "s~[{]VALUE_$i[}]~$value~g;s~[{]NAME_$i[}]~$name~g;s~[{]LAST_$i[}]~$last~g")
+        str=$(echo "$str" | sed "s~[{]VALUE_$i[}]~$value~g;s~[{]UNIT_$i[}]~$unit~g;s~[{]NAME_$i[}]~$name~g;s~[{]LAST_$i[}]~$last~g")
     done
 
-    ### VALUE, NAME and LAST stands also for *_1
-    [ -z "$value_1" ] && value_1=$EMPTY
-    echo "$str" | sed "s~[{]VALUE[}]~$value_1~g;s~[{]NAME[}]~$name_1~g;s~[{]LAST[}]~$last_1~g"
+    ### VALUE, UNIT, NAME and LAST stands also for *_1
+    echo "$str" | sed "s~[{]VALUE[}]~${value_1:-$EMPTY}~g;s~[{]UNIT[}]~$unit_1~g;s~[{]NAME[}]~$name_1~g;s~[{]LAST[}]~$last_1~g"
 }
 
 ### --------------------------------------------------------------------------
 function alert_log {
-    lkv 1 "PVLng log" "$GUID - $value"
-
+    msg=$(replace_vars '{NAME}: {VALUE} {UNIT}')
+    lkv 1 "PVLng log" "$msg"
     [ "$TEST" ] && return
-    save_log 'Alert' "{NAME}: {VALUE}"
+    save_log 'Alert' "$msg"
 }
 
 ### --------------------------------------------------------------------------
 function alert_logger {
-    var1 MESSAGE $i
-    MESSAGE=$(replace_vars "${MESSAGE:-{NAME\}: {VALUE\}}" $j)
+    var1 MESSAGE $i '{NAME}: {VALUE} {UNIT}'
+    MESSAGE=$(replace_vars "$MESSAGE" $j)
     lkv 1 Logger "$MESSAGE"
 
     [ "$TEST" ] && return
@@ -67,8 +66,8 @@ function alert_mail {
     var1 EMAIL $i
     [ "$EMAIL" ] || error_exit "Email is required! (ACTION_${i}_${j}_EMAIL)"
 
-    var1 SUBJECT $i
-    SUBJECT=$(replace_vars "${SUBJECT:-[PVLng] {NAME\}: {VALUE\}}" $j)
+    var1 SUBJECT $i '[PVLng] {NAME}: {VALUE} {UNIT}'
+    SUBJECT=$(replace_vars "$SUBJECT" $j)
 
     var1 BODY $i
     BODY=$(replace_vars "$BODY" $j)
@@ -88,8 +87,8 @@ function alert_file {
 
     var1 PREFIX $i
 
-    var1 TEXT $i
-    TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}" $j)
+    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
+    TEXT=$(replace_vars "$TEXT" $j)
     lkv 1 TEXT "$TEXT"
 
     [ "$TEST" ] && return
@@ -99,8 +98,8 @@ function alert_file {
 ### --------------------------------------------------------------------------
 function alert_twitter {
     ### Like "file" but with defined file name pattern for twitter-alert.sh
-    var1 TEXT $i
-    TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}" $j)
+    var1 TEXT $i '{NAME}: {VALUE}'
+    TEXT=$(replace_vars "$TEXT" $j)
     lkv 1 TEXT "$TEXT"
 
     [ "$TEST" ] && return
@@ -113,9 +112,13 @@ function alert_pushover {
     var1 TOKEN $i
     var1 DEVICE $i
     var1 TITLE $i
-    var1 TEXT $i
+    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
     var1 PRIORITY $i 0
-    TEXT=$(replace_vars "${TEXT:-{NAME\}: {VALUE\}}" $j)
+
+    TITLE=$(replace_vars "$TITLE" $j)
+    lkv 1 TITLE "$TITLE"
+
+    TEXT=$(replace_vars "$TEXT" $j)
     lkv 1 TEXT "$TEXT"
 
     [ "$TEST" ] && return
@@ -134,6 +137,7 @@ opt_help_hint "See dist/alert.conf for details."
 ### PVLng default options
 opt_define_pvlng
 ### Hidden option to force (ignore condition and once flag)
+### Works only with and set automatic test mode!
 opt_define short=f long=force variable=FORCE value=y
 
 . $(opt_build)
@@ -144,8 +148,9 @@ read_config "$CONFIG"
 ### Start
 ##############################################################################
 [ "$TRACE" ] && set -x
+[ "$FORCE" ] && TEST=y
 
-GUID_N=$(int "$GUID_N")
+toInt GUID_N
 [ $GUID_N -gt 0 ] || exit_required Sections GUID_N
 
 ##############################################################################
@@ -161,9 +166,9 @@ while [ $i -lt $GUID_N ]; do
 
     EMPTY=
 
-    var1 USE $i
-
-    if [ "$USE" ]; then var1 GUID $USE; else var1 GUID $i; fi
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
     j=0
 
@@ -173,9 +178,10 @@ while [ $i -lt $GUID_N ]; do
         ### Count GUIDs for function replace_vars
         j=$((j+1))
 
-        PVLngChannelAttr $GUID name
-        PVLngChannelAttr $GUID description
+        PVLngChannelAttr $GUID name x
+        PVLngChannelAttr $GUID description x
         [ "$description" ] && name="$name ($description)"
+        PVLngChannelAttr $GUID unit x
 
         var1 PERIOD $i readlast
 
@@ -197,6 +203,7 @@ while [ $i -lt $GUID_N ]; do
 
         eval name_$j="\$name"
         eval value_$j="\$value"
+        eval unit_$j="\$unit"
         eval last_$j="\$last"
     done
 
@@ -217,7 +224,6 @@ while [ $i -lt $GUID_N ]; do
         lkv 0 'Invalid condition' "$CONDITION"
         continue
     fi
-
 
     if [ -z "$FORCE" ]; then
         ### Skip if condition is not true
@@ -245,11 +251,9 @@ while [ $i -lt $GUID_N ]; do
         fi
     fi
 
-    var1 ACTION $i
-    : ${ACTION:=log}
+    var1 ACTION $i log
 
-    var1 EMPTY $i
-    : ${EMPTY:=<empty>}
+    var1 EMPTY $i '<empty>'
 
     ### Check if action function exists
     eval f=$(declare -F alert_$ACTION)

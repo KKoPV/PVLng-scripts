@@ -177,9 +177,17 @@ while [ $i -lt $GUID_N ]; do
         PVLngChannelAttr $GUID description
         [ "$description" ] && name="$name ($description)"
 
-        set -- $(PVLngGET data/$GUID.tsv?period=readlast)
+        var1 PERIOD $i readlast
+
+        set -- $(PVLngGET data/$GUID.tsv?period=$PERIOD)
         shift ### Shift out timestamp
         value=$@
+
+        var1 FACTOR $i 1
+        [ $FACTOR != 1 ] && value=$(calc "$value * $FACTOR")
+
+        var1 FORMAT $i '%s'
+        printf -v value $FORMAT $value
 
         lkv 2 "$name" "$value"
 

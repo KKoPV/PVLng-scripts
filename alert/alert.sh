@@ -189,11 +189,13 @@ while [ $i -lt $GUID_N ]; do
         shift ### Shift out timestamp
         value=$@
 
-        var1 FACTOR $i 1
-        [ $FACTOR != 1 ] && value=$(calc "$value * $FACTOR")
+        if [ "$value" ]; then
+            var1 FACTOR $i 1
+            [ $FACTOR != 1 ] && value=$(calc "$value * $FACTOR")
 
-        var1 FORMAT $i '%s'
-        printf -v value $FORMAT $value
+            var1 FORMAT $i '%s'
+            printf -v value $FORMAT $value
+        fi
 
         lkv 2 "$name" "$value"
 

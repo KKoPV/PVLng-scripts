@@ -87,8 +87,8 @@ while [ $i -lt $GUID_N ]; do
                 continue
             fi
         else
-            owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL} 2>/dev/null
-            if [ $? -ne 0 ]; then
+            rc=$(owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL} 2>/dev/null)
+            if [ $rc -ne 1 ]; then
                 log 1 "FAILED, missing ${SERIAL}"
                 continue
             fi

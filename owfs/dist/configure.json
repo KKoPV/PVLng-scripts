@@ -12,6 +12,11 @@
   },
   [
     {
+      "name": "MOUNTPOINT",
+      "description": "OWFS file system mount point",
+      "default": "/mnt/1wire"
+    },
+    {
       "name": "SERVER",
       "description": "OWFS Server[:Port]",
       "default": "localhost:4304"

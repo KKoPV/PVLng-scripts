@@ -20,10 +20,6 @@ CACHED=false
 ##############################################################################
 . $pwd/../PVLng.sh
 
-### check owread binary
-OWREAD=${OWREAD:-$(which owread)}
-[ "$OWREAD" ] || error_exit "Missing owread binary!"
-
 ### Script options
 opt_help      "Fetch 1-wire sensor data"
 opt_help_hint "See dist/owfs.conf for details."
@@ -32,6 +28,10 @@ opt_help_hint "See dist/owfs.conf for details."
 opt_define_pvlng x
 
 source $(opt_build)
+
+### check owread binary
+OWREAD=${OWREAD:-$(which owread)}
+[ "$OWREAD" ] || error_exit "Missing owread binary!"
 
 read_config "$CONFIG"
 
@@ -80,17 +80,29 @@ while [ $i -lt $GUID_N ]; do
 
     if [ "$TEST" ]; then
         lkv 1 Channel "/${SERIAL}/${CHANNEL}"
-        rc=$(owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL} 2>/dev/null)
-        if [ $rc -ne 1 ]; then
-            log 1 "FAILED, missing ${SERIAL}"
-            continue
+        if [ "$MOUNTPOINT" ]; then
+            lkv 2 Check ${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL}
+            if [ ! -f "${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL}" ]; then
+                log 1 "FAILED, missing ${SERIAL}"
+                continue
+            fi
+        else
+            owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL} 2>/dev/null
+            if [ $? -ne 0 ]; then
+                log 1 "FAILED, missing ${SERIAL}"
+                continue
+            fi
         fi
     fi
 
     ### read value
-    cmd="$OWREAD -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
-    lkv 2 Request "$cmd"
-    value="$($cmd 2>/dev/null)"
+    if [ "$MOUNTPOINT" ]; then
+        value=$(<${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL})
+    else
+        cmd="$OWREAD -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
+        lkv 2 Request "$cmd"
+        value="$($cmd 2>/dev/null)"
+    fi
     lkv 1 Value "$value"
 
     ### Save data

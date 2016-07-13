@@ -125,6 +125,18 @@ function alert_pushover {
     lkv 1 Response $($pwd/../bin/pushover.sh -u "$USER" -a "$TOKEN" -d "$DEVICE" -t "$TITLE" -m "$TEXT" -p $PRIORITY)
 }
 
+### --------------------------------------------------------------------------
+function alert_whatsapp {
+    var1 MOBILE $i
+    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
+
+    TEXT=$(replace_vars "$TEXT" $j)
+    lkv 1 TEXT "$TEXT"
+
+    [ "$TEST" ] && return
+    lkv 1 Response $($pwd/../bin/yowsup.sh "$MOBILE" "$TEXT" >/dev/null 2>&1)
+}
+
 ##############################################################################
 ### Init
 ##############################################################################

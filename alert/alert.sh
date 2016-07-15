@@ -64,7 +64,7 @@ function alert_logger {
 ### --------------------------------------------------------------------------
 function alert_mail {
     var1 EMAIL $i
-    [ "$EMAIL" ] || error_exit "Email is required! (ACTION_${i}_${j}_EMAIL)"
+    [ "$EMAIL" ] || exit_required Email EMAIL_$i
 
     var1 SUBJECT $i '[PVLng] {NAME}: {VALUE} {UNIT}'
     SUBJECT=$(replace_vars "$SUBJECT" $j)
@@ -83,7 +83,7 @@ function alert_mail {
 ### --------------------------------------------------------------------------
 function alert_file {
     var1 DIR $i
-    [ "$DIR" ] || exit_required Directory DIR_${i}
+    [ "$DIR" ] || exit_required Directory DIR_$i
 
     var1 PREFIX $i
 
@@ -109,7 +109,11 @@ function alert_twitter {
 ### --------------------------------------------------------------------------
 function alert_pushover {
     var1 USER $i
+    [ "$USER" ] || exit_required User USER_$i
+
     var1 TOKEN $i
+    [ "$TOKEN" ] || exit_required Token TOKEN_$i
+
     var1 DEVICE $i
     var1 TITLE $i
     var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
@@ -128,13 +132,30 @@ function alert_pushover {
 ### --------------------------------------------------------------------------
 function alert_whatsapp {
     var1 MOBILE $i
-    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
+    [ "$MOBILE" ] || exit_required 'Mobile number' MOBILE_$i
 
+    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
     TEXT=$(replace_vars "$TEXT" $j)
     lkv 1 TEXT "$TEXT"
 
     [ "$TEST" ] && return
     lkv 1 Response $($pwd/../bin/yowsup.sh "$MOBILE" "$TEXT" >/dev/null 2>&1)
+}
+
+### --------------------------------------------------------------------------
+function alert_telegram {
+    var1 TOKEN $i
+    [ "$TOKEN" ] || exit_required 'Telegram token' TOKEN_$i
+
+    var1 CHAT $i
+    [ "$CHAT" ] || exit_required 'Telegram chat Id' CHAT_$i
+
+    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
+    TEXT=$(replace_vars "$TEXT" $j)
+    lkv 1 TEXT "$TEXT"
+
+    [ "$TEST" ] && return
+    lkv 1 Response $($pwd/../bin/telegram.sh $TOKEN $CHAT "$TEXT" >/dev/null 2>&1)
 }
 
 ##############################################################################

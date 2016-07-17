@@ -2,6 +2,8 @@
 
 ## Register your bot with @BotFather
 
+https://core.telegram.org/bots#botfather
+
     /newbot
 
 Remember the token given by @BotFather!

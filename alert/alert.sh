@@ -11,8 +11,6 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-PUSHOVERAPI='https://api.pushover.net/1/messages.json'
-
 ##############################################################################
 ### Functions
 ##############################################################################
@@ -23,24 +21,40 @@ function replace_vars {
     local i=0
 
     ### Helper
+    local name=
+    local description=
     local value=
     local unit=
-    local name=
     local last=
+
+    ### Check if the content respresents a file name starting with @
+    ### If yes, read content from file
+    if [ "${str:0:1}" == @ ]; then
+        str="$pwd/${str:1}"
+        [ -r "$str" ] || error_exit "Missing template: $str"
+        str=$(<$str)
+    fi
 
     while [ $i -lt $count ]; do
         i=$((i+1))
 
+        var1 name $i
+        var1 description $i
         var1 value $i $EMPTY
         var1 unit $i
-        var1 name $i
         var1 last $i
 
-        str=$(echo "$str" | sed "s~[{]VALUE_$i[}]~$value~g;s~[{]UNIT_$i[}]~$unit~g;s~[{]NAME_$i[}]~$name~g;s~[{]LAST_$i[}]~$last~g")
+        str=$(echo "$str" | \
+              sed "s~[{]NAME_$i[}]~$name~g;s~[{]DESCRIPTION_$i[}]~$description~g;
+                   s~[{]VALUE_$i[}]~$value~g;s~[{]UNIT_$i[}]~$unit~g;
+                   s~[{]LAST_$i[}]~$last~g")
     done
 
-    ### VALUE, UNIT, NAME and LAST stands also for *_1
-    echo "$str" | sed "s~[{]VALUE[}]~${value_1:-$EMPTY}~g;s~[{]UNIT[}]~$unit_1~g;s~[{]NAME[}]~$name_1~g;s~[{]LAST[}]~$last_1~g"
+    ### NAME, DESCRIPTION, VALUE, UNIT and LAST stands also for *_1
+    echo "$str" | \
+    sed "s~[{]NAME[}]~$name_1~g;s~[{]DESCRIPTION[}]~$description_1~g;
+         s~[{]VALUE[}]~${value_1:-$EMPTY}~g;s~[{]UNIT[}]~$unit_1~g;s~[{]LAST[}]~$last_1~g;
+         s~[{]DATE[}]~$(date +%x)~g;s~[{]DATETIME[}]~$(date +'%x %X')~g;s~[{]HOSTNAME[}]~$HOSTNAME~g"
 }
 
 ### --------------------------------------------------------------------------
@@ -130,19 +144,6 @@ function alert_pushover {
 }
 
 ### --------------------------------------------------------------------------
-function alert_whatsapp {
-    var1 MOBILE $i
-    [ "$MOBILE" ] || exit_required 'Mobile number' MOBILE_$i
-
-    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
-    TEXT=$(replace_vars "$TEXT" $j)
-    lkv 1 TEXT "$TEXT"
-
-    [ "$TEST" ] && return
-    lkv 1 Response $($pwd/../bin/yowsup.sh "$MOBILE" "$TEXT" >/dev/null 2>&1)
-}
-
-### --------------------------------------------------------------------------
 function alert_telegram {
     var1 TOKEN $i
     [ "$TOKEN" ] || exit_required 'Telegram token' TOKEN_$i
@@ -213,7 +214,6 @@ while [ $i -lt $GUID_N ]; do
 
         PVLngChannelAttr $GUID name x
         PVLngChannelAttr $GUID description x
-        [ "$description" ] && name="$name ($description)"
         PVLngChannelAttr $GUID unit x
 
         var1 PERIOD $i readlast
@@ -237,6 +237,7 @@ while [ $i -lt $GUID_N ]; do
         [ "$TEST" -o "$last" == "$value" ] || PVLngStorePUT $lastkey "$value"
 
         eval name_$j="\$name"
+        eval description_$j="\$description"
         eval value_$j="\$value"
         eval unit_$j="\$unit"
         eval last_$j="\$last"

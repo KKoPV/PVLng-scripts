@@ -90,21 +90,7 @@ function sec {
 }
 
 ##############################################################################
-### show usage
-### requires a section of text enclosed by
-### # USAGE >>
-### ...
-### # << USAGE
-##############################################################################
-# function usage {
-#     s=$(cat "$0" | \
-#         awk '{if($0~/^#+ +USAGE +>+/){while(getline>0){if($0~/^#+ *<+ *USAGE/)exit;print $0}}}')
-#     eval s="$(echo \""$s"\")"
-#     echo "$s" >&2
-# }
-
-##############################################################################
-### read config file
+### Read config file
 ### $1 - Config file name
 ##############################################################################
 function read_config {
@@ -118,7 +104,7 @@ function read_config {
     fi
 
     [ -f "$file" ] || file="$(dirname $0)/$file"
-    [ -r "$file" ] || error_exit "Configuration file is not readable!" 1
+    [ -r "$file" ] || error_exit "Configuration file '$file' is not readable!" 1
 
     ### Transform configuration into var="value" format
 
@@ -1170,4 +1156,4 @@ temp_file TMPFILE
 
 VERBOSE=0
 
-CONFIG=$(echo "$0" | sed 's~\.[^.]*$~.conf~g')
+CONFIG=$(echo "$(basename $0)" | sed 's~\.[^.]*$~.conf~g')

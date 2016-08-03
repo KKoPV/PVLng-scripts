@@ -265,7 +265,7 @@ ARGS="\$@"
 ### Clean up after self
 rm $build_file
 
-[ "\$TEST" ] && log 1 Test mode
+[ "\$TEST" ] && log 1 "v\$(cat \$_ROOT/.version | head -n 1) (\$(git log --pretty=format:'%h' -n 1)) TEST MODE"
 
 EOF
 

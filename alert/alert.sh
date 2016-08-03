@@ -61,6 +61,7 @@ function replace_vars {
 function alert_log {
     msg=$(replace_vars '{NAME}: {VALUE} {UNIT}')
     lkv 1 "PVLng log" "$msg"
+
     [ "$TEST" ] && return
     save_log 'Alert' "$msg"
 }

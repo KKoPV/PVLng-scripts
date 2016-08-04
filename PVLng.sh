@@ -1019,6 +1019,51 @@ function urlencode {
 }
 
 ##############################################################################
+### Encode spial chars as quoted printable
+##############################################################################
+function quotedPrintable {
+  echo $@ | perl -pe 'use MIME::QuotedPrint; $_=MIME::QuotedPrint::encode($_);'
+}
+
+##############################################################################
+### Send email correctly UTF-8 encoded
+### $1 - Mail subject
+### $2 - Mail body
+### $3 - Email address(es)
+### $4 - Mail from (optional)
+##############################################################################
+function sendMail {
+    local from=${4:-"PVLng <PVLng@$(hostname -f)>"}
+    local subject=$1
+    local body=$2
+    local email=$3
+
+    if [ "${body:0:1}" == @ ]; then
+        local file=${body:1}
+        [ -r "$file" ] || error_exit "Missing file: $file"
+    else
+        echo -e "$body" >$TMPFILE
+        local file=$TMPFILE      
+    fi
+
+    local cmd="mail $MailOpts -a \"From: $from\" \
+                    -s \"=?utf-8?Q?$(quotedPrintable "$subject")?=\" \
+                    \"$email\" <$file >/dev/null"
+
+    sec 1 "Send email"
+    lkv 1 From "$from"
+    lkv 1 To "$email"
+    lkv 1 Subject "$subject"
+    log 1 @$file Body
+
+    lkv 2 Command "$(echo "$cmd" | sed 's~\s\+~ ~g')"
+
+    [ "$TEST" ] && return
+
+    eval $cmd
+}
+
+##############################################################################
 ### Transform XML file to JSON
 ### $1 - XML file name
 ##############################################################################

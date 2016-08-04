@@ -1,8 +1,12 @@
 ##############################################################################
 ### @author     Knut Kohl <github@knutkohl.de>
-### @copyright  2012-2015 Knut Kohl
+### @copyright  2012-2016 Knut Kohl
 ### @license    MIT License (MIT) http://opensource.org/licenses/MIT
-### @version    1.0.0
+### @version    1.1.0
+###
+### v1.1.0
+### - Add MailOpts for UTF-8 encoding
+###
 ##############################################################################
 
 ##############################################################################
@@ -18,6 +22,14 @@ PVLngHost="http://$PVLngDomain:80"
 ### API key
 ##############################################################################
 PVLngAPIkey=""
+
+##############################################################################
+### Force mail to be send as UTF-8
+### Check if your mail command supports the -S option
+##############################################################################
+MailOpts="-S sendcharsets=utf-8"
+### For bsd-mailx
+#MailOpts='-a "Content-Type: text/plain; charset=UTF-8"'
 
 ##############################################################################
 ### Directory for temporary "run" files

@@ -82,17 +82,9 @@ function alert_mail {
     [ "$EMAIL" ] || exit_required Email EMAIL_$i
 
     var1 SUBJECT $i '[PVLng] {NAME}: {VALUE} {UNIT}'
-    SUBJECT=$(replace_vars "$SUBJECT" $j)
-
     var1 BODY $i
-    BODY=$(replace_vars "$BODY" $j)
 
-    lkv 1 "Send email" "$EMAIL"
-    lkv 1 Subject "$SUBJECT"
-    sec 1 Body "$BODY"
-
-    [ "$TEST" ] && return
-    echo -e "$BODY" | mail -s "$SUBJECT" $EMAIL >/dev/null
+    sendMail "$(replace_vars "$SUBJECT" $j)" "$(replace_vars "$BODY" $j)" $EMAIL
 }
 
 ### --------------------------------------------------------------------------
@@ -183,7 +175,8 @@ read_config "$CONFIG"
 ### Start
 ##############################################################################
 [ "$TRACE" ] && set -x
-[ "$FORCE" ] && TEST=y
+### Force mode sets automatic Test mode
+[ "$FORCE" ] && TEST=y && VERBOSE=$((VERBOSE+1))
 
 toInt GUID_N
 [ $GUID_N -gt 0 ] || exit_required Sections GUID_N

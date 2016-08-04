@@ -12,7 +12,6 @@
 pwd=$(dirname $0)
 
 HOSTNAME=$(hostname -f)
-MAILFROM="PVLng <PVLng@$HOSTNAME>"
 
 ##############################################################################
 ### Functions
@@ -107,13 +106,4 @@ while [ $i -lt $GUID_N ]; do
 
 done
 
-sec 1 Send email
-
-lkv 1 "Send email from" "$MAILFROM"
-lkv 1 "Send email to" "$EMAIL"
-lkv 1 Subject "$SUBJECT"
-
-echo "$BODY" >$TMPFILE
-log 1 @$TMPFILE Body
-
-[ "$TEST" ] || mail -a "From: $MAILFROM" -a "Content-Type: text/plain; charset=UTF-8" -s "$SUBJECT" "$EMAIL" <$TMPFILE
+sendMail "$SUBJECT" "$BODY" "$EMAIL"

@@ -1,3 +1,65 @@
+ v1.6.0
+========
+
+FIXED
+
+ - Fix Kaco inverter data compilation ~ Knut Kohl <github@knutkohl.de>
+ - Fix Twitter script to detect errors ~ Knut Kohl <github@knutkohl.de>
+ - Fix attributes for Kaco script ~ Knut Kohl <github@knutkohl.de>
+ - Fix invalid reading detection ~ Knut Kohl <github@knutkohl.de>
+ - Fix status generation with values containing spaces ~ Knut Kohl <github@knutkohl.de>
+
+CHANGED
+
+ - Adjust alert sccript ~ Knut Kohl <github@knutkohl.de>
+ - Update usbreset script, add usage help for device filename ~ Knut Kohl <github@knutkohl.de>
+ - Adjust allowed chars in Kaco inverter data reading ~ Knut Kohl <github@knutkohl.de>
+ - Update Kaco timeout handling ~ Knut Kohl <github@knutkohl.de>
+ - Update S0 sensor handling ~ Knut Kohl <github@knutkohl.de>
+ - Change script naming convention and add -c for config parameter ~ Knut Kohl <github@knutkohl.de>
+ - Change location of dist configuration files ~ Knut Kohl <github@knutkohl.de>
+ - Adjust Twitter scripts, remove extra PHP script and use only curlicue ~ Knut Kohl <github@knutkohl.de>
+ - Update mailing script ~ Knut Kohl <github@knutkohl.de>
+
+NEW
+
+ - Add @file.mail for external message contents ~ Knut Kohl <github@knutkohl.de>
+ - Add own telegram scripts (like twitter) ~ Knut Kohl <github@knutkohl.de>
+ - Add Telegram bot script ~ Knut Kohl <github@knutkohl.de>
+ - Add Yowsup WhatsApp service ~ Knut Kohl <github@knutkohl.de>
+ - Add OWFS mount point as option to read from ~ Knut Kohl <github@knutkohl.de>
+ - Add PERIOD, FACTOR and FORMAT to alert.sh ~ Knut Kohl <github@knutkohl.de>
+ - Add program for USB device reset ~ Knut Kohl <github@knutkohl.de>
+ - Add Kaco inverter script ~ Knut Kohl <github@knutkohl.de>
+ - Add Pushover.net to alert script ~ Knut Kohl <github@knutkohl.de>
+ - Add LCD display ~ Knut Kohl <github@knutkohl.de>
+ - Add Pushover.net to alert script ~ Knut Kohl <github@knutkohl.de>
+ - Add semi-automatic script configuration ~ Knut Kohl <github@knutkohl.de>
+ - Add automatic logic for attribute buffering for not reading scripts ~ Knut Kohl <github@knutkohl.de>
+ - Add script for reaction of reading values ~ Knut Kohl <github@knutkohl.de>
+ - Add script to send mails to Sunny-Portal for custom channels ~ Knut Kohl <github@knutkohl.de>
+ - Add placeholder for linebreaks in Twitter status templates ~ Knut Kohl <github@knutkohl.de>
+ - Add ThinkSpeek scripts ~ Knut Kohl <github@knutkohl.de>
+ - Add example for API debugging via http://requestb.in ~ Knut Kohl <github@knutkohl.de>
+ - Add loader script for SMA JSON files ~ Knut Kohl <github@knutkohl.de>
+ - Add check for existence of OWFS sensor during test mode ~ Knut Kohl <github@knutkohl.de>
+ - Add 2 more server analytics ~ Knut Kohl <github@knutkohl.de>
+ - Add scripts for Solar Edge systems ~ Knut Kohl <github@knutkohl.de>
+ - Add scripts for read of electricity meter with IEC 62056-21 ~ Knut Kohl <github@knutkohl.de>
+
+DELETED
+
+ - Remove obsolete configuration setting ~ Knut Kohl <github@knutkohl.de>
+
+OTHER
+
+ - Make sended emails subject and body UTF-8 capable ~ Knut Kohl <github@knutkohl.de>
+ - WhatsApp update is not stable anymore, use a Telegram bot instead ~ Knut Kohl <github@knutkohl.de>
+ - Apply FACTOR and FORMAT to value only if it is not empty ~ Knut Kohl <github@knutkohl.de>
+ - Force SSL request to foreacst.solar API ~ Knut Kohl <github@knutkohl.de>
+ - Tune Forecast.Solar channel updates ~ Knut Kohl <github@knutkohl.de>
+ - Simplyfy definition of local timestamp use ~ Knut Kohl <github@knutkohl.de>
+
  v1.5.0
 ========
 

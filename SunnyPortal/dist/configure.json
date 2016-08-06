@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Sunny-Portal Mail"
+  },
+  [
+    {
+      "name": "SYSTEM",
+      "description": "Anlagen-Id aus Sunnyportal",
+      "required": 1
+    },
+    {
+      "name": "EMAIL",
+      "description": "Registrierte Email-Adresse im Sunnyportal",
+      "required": 1
+    },
+    {
+      "name": "GUID",
+      "description": "Channel GUID",
+      "required": 1
+    },
+    {
+      "name": "TYPE",
+      "description": "device type (pvin-001|emet-001|gmet-001|wmet-001|sens-001)",
+      "required": 1
+    },
+    {
+      "name": "SERIAL",
+      "description": "Serial number",
+      "required": 1
+    },
+    {
+      "name": "CHANNEL",
+      "description": "Channel ('total energy' for meter channels)",
+      "required": 1
+    }
+  ]
+]

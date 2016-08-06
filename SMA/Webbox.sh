@@ -1,61 +1,62 @@
-#!/bin/sh
+#!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2014 Knut Kohl
+### @copyright   2012-2015 Knut Kohl
 ### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
+### Constants
+##############################################################################
+pwd=$(dirname $0)
+
+### Default Webbox IP
+_WEBBOX=192.168.0.168:80
+
+##############################################################################
 ### Init
 ##############################################################################
-
-source $(dirname $0)/../PVLng.sh
+. $pwd/../PVLng.sh
 
 ### Script options
-opt_help      "Read Inverter or Sensorbox data from SMA Webbox"
-opt_help_args "<config file>"
-opt_help_hint "See Webbox.conf.dist for details."
+opt_help      "Read Inverter or Sensorbox data from a SMA Webbox"
+opt_help_hint "See dist/Webbox.conf for details."
 
 ### PVLng default options with flag for save data
 opt_define_pvlng x
 
-source $(opt_build)
+. $(opt_build)
 
-### Don't check lock file in test mode
-[ "$TEST" ] || check_lock $(basename $1)
+read_config "$CONFIG"
 
-WEBBOX='192.168.0.168:80'
+### Run only during daylight +- 60 min
+check_daylight 60
 
-read_config "$1"
+check_lock $(basename $CONFIG)
 
 ##############################################################################
 ### Start
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-[ "$WEBBOX" ] || error_exit "IP address is required!"
+check_default WEBBOX $_WEBBOX
 
 GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || error_exit "No GUIDs defined (GUID_N)"
-
-if [ "$LOCATION" ]; then
-    ### Location given, test for daylight time
-    loc=$(echo "$LOCATION" | sed -e 's/,/\//g')
-    daylight=$(PVLngGET "daylight/${loc}/60.txt")
-    log 2 "Daylight: $daylight"
-    [ $daylight -eq 1 ] || exit 127
-fi
-
-[ "$PASSWORD" ] && PASSWORD=',"passwd":"'$(echo -n "$PASSWORD" | md5sum | cut -d' ' -f1)'"'
+[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
 
 ##############################################################################
 ### Go
 ##############################################################################
-RESPONSEFILE=$(temp_file)
-on_exit_rm $RESPONSEFILE
+temp_file RESPONSEFILE
 
 curl="$(curl_cmd)"
+
+### Check for provided installer password
+if [ "$PASSWORD" ]; then
+    set -- $(echo -n "$PASSWORD" | md5sum)
+    PASSWORD=',"passwd":"'$1'"'
+fi
 
 i=0
 
@@ -63,13 +64,10 @@ while [ $i -lt $GUID_N ]; do
 
     i=$((i+1))
 
-    log 1 "--- $i ---"
+    sec 1 $i
 
     var1 GUID $i
-    if [ -z "$GUID" ]; then
-        log 1 Disabled, skip
-        continue
-    fi
+    [ -z "$GUID" ] && log 1 Skip && continue
 
     var1 SERIAL $i
     if [ -z "$SERIAL" ]; then
@@ -77,26 +75,25 @@ while [ $i -lt $GUID_N ]; do
         PVLngChannelAttr $GUID SERIAL
     fi
     [ "$SERIAL" ] || error_exit "No serial number found for GUID: $GUID"
+    lkv 1 "Use SERIAL" "$SERIAL"
 
     ### Build RPC request, catch all channels from equipment
     ### Response JSON holds no timestamp, use "id" paramter for this,
     ### relevant for loading failed data
-    cat >$TMPFILE <<EOT
+    cat <<EOT >$TMPFILE
 {"version":"1.0","proc":"GetProcessData","id":"$(date +%s)","format":"JSON","params":{"devices":[{"key":"$SERIAL"}]}$PASSWORD}
 EOT
 
-    log 2 "Webbox request:"
-    log 2 @$TMPFILE
+    log 2 @$TMPFILE "Webbox request"
 
     ### Query webbox
     $curl --output $RESPONSEFILE --data-urlencode RPC@$TMPFILE http://$WEBBOX/rpc
     rc=$?
 
-    [ $rc -eq 0 ] || error_exit "cUrl error for Webbox: $rc"
+    [ $rc -eq 0 ] || curl_error_exit $rc Webbox
 
     ### Test mode
-    log 2 "Webbox response:"
-    log 2 @$RESPONSEFILE
+    log 2 @$RESPONSEFILE "Webbox response"
 
     ### Check response for error object
     if grep -q '"error"' $RESPONSEFILE; then
@@ -104,6 +101,6 @@ EOT
     fi
 
     ### Save data
-    [ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
+    PVLngPUT $GUID @$RESPONSEFILE
 
 done

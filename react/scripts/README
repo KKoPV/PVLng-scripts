@@ -1,0 +1,23 @@
+Put your scripts into this directory.
+
+See dist/script.sh for reference.
+
+Naming convention
+=================
+
+- <short config file>.<range id>.sh
+
+config file: test.conf => without extension: test
+range id   : 1
+- test.1.sh
+
+fallback
+- test.0.sh
+
+If no/empty channel reading could be found, the script with 
+id 0 will be used as fallback.
+
+This will be mostly a switch off/power down action to set your
+controlled thing into a "save" mode.
+
+It will overrule all other and will be overruled by all other!

@@ -1,0 +1,8 @@
+Most scripts come with configuration file templates.
+
+These files are located in /<script>/dist
+
+To use them, just copy them 1 level down into script directory and adjust for your needs.
+
+$ cp alert/dist/alert.conf alert/alert.conf
+$ $EDITOR alert/alert.conf

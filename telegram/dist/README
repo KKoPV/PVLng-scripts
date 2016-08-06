@@ -1,0 +1,5 @@
+Just copy the template one level down, e.g.
+
+$ cp daily ../daily.conf
+
+and adjust for your needs.

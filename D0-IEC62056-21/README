@@ -1,0 +1,6 @@
+
+If you get an error opening the device, make shure your user is member of
+group "dialout"
+
+References
+http://www.gurux.fi/index.php?q=Gurux.DLMS

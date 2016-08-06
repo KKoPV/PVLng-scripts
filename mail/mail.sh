@@ -1,131 +1,109 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     $Id$
+### @copyright   2012-2015 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
+### @version     1.0.0
 ##############################################################################
+
+##############################################################################
+### Constants
+##############################################################################
+pwd=$(dirname $0)
+
+HOSTNAME=$(hostname -f)
+
+##############################################################################
+### Functions
+##############################################################################
+replaceBaseVars () {
+    echo "$1" | sed "s~[{]DATE[}]~$(date +%x)~g;
+                     s~[{]DATETIME[}]~$(date +'%x %X')~g;
+                     s~[{]HOSTNAME[}]~$HOSTNAME~g"
+}
 
 ##############################################################################
 ### Init
 ##############################################################################
-pwd=$(dirname $0)
-
-. $pwd/../PVLng.conf
 . $pwd/../PVLng.sh
 
-while getopts "tvrxh" OPTION; do
-    case "$OPTION" in
-        t) TEST=y; VERBOSE=$((VERBOSE+1)) ;;
-        v) VERBOSE=$((VERBOSE+1)) ;;
-        r) RESET=y ;;
-        x) TRACE=y ;;
-        h) usage; exit ;;
-        ?) usage; exit 1 ;;
-    esac
-done
+### Script options
+opt_help      "Send channel readings by email"
+opt_help_hint "See dist/daily.conf for an example."
 
-shift $((OPTIND-1))
-CONFIG="$1"
+### PVLng default options
+opt_define_pvlng
+
+. $(opt_build)
 
 read_config "$CONFIG"
 
 ##############################################################################
 ### Start
 ##############################################################################
-test "$EMAIL" || error_exit "Email is required! (EMAIL)"
-test "$SUBJECT" || error_exit "Subject is required! (SUBJECT)"
+[ "$TRACE" ] && set -x
+
+check_required EMAIL Email
+check_required SUBJECT Subject
 
 GUID_N=$(int "$GUID_N")
-test $GUID_N -gt 0 || error_exit "No GUIDs defined (GUID_N)"
+[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
 
 ##############################################################################
 ### Go
 ##############################################################################
-test "$TRACE" && set -x
-
-if test "${BODY:0:1}" == @; then
+if [ "${BODY:0:1}" == @ ]; then
     BODY="$pwd/${BODY:1}"
-    test -r "$BODY" || error_exit "Missing mail template: $BODY"
+    [ -r "$BODY" ] || error_exit "Missing mail template: $BODY"
     BODY=$(<$BODY)
 fi
 
-### If mail body was empty, just list all channels
-test -z "$BODY" && emptyBody=y
-
-curl=$(curl_cmd)
+SUBJECT=$(replaceBaseVars "$SUBJECT")
+BODY=$(replaceBaseVars "$BODY")
 
 i=0
 
-while test $i -lt $GUID_N; do
+while [ $i -lt $GUID_N ]; do
 
     i=$((i+1))
 
-    log 1 "--- Section $i ---"
+    sec 1 $i
 
     var1 GUID $i
-    if test -z "$GUID"; then
-        log 1 'Disabled, skip'
-        continue
+    [ -z "$GUID" ] && log 1 Skip && continue
+
+    ### Extract 2nd value == data
+    set -- $(PVLngGET data/$GUID.tsv?period=last)
+    value=$2
+    lkv 1 Value "$value"
+
+    PVLngChannelAttr $GUID NUMERIC
+
+    if [ $(bool "$NUMERIC") -eq 1 ]; then
+        var1 FACTOR $i 1
+        value=$(calc "${value:-0} * $FACTOR")
+        lkv 1 Value "$value"
     fi
+
+    ### Format for this channel defined?
+    var1 FORMAT $i
+    printf -v value "${FORMAT:-%s}" "$value"
 
     PVLngChannelAttr $GUID NAME
     PVLngChannelAttr $GUID DESCRIPTION
     PVLngChannelAttr $GUID UNIT
-    PVLngChannelAttr $GUID DECIMALS
 
-    ### Extract 2nd value == data
-    value=$(toFixed $(PVLngGET data/$GUID.tsv?period=last | cut -f2) $DECIMALS)
-
-	### Format for this channel defined?
-	var1 FORMAT $i
-	if test "$FORMAT"; then
-		log 2 "Format   : $FORMAT"
-	    printf -v value "$FORMAT" "$value"
-	fi
-
-    if test "$emptyBody"; then
-        test "$DESC" && NAME="$NAME ($DESCRIPTION)"
+    if [ -z "$BODY" ]; then
+        [ "$DESCRIPTION" ] && NAME="$NAME ($DESCRIPTION)"
         BODY="$BODY- $NAME: $value $unit\n"
     else
         BODY=$(
             echo "$BODY" | \
-            sed -e "s~[{]NAME_$i[}]~$NAME~g" \
-                -e "s~[{]DESCRIPTION_$i[}]~$DESCRIPTION~g" \
-                -e "s~[{]VALUE_$i[}]~$value~g" \
-                -e "s~[{]UNIT_$i[}]~$UNIT~g"
+            sed "s~[{]NAME_$i[}]~$NAME~g;s~[{]DESCRIPTION_$i[}]~$DESCRIPTION~g;
+                 s~[{]VALUE_$i[}]~$value~g;s~[{]UNIT_$i[}]~$UNIT~g"
         )
     fi
 
 done
 
-log 1 "Send email to $EMAIL"
-log 1 "Subject: $SUBJECT"
-log 1 "Body:\n$BODY"
-
-test "$TEST" || echo -e "$BODY" | mail -a "From: PVLng@$(hostname --long)" \
-                                       -a "Content-Type: text/plain; charset=UTF-8" \
-                                       -s "[PVLng] $SUBJECT" "$EMAIL" >/dev/null
-
-set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Alert on channels conditions
-
-Usage: $scriptname [options] config_file
-
-Options:
-
-    -t  Test mode, don't save to PVLng
-        Sets verbosity to info level
-    -v  Set verbosity level to info level
-    -vv Set verbosity level to debug level
-    -h  Show this help
-
-See $pwd/alert.conf.dist for details.
-
-# << USAGE
+sendMail "$SUBJECT" "$BODY" "$EMAIL"

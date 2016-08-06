@@ -1,63 +1,71 @@
-#!/bin/sh
+#!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2014 Knut Kohl
+### @copyright   2012-2015 Knut Kohl
 ### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
+### Constants
+##############################################################################
+pwd=$(dirname $0)
+
+### Defaults
+SERVER="localhost:4304"
+CACHED=false
+
+##############################################################################
 ### Init
 ##############################################################################
-source $(dirname $0)/../PVLng.sh
-
-### check owread binary
-owread=${owread:=$(which owread)}
-[ "$owread" ] || error_exit "Missing owread binary!"
+. $pwd/../PVLng.sh
 
 ### Script options
 opt_help      "Fetch 1-wire sensor data"
-opt_help_args "<config file>"
-opt_help_hint "See owfs.conf.dist for details."
+opt_help_hint "See dist/owfs.conf for details."
 
-### PVLng default options with flag for save data
+### PVLng default options with flag for local time and save data
 opt_define_pvlng x
 
 source $(opt_build)
 
-SERVER="localhost:4304"
-CACHED=false
+### check owread binary
+OWREAD=${OWREAD:-$(which owread)}
+[ "$OWREAD" ] || error_exit "Missing owread binary!"
 
-read_config "$1"
+read_config "$CONFIG"
 
 ##############################################################################
 ### Start
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || error_exit "No sections defined (GUID_N)"
+[ "$SERVER" ] || exit_required "OWFS Server" SERVER
 
-##############################################################################
-### Go
-##############################################################################
+GUID_N=$(int "$GUID_N")
+[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
+
 [ $(bool "$CACHED") -eq 0 ] && CACHED='/uncached' || CACHED=
 [ -z "$CACHED" ] && log 1 "Use cached channel values"
 [ -z "$UNIT" ] && UNIT=C
 
+##############################################################################
+### Go
+##############################################################################
 i=0
 
-while test $i -lt $GUID_N; do
+while [ $i -lt $GUID_N ]; do
 
     i=$(($i+1))
 
-    log 1 "--- GUID $i ---"
+    sec 1 $i
 
+    ### GUID given?
     var1 GUID $i
-    test "$GUID" || error_exit "Sensor GUID is required (GUID_$i)"
+    [ -z "$GUID" ] && log 1 Skip && continue
 
     var1 SERIAL $i
-    if test -z "$SERIAL"; then
+    if [ -z "$SERIAL" ]; then
         ### Read from API
         PVLngChannelAttr $GUID SERIAL
 #       SERIAL=$(PVLngNC "$GUID,serial")
@@ -70,13 +78,34 @@ while test $i -lt $GUID_N; do
 #       CHANNEL=$(PVLngNC "$GUID,channel")
     fi
 
+    if [ "$TEST" ]; then
+        lkv 1 Channel "/${SERIAL}/${CHANNEL}"
+        if [ "$MOUNTPOINT" ]; then
+            lkv 2 Check ${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL}
+            if [ ! -f "${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL}" ]; then
+                log 1 "FAILED, missing ${SERIAL}"
+                continue
+            fi
+        else
+            rc=$(owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL} 2>/dev/null)
+            if [ $rc -ne 1 ]; then
+                log 1 "FAILED, missing ${SERIAL}"
+                continue
+            fi
+        fi
+    fi
+
     ### read value
-    cmd="$owread -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
-    log 2 $cmd
-    value=$($cmd)
-    log 1 "Value        = $value"
+    if [ "$MOUNTPOINT" ]; then
+        value=$(<${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL})
+    else
+        cmd="$OWREAD -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
+        lkv 2 Request "$cmd"
+        value="$($cmd 2>/dev/null)"
+    fi
+    lkv 1 Value "$value"
 
     ### Save data
-    [ "$TEST" ] || PVLngPUT $GUID $value
+    PVLngPUT $GUID $value
 
 done

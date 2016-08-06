@@ -1,0 +1,10 @@
+http://www.photovoltaikforum.com/-t97473.html#p1098698
+
+Man kann den Zähler Elster AS1440 statt mit "/?!" auch mit "/2!" aufwecken.
+
+Das ist "Service Data Readout".
+
+Dann meldet er nicht die ganzen Stichtagsdaten, sondern nur die aktuellen Werte
+(Leistung, Zählerstand, Spannung+Strom pro Phase).
+
+Das dauert bei 300 Baud statt 5 Minuten nur eine Halbe!

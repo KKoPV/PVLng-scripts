@@ -1,11 +1,12 @@
 ##############################################################################
-### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     1.0.0
+### @author     Knut Kohl <github@knutkohl.de>
+### @copyright  2012-2015 Knut Kohl
+### @license    MIT License (MIT) http://opensource.org/licenses/MIT
+### @version    1.0.0
 ###
 ### Idea from Optparse - a BASH wrapper for getopts
 ### @author : nk412 / nagarjuna.412@gmail.com
+### Adapted to work not only with bash and extended
 ##############################################################################
 
 _opt_usage=
@@ -22,7 +23,7 @@ _opt_help_hint=
 ##############################################################################
 ### Throw error and halt
 ##############################################################################
-function __opt_error() {
+__opt_error () {
     local message="$1"
     echo "ERROR: $message"
     exit 1
@@ -31,27 +32,29 @@ function __opt_error() {
 ##############################################################################
 ### Helper function
 ##############################################################################
-function __opt_help() {
-    _opt_usage+="#TB$(printf "%s, %-20s %s" "$1" "$2" "$3")#NL"
+__opt_help () {
+    local short="-$1"
+    local long="--$2"
+    _opt_usage+="#T$(printf "%s, %-20s %s" "$short" "$long" "$3")#N"
 }
 
 ##############################################################################
-function opt_help() {
-    _opt_help="#NL$1#NL"
+opt_help () {
+    _opt_help=$(echo "#N$1#N" | sed 's~\n~#N~g;s~\\n~#N~g')
 }
 
 ##############################################################################
-function opt_help_hint() {
-    _opt_help_hint="$1"
+opt_help_hint () {
+    _opt_help_hint=$(echo "$1" | sed 's~\\n~#N~g')
 }
 
 ##############################################################################
-function opt_help_args() {
+opt_help_args () {
     _opt_help_args="$1"
 }
 
 ##############################################################################
-function opt_define() {
+opt_define () {
     if [ $# -lt 3 ]; then
         __opt_error 'opt_define short= long= variable= [desc=] [default=] [value=] [callback=] [required]'
     fi
@@ -69,10 +72,10 @@ function opt_define() {
     local val='$OPTARG'
 
     for option in "$@"; do
-        key=$( echo "$option" | cut -d= -f1 )
-        value="$( echo "$option" | cut -d= -f2- )"
+        key=$(echo "$option" | cut -d= -f1)
+        value="$(echo "$option" | cut -d= -f2-)"
 
-        ### Essentials: shortname, longname, description
+        ### Essentials: long, description
         case "$key" in
             short)
                 if [ ${#value} -ne 1 ]; then
@@ -105,9 +108,9 @@ function opt_define() {
             if [ "$val" != "\$OPTARG" ]; then
                 ### Flag parameter
                 desc+=" [flag]"
-            else
+            elif [ "$default" ]; then
                 ### Parameter with default value
-                desc+=" [default:${default}]"
+                desc+=" [default:$default]"
             fi
         fi
         if [ "$required" ]; then
@@ -115,13 +118,13 @@ function opt_define() {
             _opt_help_args_req+="(-${short}|--${long}) <${long}> "
             desc+=" (required)"
         fi
-        __opt_help "-$short" "--$long" "$desc"
+        __opt_help "$short" "$long" "$desc"
     fi
 
-    _opt_cont+="#TB#TB--${long})#NL#TB#TB#TBparams=\"\$params -${short}\";;#NL"
+    _opt_cont+="#T#T--${long})#N#T#T#Tparams=\"\$params -${short}\";;#N"
 
     ### Initialize all variables, also empty once
-    _opt_defs+="${variable}=${default}#NL"
+    _opt_defs+="${variable}=${default}#N"
 
     if [ "$val" = "\$OPTARG" ]; then
         ### Option requires parameter
@@ -131,49 +134,50 @@ function opt_define() {
     fi
 
     if [ "$callback" ]; then
-        _opt_process+="#TB#TB${short}) ${callback};;#NL"
+        _opt_process+="#T#T${short}) ${callback};;#N"
     else
-        _opt_process+="#TB#TB${short}) ${variable}=\"$val\";;#NL"
+        _opt_process+="#T#T${short}) ${variable}=\"$val\";;#N"
     fi
 }
 
 ##############################################################################
-function opt_define_quiet() {
-    opt_define short=q long=quiet variable=QUIET desc='Quiet mode' value=1 \
-               callback='VERBOSE=-1'
+opt_define_test () {
+    opt_define short=t long=test variable=TEST value=y desc='Test mode'
 }
 
 ##############################################################################
-function opt_define_verbose() {
-    opt_define short=v long=verbose variable=VERBOSE \
+opt_define_verbose () {
+    opt_define short=v long=verbose variable=VERBOSE default=0 value=0 \
                desc='Verbosity, use multiple times for higher level' \
-               default=0 value=1 callback='VERBOSE=$(($VERBOSE+1))'
+               callback='VERBOSE=$(($VERBOSE+1))'
 }
 
 ##############################################################################
-function opt_define_test() {
-    opt_define short=t long=test variable=TEST desc='Test mode' value=yes
+opt_define_quiet () {
+    opt_define short=q long=quiet variable=QUIET value=1 \
+               desc='Quiet mode, no output' callback='VERBOSE=-1'
 }
 
 ##############################################################################
-function opt_define_trace() {
+opt_define_trace () {
     ### Prepare a TRACE variable to "set -x" after preparation
-    ### No description > not shown in help
-    opt_define short=x long=trace variable=TRACE value=X
+    ### No description, not shown in help
+    opt_define short=x long=trace variable=TRACE value=y
 }
 
 ##############################################################################
 ### Usage: source $(opt_build)
 ##############################################################################
-function opt_build() {
-    local build_file=$(mktemp /tmp/optparse-XXXXXX.tmp)
+opt_build () {
+    local build_file=$(mktemp)
 
     ### Add default help option
-    __opt_help -h --help 'This usage help'
+    __opt_help h help 'This usage help'
 
     ### Function usage
     cat << EOF > $build_file
-function usage() {
+usage () {
+[ "\$1" ] && echo && echo \$1
 cat << EOT
 $_opt_help
 usage: \$0 ${_opt_help_args_req}[options] ${_opt_help_args}
@@ -181,7 +185,9 @@ usage: \$0 ${_opt_help_args_req}[options] ${_opt_help_args}
 options:
 $_opt_usage
 $_opt_help_hint
+
 EOT
+[ "\$2" ] && exit \$2
 }
 
 ### Contract long options into short options
@@ -195,6 +201,7 @@ while [ \$# -ne 0 ]; do
 $_opt_cont
         -h|--help)
             usage
+            rm $build_file
             exit 0;;
         *)
             if [[ "\$param" == -- ]]; then
@@ -204,6 +211,7 @@ $_opt_cont
             elif [[ "\$param" == --* ]]; then
                 echo -e "Unrecognized long option: \$param"
                 usage
+                rm $build_file
                 exit 1
             fi
             params="\$params \"\$param\"";;
@@ -224,7 +232,7 @@ for par in \${_opt_req}; do
     eval var=\\\$\$var
     if [ "\$var" ]; then
         ### Remember error
-        error+="#NL#TB- Option -\$(echo "\$par" | cut -d: -f2) is required!"
+        error+="#N- Option -\$(echo "\$par" | cut -d: -f2) is required!"
     fi
 done
 
@@ -233,16 +241,17 @@ while getopts ":$_opt_args" option; do
     case \$option in
 $_opt_process
         ### Remember error
-        :) error+="#NL#TB- Option -\$OPTARG requires an argument!";;
-        *) usage; exit 1;;
+        :) error+="#N- Option -\$OPTARG requires an argument!";;
+        *) error+="#N- Unknown option: -\$OPTARG";;
     esac
 done
 
 if [ "\$error" ]; then
     ### Errors occurred!
     echo
-    echo "There where errors:\$error"
+    echo "\$error"
     usage
+    rm $build_file
     exit 127
 fi
 
@@ -256,12 +265,15 @@ ARGS="\$@"
 ### Clean up after self
 rm $build_file
 
+[ "\$TEST" ] && log 1 "v\$(cat \$_ROOT/.version | head -n 1) (\$(git log --pretty=format:'%h' -n 1)) TEST MODE"
+
 EOF
 
-    local -A o=( ['#NL']='\n' ['#TB']='    ' )
-    for i in "${!o[@]}"; do sed -i "s/${i}/${o[$i]}/g" $build_file; done
+    ### Replace #N with new lines and #T with 4 spaces
+    sed -i "s/#N/\n/g" $build_file
+    sed -i "s/#T/    /g" $build_file
 
-    # Unset global variables
+    ### Unset global variables
     unset _opt_usage
     unset _opt_process
     unset _opt_args
@@ -271,6 +283,6 @@ EOF
     unset _opt_help_args
     unset _opt_help_hint
 
-    # Return file name to parent
+    ### Return file name to parent
     echo "$build_file"
 }

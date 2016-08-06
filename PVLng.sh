@@ -1,76 +1,124 @@
 ##############################################################################
-### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     $Id$
+###  ______     ___                                     _       _
+### |  _ \ \   / / |    _ __   __ _       ___  ___ _ __(_)_ __ | |_ ___
+### | |_) \ \ / /| |   | '_ \ / _` |_____/ __|/ __| '__| | '_ \| __/ __|
+### |  __/ \ V / | |___| | | | (_| |_____\__ \ (__| |  | | |_) | |_\__ \
+### |_|     \_/  |_____|_| |_|\__, |     |___/\___|_|  |_| .__/ \__|___/
+###                           |___/                      |_|
+###
+### @author     Knut Kohl <github@knutkohl.de>
+### @copyright  2012-2016 Knut Kohl
+### @license    MIT License (MIT) http://opensource.org/licenses/MIT
+### @version    1.0.0
 ##############################################################################
 
-REQUEST_TIME=$(date +%s)
+REQUEST_TIME=$(date +%s.%N)
 
 ##############################################################################
-### show message depending of verbosity level on stderr
+### Show message depending of verbosity level on stderr
+### $1 - Show from verbose level upwards
+### $2 - Output, "string" or read from "@file"
+### $3 - Title for file content, default "Result"
 ##############################################################################
 function log {
-    test $VERBOSE -ge $1 || return
-    shift
-    d="["$(date +"%H:%M:%S.%N" | cut -b-12)"]"
+    [ $VERBOSE -ge $1 ] || return
+    local level=$1
+    local time=[$(date +%H:%M:%S.%N | cut -b-11)]
+
+    shift ### Move out level
+
     {   ### Detect if now $1 is a "@filename"
-        if test "${1:0:1}" == '@'; then
+        if [ "${1:0:1}" == '@' ]; then
             file=${1:1}
-            # echo "$d $file >>>"
-            ### cat ... read needs at least one new line at end of file...
+            sec $level "${2:-Result}"
+
+            ### At least 1 line break at EOF is needed!
             echo >>$file
-            cat $file | sed '/^$/d' | while read l; do echo "$d $l"; done
-            # echo "$d <<< $file"
+
+            while read l; do
+                echo "$time $l"
+            done <$file
+            sec $level ---
         else
-            echo -e "$d $*"
+            echo "$time $@"
         fi
     } >&2
 }
 
 ##############################################################################
-### show usage
-### requires a section of text enclosed by
-### # USAGE >>
-### ...
-### # << USAGE
+### Show "key = value" message depending of verbosity level on stderr
+### $1 - Show from verbose level upwards
+### $2 - Key
+### $3 - Value
 ##############################################################################
-function usage {
-    s=$(cat "$0" | \
-        awk '{if($0~/^#+ +USAGE +>+/){while(getline>0){if($0~/^#+ *<+ *USAGE/)exit;print $0}}}')
-    eval s="$(echo \""$s"\")"
-    echo "$s" >&2
+function lkv {
+    [ $VERBOSE -ge $1 ] || return
+    log $1 "$(printf "%-15s = %s" "$2" "$3")"
 }
 
 ##############################################################################
-### read config file
+### Show "key = yes|no" message depending of verbosity level on stderr
+### $1 - Show from verbose level upwards
+### $2 - Key
+### $3 - Value
+##############################################################################
+function lkb {
+    [ $VERBOSE -ge $1 ] || return
+    local value=
+    [ $(bool "$3") -eq 1 ] && value=yes || value=no
+    lkv $1 "$2" $value
+}
+
+##############################################################################
+### Show a section header
+### $1 - Show from verbose level upwards
+### $2 - Header
+### $@ - Output
+##############################################################################
+function sec {
+    [ $VERBOSE -ge $1 ] || return
+    local level=$1
+    shift ### Move out level
+    local header=$1
+    shift ### Move out header
+    log $level "--- $header ---"
+    ### Further content?
+    if [ "$*" ]; then
+        log $level $@
+        log $level "--- --- ---"
+    fi
+}
+
+##############################################################################
+### Read config file
+### $1 - Config file name
 ##############################################################################
 function read_config {
-    local file="$1"
+    local file=$1
 
-    if test -z "$file"; then
+    if [ -z "$file" ]; then
         echo
         echo ERROR: Configuration file required!
         usage
         exit 1
     fi
 
-    test -f "$file" || file="$(dirname $0)/$file"
-    if test ! -r "$file"; then
-        echo
-        echo ERROR: Configuration file is not readable!
-        usage
-        exit 1
+    [ -f "$file" ] || file="$(dirname $0)/$file"
+    [ -r "$file" ] || error_exit "Configuration file '$file' is not readable!" 1
+
+    ### Transform configuration into var="value" format
+
+    if [ $VERBOSE -lt 2 ]; then
+        ### eval() direct
+        eval $(sed '/^$/d;/^ *#/d;s/  *\(.*\)/="\1"/;s/""/"/g' $file)
+    else
+        ### Pipe through temp. file for log output
+        local cfg=$(temp_file)
+        on_exit_rm $cfg
+        sed '/^$/d;/^ *#/d;s/  *\(.*\)/="\1"/;s/""/"/g' $file >$cfg
+        log 2 @$cfg "$(basename $file)"
+        . $cfg
     fi
-
-    log 2 "--- $file ---"
-
-    while read var value; do
-        test -n "$var" -a "${var:0:1}" != '#' || continue
-        value=$(echo -e "$value" | sed -e 's/^"[ \t]*//g' -e 's/[ \t]*"$//g')
-        log 2 "$(printf '%-20s = %s' $var "$value")"
-        eval "$var=\$value"
-    done <"$file"
 }
 
 ##############################################################################
@@ -79,9 +127,9 @@ function read_config {
 ### Return 1 for TRUE, 0 for FALSE
 ##############################################################################
 function bool {
-    case $(echo "$1" | tr [:upper:] [:lower:]) in
-        1|x|on|yes|true) echo 1 ;;
-        *)               echo 0 ;;
+    case ${1,,} in
+        1|x|on|y|yes|true) echo 1 ;;
+        *)                 echo 0 ;;
     esac
 }
 
@@ -91,8 +139,34 @@ function bool {
 ##############################################################################
 function int {
     local t=
-    test -n "$1" && t=$(expr "$1" \* 1 2>/dev/null)
-    test -z "$t" && echo 0 || echo $t
+    [ "$1" ] && t=$(expr "$1" \* 1 2>/dev/null)
+    [ -z "$t" ] && echo 0 || echo $t
+}
+
+##############################################################################
+### Make $1 to integer
+### $1 - variable name
+##############################################################################
+function toInt {
+    eval local val="\$$1"
+    [ "$val" ] && val=$(expr "$val" \* 1 2>/dev/null)
+    eval $1=\${val:-0}
+}
+
+##############################################################################
+### Calculation via awk
+### $1 - formula, required
+### $2 - decimal places, optional; default 4
+### $3 - log level to show term, default 9 (never :-)
+##############################################################################
+function calc {
+    ### Replace all ' in formula with "
+    local term=$(echo "${1:-0}" | sed 's/'\''/"/g')
+    lkv ${3:-9} CALC "$term"
+#    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }" 2>/dev/null)
+    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }")
+
+    [ $(numeric "$result") -eq 1 ] && echo $result || echo 0
 }
 
 ##############################################################################
@@ -105,27 +179,127 @@ function toFixed {
     local decimals=${2:-0}
     printf "%.${decimals}f" $value
 }
+
+##############################################################################
+### Test if $1 is a numeric value (e.g. valid timestamp or numeric reading value
+### $1 - value, required
+##############################################################################
+function numeric {
+    local value=$1
+    ### http://www.linuxquestions.org/questions/programming-9/bash-scripting-check-for-numeric-values-352226/#post3993863
+    [ "$value" == "${value//[^0-9\.+-]/}" ] && echo 1 || echo 0
+}
+
 ##############################################################################
 ### Build md5 hash of file
+### $1 - term to hash, required
 ##############################################################################
 function hash {
-    md5sum "$1" | cut -d' ' -f1
+    local term=$1
+    md5sum "$term" | cut -d' ' -f1
+}
+
+##############################################################################
+### Check variable for existence and value or set to default
+### $1 - Variable name
+### $2 - Default value if empty
+##############################################################################
+function check_default {
+    eval local val=\$$1
+    [ "$val" ] || lkv 1 $1 "$2 (default)"
+    eval : \${$1:=$2}
+}
+
+##############################################################################
+### Check required variable for existence
+### $1 - Variable name
+### $2 - Error message
+##############################################################################
+function check_required {
+    eval local val=\$$1
+    [ "$val" ] || error_exit "$2 required ($1)!"
 }
 
 ##############################################################################
 ### Define variable level 1
-### Example: var1 GUID 1 > $GUID will get value of $GUID_1
+### $1 - Variable base name
+### $2 - Counter level 1
+### $3 - Default value, if not set/empty
+### If var exists:     var1 FACTOR 1 1000 > $FACTOR will get value of $FACTOR_1
+### If var NOT exists: var1 FACTOR 1 1000 > $FACTOR will get 1000
 ##############################################################################
 function var1 {
-    eval ${1}="\$${1}_${2}"
+    eval local val="\$${1}_${2}"
+    [ "$val" ] || val="$3"
+    ### Mask embeded '
+    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
+    lkv 2 $1 "$val"
 }
 
 ##############################################################################
 ### Define variable level 2
+### $1 - Variable base name
+### $2 - Counter level 1
+### $3 - Counter level 2
+### $4 - Default value, if not set/empty
 ### example: var2 ACTION 1 1 > $ACTION will get value of $ACTION_1_1
 ##############################################################################
 function var2 {
-    eval ${1}="\$${1}_${2}_${3}"
+    eval local val="\$${1}_${2}_${3}"
+    [ "$val" ] || val="$4"
+    ### Mask embeded '
+    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
+    lkv 2 $1 "$val"
+}
+
+##############################################################################
+### Define variable level 1 and make integer
+### $1 - Variable base name
+### $2 - Counter level 1
+### $3 - Default value, if not set/empty
+##############################################################################
+function var1int {
+    eval local val="\$${1}_${2}"
+    [ "$val" ] || val="$3"
+    eval $1=$(int "$val")
+    lkv 2 $1 "$val"
+}
+
+##############################################################################
+### Define variable level 2 and make integer
+### $1 - Variable base name
+### $2 - Counter level 1
+### $3 - Counter level 2
+### $4 - Default value, if not set/empty
+##############################################################################
+function var2int {
+    eval local val="\$${1}_${2}_${3}"
+    [ "$val" ] || val="$4"
+    eval $1=$(int "$val")
+    lkv 2 $1 "$val"
+}
+
+##############################################################################
+### Define variable level 1 and interpret as boolean
+### $1 - Variable base name
+### $2 - Counter level 1
+##############################################################################
+function var1bool {
+    eval local val="\$${1}_${2}"
+    eval $1=$(bool "$val")
+    lkb 2 $1 "$val"
+}
+
+##############################################################################
+### Define variable level 2 and interpret as boolean
+### $1 - Variable base name
+### $2 - Counter level 1
+### $3 - Counter level 2
+##############################################################################
+function var2bool {
+    eval local val="\$${1}_${2}_${3}"
+    eval $1=$(bool "$val")
+    lkb 2 $1 "$val"
 }
 
 ##############################################################################
@@ -137,68 +311,131 @@ function var2 {
 function on_exit_init {
     local next="$1"
     eval "function on_exit {
-        local old='$(echo "$next" | sed -e s/\'/\'\\\\\'\'/g)'
-        local new=\"\$old; \$1\"
+        local new=\"$(echo "$next" | sed -e s/\'/\'\\\\\'\'/g); \$1\"
         trap -- \"\$new\" 0
         on_exit_init \"\$new\"
     }"
 }
+
 ### Initialize wrapper, required to declare 1st "on_exit" function
 on_exit_init true
 
 ##############################################################################
 ### Remove given file name on script exit
-### $1 : file name
+### $1 - file name
 ##############################################################################
-function on_exit_rm {
-    test "$1" && on_exit 'rm -f "'$1'" >/dev/null 2>&1'
+function on_exit_rm () {
+    [ "$1" ] && on_exit 'rm -f "'$1'" >/dev/null 2>&1'
+}
+
+##############################################################################
+### Make a temporary file
+### $1 - Variable name
+##############################################################################
+function temp_file {
+    local file=$(mktemp $RUNDIR/pvlng.XXXXXX)
+    if [ "$1" ]; then
+        on_exit_rm "$file"
+        eval ${1}=\$file
+    else
+        echo $file
+    fi
+}
+
+##############################################################################
+### Build unique key name from configuration file name
+### $1 - Prefix, mostly calling script name
+### $2 - Id, mostly the configuration file name
+### $3 - Additional identifier; optional
+##############################################################################
+function key_name {
+    ### Remove extension from $2 and replace all not allowed chars with single _
+    local config=$(echo $(basename "$2") | sed 's~[.].*$~~g;s~[^A-Za-z0-9-]~_~g;s~_+~_~g')
+    name="$1.$config"
+    [ "$3" ] && name="$name.$3"
+    echo $name
 }
 
 ##############################################################################
 ### Build run file name from configuration file name
 ### $1 - Prefix, mostly calling script name
-### $2 - e.g. a configuration file name
-### $3 - File extension, optional; default "run"
+### $2 - Id, e.g. a configuration file name
+### $3 - File extension; optional, default ".run"
+### $4 - Put this into run file if not exists yet; optional
 ##############################################################################
-function run_file {                           ### remove extension, replace all not allowed chars with single _
-    echo $RUNDIR/$1.$(echo $(basename "$2") | sed -e 's~[.].*$~~g' -e 's~[^A-Za-z0-9-]~_~g' -e 's~_+~_~g').${3:-run}
+function run_file {
+    local file="$RUNDIR/$(key_name "$1" "$2" "${3:-run}")"
+
+    lkv 2 "Run file" "$file"
+
+    ### If a 4th parameter was provided, create file with $4 as initial content
+    [ $# -eq 4 -a ! -f "$file" ] && echo -ne "$4" >$file
+    echo $file
 }
 
 ##############################################################################
 ### Build lock file name, create lock link if not esists
 ### Add a trap for script exit to remove lock file
 ### $1 - suffix for lock file name, required; for empty use ""
-### $2 <> "" and lock file exists (another instance is running) 
+### $2 <> "" and lock file exists (another instance is running)
 ###          use as exit code
 ##############################################################################
 function check_lock {
-    local lockfile=$RUNDIR/$(echo $(basename "$0") | sed -e 's~[.].*$~~g' -e 's~[^A-Za-z0-9-]~_~g')$(test "$1" && echo ".$1").pid
+    ### Skip check in test mode
+    [ "$TEST" ] && return
 
-    log 2 "Lock file : $lockfile"
+    local file=$RUNDIR/$(echo $(basename "$0") | \
+               sed -e 's~[.].*$~~g' -e 's~[^A-Za-z0-9-]~_~g')$([ "$1" ] && echo ".$1").pid
 
-    if [ -L $lockfile ]; then
-        exit ${2:-0}
+    lkv 2 "Lock file" $file
+
+    ### Try to create fake link file as lock file
+    ln -s pid=$$ $file 2>/dev/null
+
+    if [ $? -eq 0 ]; then
+        ### Link not existed yet, remove on script end
+        on_exit_rm "$file"
     else
-        ### Make fake link file as lock file
-        ln -s pid=$$ $lockfile
-        on_exit_rm "$lockfile"
+        ### Link exists, check if the process mentioned still runs
+        local pid=$(stat -c %N "$file" | sed "s~.*pid=\([0-9]*\).*~\1~g")
+        if ps x | sed 's/^ *//' | cut -d' ' -f1 | grep "$pid" | grep -qv grep; then
+            log 2 "Lock file exists, process $pid still runs, exit"
+            exit ${2:-0}
+        else
+            log 2 "Lock file exists, process $pid missing, purge lock"
+            rm "$file"
+        fi
     fi
 }
 
 ##############################################################################
-### Make a temporary file
+### Check for daylight times +- offset
+### Exit script with rc 127 if not
+### $1 - grace period before/after sunrise/sunset in minutes
 ##############################################################################
-function temp_file {
-    mktemp /tmp/pvlng.XXXXXX
+function check_daylight {
+    local daylight=$(PVLngGET "daylight/${1:-0}.txt")
+    lkb 2 Daylight $daylight
+
+    [ "$TEST" -o $daylight -eq 1 ] || exit 127
+}
+
+##############################################################################
+### Exit script in test mode
+### $1 - Exit code; optional, default 0
+##############################################################################
+function test_exit {
+    [ "$TEST" ] && exit ${1:-0}
 }
 
 ##############################################################################
 ### Analyse verbosity level and set curl to silent or verbose
 ##############################################################################
 function curl_cmd {
-    local mode='--silent' # default
-    test $(int "$VERBOSE") -gt 2 && mode='--verbose'
-    echo "$CURL $mode $CurlOpts"
+    local mode='--silent' ### default
+    [ $(int "$VERBOSE") -gt 2 ] && mode='--verbose'
+    ### Always follow 3XX redirects
+    echo "$CURL $mode $CurlOpts --location"
 }
 
 ##############################################################################
@@ -207,7 +444,7 @@ function curl_cmd {
 ##############################################################################
 function JSON_quote {
     ### Quote " to \\"
-    echo "$1" | sed -e 's~"~\\"~g'
+    echo "$1" | sed -e 's~"~\\"~g' -e 's/^ *//' -e 's/ *$//'
 }
 
 ##############################################################################
@@ -220,14 +457,14 @@ function save_log {
     local message=
 
     ### detect @filename or "normal string" to post
-    if test "${2:0:1}" == '@'; then
+    if [ "${2:0:1}" == '@' ]; then
         message=$(JSON_quote "$(<${2:1})")
     else
         message=$(JSON_quote "$2")
     fi
 
-    log 1 "Scope   : $scope"
-    log 1 "Message : $message"
+    lkv 1 Scope "$scope"
+    lkv 1 Message "$message"
 
     $(curl_cmd) --request PUT \
                 --header "X-PVLng-key: $PVLngAPIkey" \
@@ -241,20 +478,103 @@ function save_log {
 ### $1 = GUID or GUID,<attribute>
 ##############################################################################
 function PVLngNC {
-    echo "$1" | netcat $PVLngDomain $SocketServerPort
+    echo "$1" | netcat $PVLngDomain $SocketServerPort 2>/dev/null
+    echo $?
 }
 
 ##############################################################################
-### Get channel attribute value
+### Save a value for a key persistent into data store
+### $1 = Key
+### $2 = Value
+##############################################################################
+function PVLngStorePUT {
+    local key=$(echo "$1" | tr . -)
+    local value=$2
+
+    if [ "${value:0:1}" != "@" ]; then
+        ### No file, quote raw data
+        data="[\"$(JSON_quote "$value")\"]"
+        sec 2 "Store data"
+        lkv 2 $key "$value"
+        lkv 2 "Send data" "$data"
+    else
+        ### File
+        data=$value
+        log 2 $data "Send file"
+    fi
+
+    [ "$TEST" ] && return
+
+    temp_file _RESPONSE
+
+    rc=$($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+                     --header "Content-Type: application/json" \
+                     --request PUT --write-out %{http_code} --output $_RESPONSE \
+                     --data-binary "$data" $PVLngURL/store/$key.json)
+
+    if echo "$rc" | grep -qe '^201'; then
+        ### 200/201/202 ok
+        lkv 2 "HTTP code" $rc
+    else
+        ### errors
+        lkv 0 "HTTP code" $rc
+        log 0 @$_RESPONSE Response
+        log 0 $data
+    fi
+}
+
+##############################################################################
+### Get a value for a key from data store
+### $1 = Key
+### $2 = Default value if empty
+##############################################################################
+function PVLngStoreGET {
+    local key=$(echo "$1" | tr . -)
+    local default=$2
+    local val=$($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $PVLngURL/store/$key.txt)
+    echo ${val:-$default}
+}
+
+##############################################################################
+### Get channel attribute value and buffer it for next calls
 ### $1 = GUID
 ### $2 = Attribute & variable name
+### $3 - Flag to keep the data as file inside run dir
 ### Result is a setted global variable of attribute name (case-sensitive!)
 ### example: PVLngChannelAttr $GUID NAME > $NAME=...
+### If in directory of the calling script a file .read exists, the script is
+### a data analysing script, the attribute will then NOT buffered into a file.
+### Only for data aquisition scripts for the case, that the connection to PVLng
+### API is broken.
 ##############################################################################
 function PVLngChannelAttr {
-    ### convert attribute to lowercase
-    local attr=$(echo ${2} | tr [:upper:] [:lower:])
-    eval ${2}="$(PVLngGET channel/${1}/${attr}.txt)"
+    local GUID=$1
+    local attr=${2,,} ### lowercase
+
+    if [ "$3" -o ! -f "$pwd/.read" ]; then
+        ### Keep data in file
+        local file=$(run_file $GUID $attr txt)
+        ### If file is older than 1 day, delete to force re-read
+        if [ -f "$file" ]; then
+            [ $(calc "($(stat -c %Z $file) + 60*60*24) >= $(now)" 0) -eq 0 ] && rm "$file"
+        fi
+        if [ ! -f "$file" ]; then
+            PVLngGET channel/$GUID/$attr.txt >$file
+        fi
+        eval $2='$(<$file)'
+    else
+        eval $2='$(PVLngGET channel/$GUID/$attr.txt)'
+    fi
+}
+
+##############################################################################
+### Get channel attribute value as boolean (0|1)
+### See PVLngChannelAttr above
+##############################################################################
+function PVLngChannelAttrBool {
+    PVLngChannelAttr $@
+    eval local v=\$$2
+    eval $2=$(bool "$v")
 }
 
 ##############################################################################
@@ -263,31 +583,140 @@ function PVLngChannelAttr {
 ##############################################################################
 function PVLngGET {
     local url="$PVLngURL/$1"
-    log 2 "Fetch    : $url"
+    lkv 2 'Fetch URL' $url
     $(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $url
-    log 2 "Fetch    : done"
 }
 
 ##############################################################################
 ### Save data to PVLng latest API release
 ### $1 = GUID
 ### $2 = value or @file_name with JSON data
+### $3 = timestamp
 ##############################################################################
 function PVLngPUT {
-    local GUID="$1"
+    local GUID=$1
     local raw="$2"
     local data="$2"
+    local timestamp=$3
     local dataraw=
     local datafile=
 
-    log 2 "GUID      : $GUID"
-    log 2 "Data      : $data"
+    sec 2 "API PUT data"
+    lkv 2 GUID $GUID
+
+    ### Skip empty data
+    if [ -z "$data" ]; then
+        log 2 "Skip empty data"
+        return
+    fi
+
+    lkv 2 Data "$data"
+
+    if [ "${data:0:1}" != "@" ]; then
+        ### No file
+        dataraw="$data"
+        if [ "$timestamp" ]; then
+            ### Given timestamp
+            if echo "$timestamp" | grep -qe '[^0-9]'; then
+                ### Date time
+                lkv 2 'Datetime given' "$timestamp"
+            else
+                ### numeric timestamp
+                lkv 2 'Timestamp given' "$(date --date="@$timestamp")"
+            fi
+            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
+        elif [ $LocalTime == 0 ]; then
+            ### Only data, use timestamp from destination
+            data="{\"data\":\"$(JSON_quote "$data")\"}"
+        else
+            ### Send local timestamp rounded to $LocalTime secods
+            lkv 1 "Use local time" "rounded to $LocalTime seconds"
+            ### force floor of division part, awk have no "round()" or "floor()"
+            timestamp=$(calc "int($(date +%s) / $LocalTime) * $LocalTime" 0)
+            lkv 2 'Timestamp local' "$(date --date=@$timestamp)"
+            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
+        fi
+        lkv 2 Send "$data"
+    else
+        ### File
+        datafile="${data:1}"
+        log 2 "Send file"
+        log 2 @$datafile
+    fi
+
+    [ "$TEST" ] && return
+
+    ### Log data
+    if [ "$SAVEDATA" ]; then
+        if [ "$dataraw" ]; then
+            _saveRaw "" $GUID $dataraw
+        elif [ "$datafile" ]; then
+            _saveFile "" $GUID $datafile
+        fi
+    fi
+
+#    ### For debugging only, register a "request bin" before at http://requestb.in/
+#    binUrl=http://requestb.in/...
+#    $(curl_cmd) --header "Content-Type: application/json" \
+#                --header "X-URL-for: $PVLngURL/data/$GUID.txt" \
+#                --request PUT --data-binary $data $binUrl >/dev/null 2>&1
+
+    ### Try to send to Queue server
+    if [ "$SocketServerPort" ]; then
+        if [ ! "$datafile" ]; then
+            rc=$(PVLngNC "SaveData|$GUID|$data")
+        else
+            rc=$(PVLngNC "SaveData|$GUID|$(<$datafile)")
+        fi
+        [ $rc -eq 0 ] && return
+    fi
+
+    temp_file _RESPONSE
+
+    set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+                         --header "Content-Type: application/json" \
+                         --request PUT --write-out %{http_code} --output $_RESPONSE \
+                         --data-binary "$data" $PVLngURL/data/$GUID.txt)
+
+    if echo "$1" | grep -qe '^20[012]'; then
+        ### 200/201/202 ok
+        lkv 1 "HTTP code" $1
+        [ -f $_PUTRESPONSEFILE ] && log 2 @$_RESPONSE Response
+    else
+        ### errors
+        lkv 0 Data "$data"
+        lkv 0 "HTTP code" $1
+        [ -f $_PUTRESPONSEFILE ] && log 0 @$_RESPONSE Response
+        save_log "$GUID" "HTTP code: $1"
+        [ -f $_PUTRESPONSEFILE ] && save_log "$GUID" @$_RESPONSE
+
+        ### Log always failed data
+        if [ "$dataraw" ]; then
+            _saveRaw "/fail" $GUID $dataraw
+            save_log "$GUID" "$dataraw"
+        elif [ "$datafile" ]; then
+            _saveFile "/fail" $GUID $datafile
+            save_log "$GUID" "@$datafile"
+        fi
+    fi
+}
+
+##############################################################################
+### Save raw data to PVLng latest API release
+### $1 = GUID
+### $2 = @file_name with raw data
+##############################################################################
+function PVLngPUTraw {
+    local GUID="$1"
+    local data="$2"
+    local datafile=
+
+    lkv 2 GUID $GUID
+    lkv 2 Data $data
 
     if test "${data:0:1}" != "@"; then
         ### No file
-        dataraw="$data"
-        data="{\"data\":\"$(JSON_quote "$data")\"}"
-        log 2 "Send      : $data"
+        error_exit "PVLngPUTraw require @<filename> as 2nd parameter!"
     else
         ### File
         datafile="${data:1}"
@@ -295,44 +724,31 @@ function PVLngPUT {
         log 2 @$datafile
     fi
 
+    [ "$TEST" ] && return
+
     ### Log data
-    if test "$SAVEDATA"; then
-        if test "$dataraw"; then
-            PVLngPUTsaveRaw "$SaveDataDir" $GUID $dataraw
-        elif test "$datafile"; then
-            PVLngPUTsaveFile "$SaveDataDir" $GUID $datafile
-        fi
-    fi
+    [ "$SAVEDATA" ] && _saveFile "" $GUID $datafile
 
-    ### Clear temp. file before
-    rm $TMPFILE >/dev/null 2>&1
+    temp_file _RESPONSE
 
-    set $($(curl_cmd) --request PUT \
-                      --header "X-PVLng-key: $PVLngAPIkey" \
-                      --header "Content-Type: application/json" \
-                      --write-out %{http_code} \
-                      --output $TMPFILE \
-                      --data-binary $data \
-                      $PVLngURL/data/$GUID.txt)
+    set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+                         --request PUT --write-out %{http_code} --output $_RESPONSE \
+                         --data-binary $data $PVLngURL/data/raw/$GUID.txt)
 
     if echo "$1" | grep -qe '^20[012]'; then
         ### 200/201/202 ok
-        log 1 "HTTP code : $1"
-        test -f $TMPFILE && log 2 @$TMPFILE
+        lkv 1 "HTTP code" $1
+        [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
     else
         ### errors
+        lkv 0 "HTTP code" $1
+        [ -f $_RESPONSE ] && log 0 @$_RESPONSE Response
+        save_log "$GUID" "HTTP code: $1"
+        [ -f $_RESPONSE ] && save_log "$GUID" @$_RESPONSE
 
         ### Log always failed data
-        if test "$dataraw"; then
-            PVLngPUTsaveRaw "$SaveDataDir/fail" $GUID $dataraw
-        elif test "$datafile"; then
-            PVLngPUTsaveFile "$SaveDataDir/fail" $GUID $datafile
-        fi
-
-        log -1 "HTTP code : $1"
-        test -f $TMPFILE && log -1 @$TMPFILE
-        save_log "$GUID" "HTTP code: $1 - raw: $raw"
-        test -f $TMPFILE && save_log "$GUID" @$TMPFILE
+        _saveFile "/fail" $GUID $datafile
+        save_log "$GUID" "@$datafile"
     fi
 }
 
@@ -348,30 +764,28 @@ function PVLngPUTBatch {
     local GUID="$1"
     local data="$2"
 
-    log 2 "GUID      : $GUID"
-    log 2 "Data file : $data"
+    lkv 2 GUID $GUID
+    lkv 2 "Data file" "$data"
 
-    ### Clear temp. file before
-    rm $TMPFILE >/dev/null 2>&1
+    [ "$TEST" ] && return
 
-    set $($(curl_cmd) --request PUT \
-                      --header "X-PVLng-key: $PVLngAPIkey" \
-                      --header "Content-Type: text/plain" \
-                      --write-out %{http_code} \
-                      --output $TMPFILE \
-                      --data-binary $data \
-                      $PVLngURL/batch/$GUID.txt)
+    temp_file _RESPONSE
+
+    set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+                         --header "Content-Type: text/plain" \
+                         --request PUT --write-out %{http_code} --output $_RESPONSE \
+                         --data-binary $data $PVLngURL/batch/$GUID.txt)
 
     if echo "$1" | grep -qe '^20[012]'; then
         ### 200/201/202 ok
-        log 1 "HTTP code : $1"
-        test -f $TMPFILE && log 2 @$TMPFILE
+        lkv 1 "HTTP code" $1
+        [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
     else
         ### errors
-        log -1 "HTTP code : $1"
-        test -f $TMPFILE && log -1 @$TMPFILE
+        lkv 0 "HTTP code" $1
+        [ -f $_RESPONSE ] && log -1 @$_RESPONSE Response
         save_log "$GUID" "HTTP code: $1 - raw: $raw"
-        test -f $TMPFILE && save_log "$GUID" @$TMPFILE
+        [ -f $_RESPONSE ] && save_log "$GUID" @$_RESPONSE
     fi
 
 }
@@ -388,32 +802,29 @@ function PVLngPUTCSV {
     local GUID="$1"
     local data="$2"
 
-    log 2 "GUID      : $GUID"
-    log 2 "Data file : $data"
+    lkv 2 GUID $GUID
+    lkv 2 "Data file" "$data"
 
-    ### Clear temp. file before
-    rm $TMPFILE >/dev/null 2>&1
+    [ "$TEST" ] && return
 
-    set $($(curl_cmd) --request PUT \
-                      --header "X-PVLng-key: $PVLngAPIkey" \
-                      --header "Content-Type: text/plain" \
-                      --write-out %{http_code} \
-                      --output $TMPFILE \
-                      --data-binary $data \
-                      $PVLngURL/csv/$GUID.txt)
+    temp_file _RESPONSE
+
+    set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+                         --header "Content-Type: text/plain" \
+                         --request PUT --write-out %{http_code} --output $_RESPONSE \
+                         --data-binary $data $PVLngURL/csv/$GUID.txt)
 
     if echo "$1" | grep -qe '^20[012]'; then
         ### 200/201/202 ok
-        log 1 "HTTP code : $1"
-        test -f $TMPFILE && log 2 @$TMPFILE
+        lkv 1 "HTTP code" $1
+        [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
     else
         ### errors
-        log -1 "HTTP code : $1"
-        test -f $TMPFILE && log -1 @$TMPFILE
+        lkv 0 "HTTP code" $1
+        [ -f $_RESPONSE ] && log -1 @$_RESPONSE Response
         save_log "$GUID" "HTTP code: $1 - raw: $raw"
-        test -f $TMPFILE && save_log "$GUID" @$TMPFILE
+        [ -f $_RESPONSE ] && save_log "$GUID" @$_RESPONSE
     fi
-
 }
 
 ##############################################################################
@@ -422,54 +833,47 @@ function PVLngPUTCSV {
 ### $2 = GUID
 ### $3 = value
 ##############################################################################
-function PVLngPUTsaveRaw {
+function _saveRaw {
     ### Each GUID get its own directory
-    local dir=${1}/${2}/$(date +"%Y-%m")
+    local dir=${SAVEDATADIR}${1}/${2}/$(date +"%Y-%m")
     local file=${dir}/$(date +"%Y-%m-%d").csv
+    local data="$3"
 
-    log 2 "Save $3 to $file"
+    log 2 "Save '$data' to $file"
 
-    test -d $dir || mkdir -p $dir
-    echo $(date +"%Y-%m-%d %H:%M:%S")";$3" >>$file
+    [ -d $dir ] || mkdir -p $dir
+    echo $(date +"%Y-%m-%d %H:%M:%S")";$data" >>$file
+    chmod 600 $file
 }
 
 ##############################################################################
-### internal use
+### Internal use
 ### $1 = directory
 ### $2 = GUID
 ### $3 = @file_name with data
 ##############################################################################
-function PVLngPUTsaveFile {
+function _saveFile {
     ### Multiple files per day, each day of GUID get its own directory
-    local dir=${1}/${2}/$(date +"%Y-%m/%d")
+    local dir=${SAVEDATADIR}${1}/${2}/$(date +"%Y-%m/%d")
     local file=${dir}/$(date +"%Y-%m-%d.%H:%M:%S")
+    local data="$3"
 
     log 2 "Save data"
-    log 2 "- from $3"
+    log 2 "- from $data"
     log 2 "-   to $file"
 
-    test -d $dir || mkdir -p $dir
-    cp "$3" $file
+    [ -d $dir ] || mkdir -p $dir
+    cp "$data" $file
+    chmod 600 $file
 }
 
 ##############################################################################
-### trap function to clean up
-##############################################################################
-function clean_up {
-:;
-    ### Clean up on program exit, accepts an exit status
-##    rm -f "$TMPFILE" >/dev/null 2>&1
-##    exit $1
-}
-
-##############################################################################
-### exit with error message and return code 1
+### Exit with error message and return code 1
+### http://curl.haxx.se/libcurl/c/libcurl-errors.html
+### $1 - Error code return by curl
+### $2 - Error context text
 ##############################################################################
 function curl_error_exit {
-    ### Display curl error message and exit
-    #
-    # http://curl.haxx.se/libcurl/c/libcurl-errors.html
-    #
     rc=$1
     local -a curl_rc=
     curl_rc[1]="The URL you passed to libcurl used a protocol that this libcurl does not support. The support might be a compile-time option that you didn't use, it can be a misspelled protocol string or just a protocol libcurl has no code for."
@@ -558,103 +962,243 @@ function curl_error_exit {
 }
 
 ##############################################################################
-### Exit with error message and return code 1
+### Exit with error message and return code 127
 ##############################################################################
 function error_exit {
-    ### Display error message and exit
+    ### Display error message and usage and exit
     echo
-    echo "$scriptname: ${1:-"Unknown Error"}" 1>&2
-    echo
-    exit 1
+    echo "ERROR: ${1:-"Unknown Error"}" 1>&2
+    usage
+    exit ${2:-127}
+}
+
+##############################################################################
+### Exit with error message for required variable
+##############################################################################
+function exit_required {
+    error_exit "$1 required ($2)!"
 }
 
 ##############################################################################
 ###
 ##############################################################################
 function realpath {
-    f=$@;
+    local f=$@;
+    local base=
+    local dir=
+
     if [ -d "$f" ]; then
         base="";
         dir="$f";
     else
         base="/$(basename "$f")";
         dir=$(dirname "$f");
-    fi;
+    fi
+
+    ### $() run in sub shell...
     dir=$(cd "$dir" && /bin/pwd);
     echo "$dir$base"
 }
 
 ##############################################################################
-### Show run time of script in seconds/minutes,
-### best use with verbose equal/upper info
-### $1 = <empty>: Show seconds, else minutes
-### Usage: log 1 $(run_time)   # for seconds
-###        log 1 $(run_time x) # for minutes
+### urlencode <string>
+### https://gist.github.com/cdown/1163649
+### $1 - String to encode
+##############################################################################
+function urlencode {
+    local length=${#1}
+    local c=
+
+    for ((i=0; i<length; i++)); do
+        c="${1:i:1}"
+        case $c in
+            [a-zA-Z0-9.~_-]) printf "$c" ;;
+            *)               printf '%%%02X' "'$c"
+        esac
+    done
+}
+
+##############################################################################
+### Encode spial chars as quoted printable
+##############################################################################
+function quotedPrintable {
+  echo $@ | perl -pe 'use MIME::QuotedPrint; $_=MIME::QuotedPrint::encode($_);'
+}
+
+##############################################################################
+### Send email correctly UTF-8 encoded
+### $1 - Mail subject
+### $2 - Mail body
+### $3 - Email address(es)
+### $4 - Mail from (optional)
+##############################################################################
+function sendMail {
+    local from=${4:-"PVLng <PVLng@$(hostname -f)>"}
+    local subject=$1
+    local body=$2
+    local email=$3
+
+    if [ "${body:0:1}" == @ ]; then
+        local file=${body:1}
+        [ -r "$file" ] || error_exit "Missing file: $file"
+    else
+        echo -e "$body" >$TMPFILE
+        local file=$TMPFILE      
+    fi
+
+    local cmd="mail $MailOpts -a \"From: $from\" \
+                    -s \"=?utf-8?Q?$(quotedPrintable "$subject")?=\" \
+                    \"$email\" <$file >/dev/null"
+
+    sec 1 "Send email"
+    lkv 1 From "$from"
+    lkv 1 To "$email"
+    lkv 1 Subject "$subject"
+    log 1 @$file Body
+
+    lkv 2 Command "$(echo "$cmd" | sed 's~\s\+~ ~g')"
+
+    [ "$TEST" ] && return
+
+    eval $cmd
+}
+
+##############################################################################
+### Transform XML file to JSON
+### $1 - XML file name
+##############################################################################
+function xml2json {
+    php -r "echo json_encode(simplexml_load_string(file_get_contents('$1')));"
+}
+
+##############################################################################
+### JSON query
+### $1 - JSON string or @filename
+### $2 - Query in object notation like "messages[0]->message"
+##############################################################################
+function jq {
+    local json=$1
+    [ "${1:0:1}" == @ ] && json=$(<${1:1})
+    php -r "\$d=json_decode('$json'); if (\$d && isset(\$d->$2)) echo \$d->$2;"
+}
+
+##############################################################################
+### Show run time of script
+### $1 - Verbose level, default 2
+### $2 - Custom title for output in between scripts, default "Run time"
 ##############################################################################
 function run_time {
-    if test -z "$1"; then
-        printf "Run time : %.0f s" $(echo "($(date +%s) - $REQUEST_TIME)" | bc -l)
+
+    local level=${1:-2}
+
+    [ $VERBOSE -ge $level ] || return
+
+    ### Time gone since script start
+    local t=$(calc "$(now) - $REQUEST_TIME")
+    ### Full seconds (integer) for further checks
+    local s=$(toFixed $t)
+
+    if [ $s -lt 10 ]; then
+        ### In milli seconds below 10 sec
+        t="$(calc "$t * 1000" 1) ms"
+    elif [ $s -lt 60 ]; then
+        ### In seconds below 60 sec
+        t=$(printf "%.1f s" $t)
+    elif [ $s -lt 3600 ]; then
+        ### In minutes below an hour
+        t="$(calc "$t / 60" 1) min"
     else
-        printf "Run time : %.1f min" $(echo "($(date +%s) - $REQUEST_TIME) / 60" | bc -l)
+        ### In hours otherwise
+        t="$(calc "$t / 3600" 1) h"
     fi
+
+    lkv 0 "${2:-Run time}" "$t"
 }
 
 ##############################################################################
 ### Default PVLng script options
 ##############################################################################
-function opt_define_pvlng() {
+function opt_define_pvlng {
+    ### Test mode with raise of verbosity level
+    ### Value is required to detect argument as flag
+    opt_define short=c long=config variable=CONFIG \
+               desc='Config file' default="$CONFIG"
     if [ "$1" ]; then
+        ### Use local time or round to -l ? seconds
+        opt_define short=l long=localtime variable=LocalTime default=0 \
+                   desc='Use local time, rounded to ? seconds'
         ### Flag to save data also into file
-        opt_define short=s long=save desc='Save data also into log file' variable=SAVEDATA value=y
+        opt_define short=s long=save variable=SAVEDATA value=y \
+                   desc='Save data also into log file'
     fi
     ### Test mode with raise of verbosity level
     ### Value is required to detect argument as flag
-    opt_define short=t long=test variable=TEST \
-               desc='Test mode, set verbosity to info level' value=y \
+    opt_define short=t long=test variable=TEST value=y \
+               desc='Test mode, set verbosity to info level' \
                callback='TEST=y; VERBOSE=$(($VERBOSE+1))'
     ### Multiple -v raises verbosity level
-    opt_define short=v long=verbose variable=VERBOSE \
-               desc='Verbosity, use multiple times for higher level' \
-               default=0 value=1 callback='VERBOSE=$(($VERBOSE+1))'
-    ### Prepare a TRACE variable to "set -x" after preparation
-    ### No description > not shown in help
-    opt_define short=x long=trace variable=TRACE value=X
+    opt_define_verbose
+    ### Prepare a hidden TRACE variable to "set -x" after preparation
+    ### No description, not shown in help
+    opt_define_trace
+}
+
+##############################################################################
+function now {
+    date +%s.%N
 }
 
 ##############################################################################
 ### Init
 ##############################################################################
-LC_NUMERIC=en_US
+LC_NUMERIC=C
 
 _ROOT=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
 
-### Source getopts helper functions
-source $_ROOT/opt.sh
+if [ ! -f $_ROOT/PVLng.conf ]; then
+    echo "You haven't a configuration file '$_ROOT/PVLng.conf' yet!"
+    cp $_ROOT/PVLng.conf.dist $_ROOT/PVLng.conf
+    echo I made one for you, you have to maintain it now...
+    exit 2
+fi
+
+### Scripts disabled?
+[ -f $_ROOT/.paused ] && exit 254
 
 ### Load global configuration
-source $_ROOT/PVLng.conf
+. $_ROOT/PVLng.conf
+
+### Source getopts helper functions
+. $_ROOT/opt.sh
 
 ### Latest API release
-PVLngURL="$PVLngHost/api/r4"
+PVLngURL="$PVLngHost/api/latest"
 
 ### Setup curl command
-test "$CURL" || CURL="$(which curl 2>/dev/null)"
-test -z "$CURL" && echo "Can not find curl executable, please install and/or define in PVLng.conf!" && exit 1
-
+: ${CURL:=$(which curl 2>/dev/null)}
+[ "$CURL" ] || error_exit "Can not find curl executable, please install and/or define in PVLng.conf!" 1
 CURL="$CURL $CURLCONNECT"
 
-### Create temp. file e.g. for curl --output and remove on exit
-TMPFILE=$(mktemp /tmp/pvlng.XXXXXX)
-on_exit_rm "$TMPFILE"
+### Show run time on end from verbose level 1 onwards
+on_exit "run_time"
+
+### Directory for the temporary "run" files
+RUNDIR=${RunDir:-$_ROOT/run}
+[ -d "$RUNDIR" ] || mkdir -p "$RUNDIR"
+
+### Automatic logging of all data pushed to PVLng API,
+### Flag -s|--savedata required
+SAVEDATADIR=${SaveDataDir:-$_ROOT/data}
 
 ### Some variables
 scriptname=${0##*/}
 
-### Automatic logging of all data pushed to PVLng API,
-### flag -s, --savedata required
-SAVEDATA=
-### default directory can be overwriten in any other config file
-test "$SaveDataDir" || SaveDataDir=$_ROOT/data
+### Don't use local time
+LocalTime=0
 
-### Directory for the "run" files
-RUNDIR=$_ROOT/run
+### Create temp. file e.g. for curl --output and remove on exit
+temp_file TMPFILE
+
+VERBOSE=0
+
+CONFIG=$(echo "$(basename $0)" | sed 's~\.[^.]*$~.conf~g')

@@ -1,0 +1,35 @@
+/**
+ * @author     Knut Kohl <github@knutkohl.de>
+ * @copyright  2012-2015 Knut Kohl
+ * @license    MIT License (MIT) http://opensource.org/licenses/MIT
+ * @version    1.0.0
+ *
+ * JSON with JavaScript comments
+ */
+[
+  {},
+  [ // Common section
+    {
+      "name": "RESOLUTION",
+      "description": "Sensor resolution, impulse per kilo watt hour",
+      "type": "i",
+      "default": "1000",
+      "required": "y"
+    },
+    {
+      "name": "IMPULSES",
+      "description": "Either log Impulse count insted of Watts",
+      "type": "b",
+      "default": "n"
+    },
+    {
+      "name": "CHANNEL",
+      "description": "Device (read from API if empty)"
+    },
+    {
+      "name": "GUID",
+      "description": "PVLng channel GUID",
+      "required": "y"
+    }
+  ]
+]

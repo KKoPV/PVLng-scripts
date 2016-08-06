@@ -1,0 +1,271 @@
+#!/usr/bin/env php
+<?php
+
+ini_set('display_errors', 0);
+error_reporting(0);
+
+$opts  = getopt('c:sth');
+$conf  = array_key_exists('c', $opts) ? $opts['c'] : FALSE;
+$short = array_key_exists('s', $opts);
+$test  = array_key_exists('t', $opts);
+
+if (array_key_exists('h', $opts)) {
+    e('Usage: ', $argv[0], ' [options]');
+    e();
+    e('Options:');
+    e('    -c  Generate empty template config file');
+    e('    -s  Generate short config file without comments');
+    e('    -t  Test mode, don\'t create file, just show result');
+    e('    -h  This help');
+    exit;
+}
+
+define('DS', DIRECTORY_SEPARATOR);
+
+$cwd = getcwd();
+
+/**
+ * Let's go
+ */
+$file = $cwd.'/dist/configure.json';
+
+if (!file_exists($file)) {
+    e('Missing configuration file: ', $file);
+    exit(1);
+}
+
+if ($test) {
+    e();
+    e('Test mode, don\'t create file');
+}
+
+e();
+e('Configuration file: ', $file);
+
+$json = stripJSON(file_get_contents($file));
+
+$c = json_decode($json, TRUE);
+
+if (($err = json_last_error()) != JSON_ERROR_NONE) {
+    e();
+    e('ERROR: ', json_last_error_msg());
+    e();
+    exit(127);
+}
+
+$c0 = &$c[0];
+$c1 = &$c[1];
+$c2 = &$c[2];
+
+if (!$conf) {
+
+    // Header data
+    $c0 = array_merge( array( 'sections' => 'GUID' ), $c0 );
+
+    // Common data
+    if (!empty($c1)) {
+        // Show header only if also multiple section occur
+        !empty($c2) AND h('Common settings');
+        foreach ($c1 as $id => $data) $c1[$id] = readValue($data);
+    }
+
+    $n = 0;
+
+    // Multiple data
+    if (!empty($c2)) {
+        h('Multiple settings');
+        do {
+            h('Section '.++$n);
+            foreach ($c2 as $id => $data) {
+                $data = readValue($data);
+                $data['_value'][$n] = $data['value'];
+                $data['value'] = '';
+                $c2[$id] = $data;
+            }
+            echo PHP_EOL, 'More (y|n) [n] ? ';
+        } while (trim(fgets(STDIN)) == 'y');
+    }
+
+} else {
+    $i = 1;
+}
+
+// Generate config file
+$cfg = array();
+cc('Generated from '.$file);
+
+if (!empty($c1)) {
+    c0();
+    cc('Common settings');
+
+    foreach ($c1 as $data) {
+        c0();
+        cc($data['description']);
+        c2($data['name'], $data['value']);
+    }
+}
+
+if (!empty($c2)) {
+
+    c0();
+    cc('Count of sections');
+    c2($c0['sections'].'_N', $n);
+
+    for ($i=1; $i<=$n; $i++) {
+        c0();
+        cc($c0['sections'], $i);
+
+        foreach ($c2 as $data) {
+            c0();
+            cc($data['description']);
+            c2($data['name'].'_'.$i, @$data['_value'][$i]);
+        }
+    }
+}
+
+c0();
+e();
+
+if ($test) {
+    e(implode(PHP_EOL, $cfg));
+} else {
+    $conf = $conf ?: 'config';
+    e('- Configuration file name (without ".conf")');
+    echo '['.$conf.'] ? ';
+    $file = trim(fgets(STDIN));
+    $file = $cwd.DS.($file?:$conf).'.conf';
+
+    e();
+    file_put_contents($file, implode(PHP_EOL, $cfg));
+    e('Saved to '.$file);
+}
+
+// ###########################################################################
+// Functions
+// ###########################################################################
+
+/**
+ * Configuration empty line
+ */
+function c0() {
+    global $short, $cfg;
+    if (!$short) $cfg[] = NULL;
+}
+
+/**
+ * Configuration Comment
+ */
+function cc() {
+    global $short, $cfg;
+    if ($short) return;
+    $cfg[] = '##############################################################################';
+    $cfg[] = '### '.implode(' ', func_get_args());
+    $cfg[] = '##############################################################################';
+}
+
+/**
+ * Configuration Key = Value
+ */
+function c2($k, $v ) {
+    global $cfg;
+    $cfg[] = ($v == '' || strstr($v, ' '))
+           ? sprintf('%-15s "%s"', $k, $v)
+           : sprintf('%-15s %s', $k, $v);
+}
+
+/**
+ * echo with newline
+ */
+function e() {
+    echo implode(func_get_args()),PHP_EOL;
+}
+
+/**
+ * Header
+ */
+function h() {
+    echo PHP_EOL, '---------- ', implode(func_get_args()), ' ----------', PHP_EOL;
+}
+
+/**
+ * Remove comments from JSON
+ */
+function stripJSON( $json ) {
+    $result = '';
+    // Tokenize JSON and remove all comments and whitespaces
+    foreach (token_get_all('<?php '.$json) as $token) { 
+        // if (is_array($token)) { $token[] = token_name($token[0]); print_r($token); }
+        if (!is_array($token)) {
+            $result .= $token;
+        } elseif ($token[0] == T_CONSTANT_ENCAPSED_STRING || $token[0] == T_LNUMBER) {
+            $result .= $token[1];
+        }
+    }
+    return $result;
+}
+
+/**
+ * Read values for key fron STDIN
+ */
+function readValue( $key ) {
+    $key = array_merge(
+        array(
+            'type'     => 's',
+            'values'   => array(),
+            'default'  => '',
+            'value'    => '',
+            'required' => 0,
+            'help'     => ''
+        ),
+        $key
+    );
+
+    if ($key['value'] == '') $key['value'] = $key['default'];
+
+    // Handle boolean data via valid values array
+    if ($key['type'] == 'b') $key['values'] = array('y', 'n');
+
+    $err = FALSE;
+    do {
+        e();
+        $msg = $key['description'];
+        if ($key['required']) $msg .= ' (required)';
+        e('- ', $msg);
+        if ($key['help']) e('- '.$key['help']);
+        if ($err) e('! '.$err);
+        if (!empty($key['values'])) echo '('.implode('|', $key['values']).') ';
+        if (!empty($key['value'])) echo '['.$key['value'].'] ';
+        echo ': ';
+
+        $err = FALSE;
+        $v = trim(fgets(STDIN)) ?: $key['default'];
+
+        if ($v) {
+            $key['value'] = $v;
+
+            switch ($key['type']) {
+                case 'i':
+                    if ($key['value'] != '' && !is_int($key['value'])) {
+                        $err = 'Integer value required';
+                        $key['value'] = NULL;
+                    }
+                    break;
+                case 'n':
+                    if (!is_numeric($key['value'])) {
+                        $err = 'Numeric value required';
+                        $key['value'] = NULL;
+                    }
+                    break;
+                default:
+                    if (!empty($key['values']) AND !in_array($key['value'], $key['values'])) {
+                        $err = 'Invalid value: ' . $key['value'];
+                        $key['value'] = $key['default'];
+                    }
+            }
+        } elseif ($key['required']) {
+            $err = 'Value is required';
+        }
+
+    } while ($err);
+    return $key;
+}

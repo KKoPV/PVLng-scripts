@@ -1,0 +1,36 @@
+Run
+
+    $ sudo udevadm info --query=all --name=/dev/ttyUSB0
+
+look for these lines:
+
+    P: /devices/pci0000:00/0000:00:13.1/usb3/3-2/3-2:1.0/ttyUSB0/tty/ttyUSB0
+    N: ttyUSB0
+    ...
+    S: serial/by-id/usb-FTDI_USB_Serial_Converter_FTGCYLSS-if00-port0
+    ...
+    E: SUBSYSTEM=tty
+    ...
+    E: ID_SERIAL_SHORT=FTGCYLSS
+    ...
+
+Create a file
+
+    /etc/udev/rules.d/99-usb-S0.rules
+
+with this content
+
+    SUBSYSTEM=="tty", ENV{ID_SERIAL_SHORT}=="FTGCYLSS", SYMLINK+="usb-ftdi-1"
+
+Restart udev with
+
+    $ udevadm trigger
+
+and check with
+
+    $ ls -al /dev/u*
+
+    lrwxrwxrwx 1 root root    7  9. Feb 21:47 /dev/usb-ftdi-1 -> ttyUSB0
+
+Put this device name into the channels attribute "channel"
+

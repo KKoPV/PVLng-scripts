@@ -1,124 +1,112 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
-### @version     $Id$
+### @copyright   2012-2015 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
+### @version     1.0.0
 ##############################################################################
+
+##############################################################################
+### Constants
+##############################################################################
+pwd=$(dirname $0)
+
+### Twitter API push URL
+APIURL='https://api.twitter.com/1.1/statuses/update.json'
 
 ##############################################################################
 ### Init
 ##############################################################################
-pwd=$(dirname $0)
-
-. $pwd/../PVLng.conf
 . $pwd/../PVLng.sh
 
-test -f $pwd/.tokens || error_exit "Missing token file! Did you run setup.sh?"
+[ -f $pwd/.consumer ] || error_exit "Missing token file! Did you run setup.sh?"
 
-. $pwd/.pvlng
-. $pwd/.tokens
+### Script options
+opt_help      "Post status from file content to twitter"
+opt_help_args "(-p|--pattern|<config file>)"
+opt_help_hint "See twitter-file.conf.dist for details."
 
-while getopts "dtvxh" OPTION; do
-	case "$OPTION" in
-		d) DELETE=y ;;
-		t) TEST=y; VERBOSE=$((VERBOSE + 1)) ;;
-		v) VERBOSE=$((VERBOSE + 1)) ;;
-		x) TRACE=y ;;
-		h) usage; exit ;;
-		?) usage; exit 1 ;;
-	esac
-done
+opt_define short=p long=pattern desc="File pattern to search for, no config file required" variable=PATTERN
 
-shift $((OPTIND-1))
+### PVLng default options
+opt_define_pvlng
 
-read_config "$1"
+. $(opt_build)
 
-PATTERN_N=$(int "$PATTERN_N")
-test $PATTERN_N -gt 0  || error_exit "No file patterns defined (\$PATTERN_N)"
+CONFIG=$1
+
+if [ "$PATTERN" ]; then
+    PATTERN_N=1
+    PATTERN_1=$PATTERN
+else
+    read_config "$CONFIG"
+fi
 
 ##############################################################################
 ### Start
 ##############################################################################
-test "$TRACE" && set -x
+[ "$TRACE" ] && set -x
+
+PATTERN_N=$(int "$PATTERN_N")
+[ $PATTERN_N -gt 0 ] || exit_required 'File patterns' PATTERN_N
+
+##############################################################################
+### Go
+##############################################################################
+[ $VERBOSE -gt 0 ] && opts="-v"
+
+curl=$(curl_cmd)
 
 i=0
 
-while test $i -lt $PATTERN_N; do
+while [ $i -lt $PATTERN_N ]; do
 
-	i=$((i+1))
+    i=$((i+1))
 
-	log 1 "--- $i ---"
+    sec 1 $i
 
-	eval PATTERN=\$PATTERN_$i
-	log 1 "Pattern : $PATTERN"
+    var1 PATTERN $i
 
-	files="$(ls $PATTERN 2>/dev/null)"
+    ls $PATTERN 2>/dev/null | while read file; do
+        sec 1 "$file"
+        ### Trim status
+        sed -i 's~^ *~~g;s~ *$~~g' "$file"
 
-	if test -z "$files"; then
-		log 1 "No files."
-		continue
-	fi
+        [ ! -s "$file" ] && rm $file && continue
 
-	if test "$DELETE"; then
-		log 1 "Delete: $files"
-		test "$TEST" || rm $files
-		continue
-	fi
+        log 1 @$file Status
+        lkv 1 Length $(wc -c "$file")
 
-	for file in $files; do
+        [ "$TEST" ] && continue
 
-		log 1 "--- $file ---"
+        printf -v STATUS "$(sed 's~ *|| *~\\n~g' "$file")"
+        STATUSENC=$(urlencode "$STATUS")
 
-		### Trim status
-		STATUS=$(cat $file | sed -e 's~^ ~~' -e 's~ $~~')
+        ### Put all data into one -d for curlicue
+        $pwd/contrib/curlicue -f $pwd/.consumer $opts -- \
+            -sS -d status="$STATUSENC&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
 
-		log 1 "Status  : $STATUS"
-		log 1 "Length  : $(echo $STATUS | wc -c)"
+        if grep -q 'errors' $TMPFILE; then
+            ### Ignore {"errors":[{"code":187,"message":"Status is a duplicate."}]}
+            ### Ignore {"errors":[{"code":186,"message":"Status is over 140 characters."}]}
 
-		if test -z "$STATUS"; then
-			continue
-		fi
+            ### Extract code from JSON: errors > 0 > code
+            code=$($curl --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/code.txt)
 
-		if test -z "$TEST"; then
-			$(dirname $0)/twitter.php \
-			  --consumer_key=$CONSUMER_KEY \
-			  --consumer_secret=$CONSUMER_SECRET \
-			  --oauth_token=$OAUTH_TOKEN \
-			  --oauth_secret=$OAUTH_TOKEN_SECRET \
-			  --status="$STATUS" --location="$LOCATION"
+            if [ $code -ne 186 -a $code -ne 187 ]; then
+                msg=$($curl --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/message.txt)
+                log -1 "Twitter update error [$code] $msg"
+            fi
+        fi
 
-			eval move="\$FILE_${i}_MOVE"
+        var1 MOVEDIR $i
 
-			if test -z "$move"; then
-				rm "$file"
-			else
-				test -d "$move" || mkdir -p "$move"
-				mv "$file" "$move" 2>/dev/null
-			fi
-		fi
-	done
+        if [ "$MOVEDIR" ]; then
+            [ -d "$MOVEDIR" ] || mkdir -p "$MOVEDIR"
+            mv "$file" "$MOVEDIR" 2>/dev/null
+        else
+            rm "$file"
+        fi
+    done
 
 done
-
-set +x
-
-exit
-
-##############################################################################
-# USAGE >>
-
-Post status from file content to twitter
-
-Usage: $scriptname [options] config_file
-
-Options:
-	-t   Test mode, don't post
-	     Sets verbosity to info level
-	-v   Set verbosity level to info level
-	-vv  Set verbosity level to debug level
-	-h   Show this help
-
-See $pwd/twitter-file.conf.dist for details.
-
-# << USAGE

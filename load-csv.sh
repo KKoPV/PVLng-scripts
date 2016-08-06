@@ -1,8 +1,8 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2013 Knut Kohl
-### @license     GNU General Public License http://www.gnu.org/licenses/gpl.txt
+### @copyright   2012-2015 Knut Kohl
+### @license     MIT License (MIT) http://opensource.org/licenses/MIT
 ### @version     1.0.0
 ##############################################################################
 
@@ -31,25 +31,21 @@ shift $((OPTIND-1))
 ##############################################################################
 ### Start
 ##############################################################################
-test "$TRACE" && set -x
+[ "$TRACE" ] && set -x
 
-FILESFILE=$(temp_file)
+temp_file FILESFILE
 
-trap 'rm -f $TMPFILE $FILESFILE >/dev/null 2>&1' 0
-
-if test -f "$FILE"; then
+if [ -f "$FILE" ]; then
     cp $FILE $FILESFILE
 else
-    while test "$1"; do
+    while [ "$1" ]; do
         echo $1 >>$FILESFILE
         shift
     done
 fi
 
-if test $(wc -l $FILESFILE | cut -d' ' -f1) -eq 0; then
-    usage;
-    exit;
-fi
+### Not empty file?
+[ $(wc -l $FILESFILE | cut -d' ' -f1) -eq 0 ] && usage && exit
 
 i=1
 
@@ -57,56 +53,55 @@ curl=$(curl_cmd)
 
 while read file; do
 
-    if test ! -f $file; then
+    if [ ! -f $file ]; then
         log -1 Missing $file - skip
         continue
     fi
 
-    log 0 Process $(basename $file) ...
+    log 0 Process $file ...
 
     i=$((i+1))
 
     ### No channel GUID given, test file name
-    if test -z "$GUID"; then
+    if [ -z "$GUID" ]; then
         ### Ubuntu/Debian don't have the same awk as openSUSE, so the GUID match
         ### didn't work for me. Because of that I changed awk to sed.
         ### https://github.com/K-Ko/PVLng/pull/18
         GUID=$(echo "$file" | sed -n 's/.*\(\([a-z0-9]\{4\}-\)\{7\}[a-z0-9]\{4\}\).*/\1/p')
-        test "$GUID" || error_exit "No sensor GUID in filename found"
+        [ "$GUID" ] || error_exit "No sensor GUID in filename found"
     fi
 
-    test "$GUID" || error_exit "No channel GUID given"
+    [ "$GUID" ] || error_exit "No channel GUID given"
 
-    if test -z "$TEST"; then
+    [ "$TEST" ] && continue
 
-        ### Clear temp. file before
-        >$TMPFILE
+    ### Clear temp. file before
+    >$TMPFILE
 
-        rc=$($curl --request PUT \
-                   --header "X-PVLng-key: $PVLngAPIkey" \
-                   --header "Content-Type: text/plain" \
-                   --write-out %{http_code} \
-                   --output $TMPFILE \
-                   --data-binary "@$file" \
-                   $PVLngURL/csv/$GUID.tsv)
+    rc=$($curl --request PUT \
+               --header "X-PVLng-key: $PVLngAPIkey" \
+               --header "Content-Type: text/plain" \
+               --write-out %{http_code} \
+               --output $TMPFILE \
+               --data-binary "@$file" \
+               $PVLngURL/csv/$GUID.tsv)
 
-        if echo "$rc" | grep -qe '^20[012]'; then
-            ### 200/201/202 Ok
-            msg="> Ok [$rc] $(cat $TMPFILE | tail -n 1)"
+    if echo "$rc" | grep -qe '^20[012]'; then
+        ### 200/201/202 Ok
+        msg="> Ok [$rc] $(cat $TMPFILE | tail -n 1)"
 
-            if test -z "$KEEP"; then
-                rm "$file" && msg="$msg - deleted"
-                if echo $file | grep -q 'data/fail'; then
-                    ### Delete afterwards empty directories
-                    find $(dirname $file) -type d -empty -delete
-                fi
+        if [ -z "$KEEP" ]; then
+            rm "$file" && msg="$msg - deleted"
+            if echo $file | grep -q '/fail/'; then
+                ### Delete afterwards empty directories
+                find $(dirname $file) -type d -empty -delete
             fi
-
-            log 0 "$msg"
-        else
-            ### Any other is an error
-            error_exit "Failed [$rc] $(cat $TMPFILE | tail -n 1)"
         fi
+
+        log 0 "$msg"
+    else
+        ### Any other is an error
+        error_exit "Failed [$rc] $(cat $TMPFILE | tail -n 1)"
     fi
 
 done <$FILESFILE
@@ -119,7 +114,7 @@ exit
 # USAGE >>
 
 Load CSV data files via API, delete successful imported files and
-if full file name contains 'data/fail' also empty directories!
+if full file name contains '/fail/' also empty directories!
 
 Usage: $scriptname [-c GUID] [options] [-f file | files]
 

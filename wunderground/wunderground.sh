@@ -38,26 +38,25 @@ read_config "$CONFIG"
 check_default LANGUAGE EN
 
 check_required APIKEY   'Wunderground API key'
-check_required LOCATION 'Location'
 check_required GUID     'Wunderground group channel GUID'
 
 ##############################################################################
 ### Go
 ##############################################################################
-temp_file RESPONSEFILE
+
+### Get location from PVLng settings
+LOCATION="$(PVLngGET settings/core/null/Latitude.txt),$(PVLngGET settings/core/null/Longitude.txt)"
 
 eval APIURL="$APIURL"
-log 2 Fetch $APIURL
-
-#curl="$(curl_cmd)"
+log 2 $APIURL
 
 ### Query Weather Underground API
-$(curl_cmd) --output $RESPONSEFILE $APIURL
+$(curl_cmd) --output $TMPFILE $APIURL
 rc=$?
 
 [ $rc -eq 0 ] || curl_error_exit $rc "Wunderground API"
 
 ### Test mode
-log 2 @$RESPONSEFILE "API response"
+log 2 @$TMPFILE "API response"
 
-[ "$TEST" ] || PVLngPUT $GUID @$RESPONSEFILE
+[ "$TEST" ] || PVLngPUT $GUID @$TMPFILE

@@ -85,9 +85,12 @@ while [ $i -lt $GUID_N ]; do
         lkv 1 Value "$value"
     fi
 
+    ### Use original channel value in condition before applying the format
+    [ "$CONDITION" ] && CONDITION=$(echo "$CONDITION" | sed "s~[{]VALUE_$i[}]~$value~g")
+
     ### Format for this channel defined?
-    var1 FORMAT $i
-    printf -v value "${FORMAT:-%s}" "$value"
+    var1 FORMAT $i '%s'
+    printf -v value "$FORMAT" "$value"
 
     PVLngChannelAttr $GUID NAME
     PVLngChannelAttr $GUID DESCRIPTION
@@ -106,4 +109,17 @@ while [ $i -lt $GUID_N ]; do
 
 done
 
-sendMail "$SUBJECT" "$BODY" "$EMAIL"
+### Check condition and send mail
+
+sec 1 ---
+
+if [ "$CONDITION" ]; then
+    ### Prepare condition
+    lkv 1 'Condition def.' "$CONDITION"
+    result=$(calc "$CONDITION" 0)
+    lkb 1 'Condition res.' $result
+else
+    result=1
+fi
+
+[ "$result" -eq 1 ] && sendMail "$SUBJECT" "$BODY" "$EMAIL"

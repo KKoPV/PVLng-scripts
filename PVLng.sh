@@ -65,7 +65,7 @@ function lkv {
 function lkb {
     [ $VERBOSE -ge $1 ] || return
     local value=
-    [ $(bool "$3") -eq 1 ] && value=yes || value=no
+    [ $(bool "$3") -eq 1 ] && value=true || value=false
     lkv $1 "$2" $value
 }
 

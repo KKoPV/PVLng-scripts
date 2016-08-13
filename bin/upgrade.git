@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# set -x
+
+function e { echo; echo $@; }
+function usage {
+    [ "$1" ] && echo && echo $1
+    echo
+    echo Upgrade your installation to lastest state from Github.
+    echo
+    echo "Usage: $0 <branch>"
+    exit ${2:-0}
+}
+
+[ -d .git ] || usage "ERROR: Script must run from installation directory (where the .git diretoy resides)" 1
+
+[ "$1" ] || usage
+
+echo
+echo -n 'Fetch last version from GitHub ... '
+
+git checkout $1 >/dev/null 2>&1
+rc=$?
+[ $rc -ne 0 ] && exit $rc
+git pull >/dev/null 2>&1
+
+echo -e \\b\\b\\b\\b- done

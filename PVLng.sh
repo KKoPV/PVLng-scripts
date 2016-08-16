@@ -33,7 +33,7 @@ function log {
             sec $level "${2:-Result}"
 
             ### At least 1 line break at EOF is needed!
-            echo >>$file
+            [ -s "$file" ] || echo >>"$file"
 
             while read l; do
                 echo "$time $l"
@@ -803,7 +803,7 @@ function PVLngPUTCSV {
     local data="$2"
 
     lkv 2 GUID $GUID
-    lkv 2 "Data file" "$data"
+    log 2 "Data file" "$data"
 
     [ "$TEST" ] && return
 

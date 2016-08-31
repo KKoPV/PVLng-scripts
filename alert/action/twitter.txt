@@ -1,0 +1,6 @@
+- GUID_?
+        required
+- USE_?
+        optional
+- TEXT_?
+        optional, default '{NAME_DESCTIPTION}: {VALUE} {UNIT}'

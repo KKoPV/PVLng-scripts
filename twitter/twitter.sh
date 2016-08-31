@@ -62,30 +62,25 @@ read_config "$CONFIG"
 
 check_required STATUS 'Status message'
 
-ITEM_N=$(int "$ITEM_N")
-[ $ITEM_N -gt 0 ] || exit_required Items ITEM_N
-
 ##############################################################################
 ### Go
 ##############################################################################
 ### Used by twitter item functions for buffering
 temp_file ITEMTMPFILE
 
-i=0
-
-while [ $i -lt $ITEM_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+
     ### Check for reused value, skip API call
-    var1 USE $i
-    if [ "$USE" ]; then
+    if [ $USE -ne $i ]; then
         eval value="\$VALUE_$USE"
     else
-        var1 ITEM $i
         var1 GUID $i
+        var1 ITEM $i
         value=$(twitter_$ITEM $GUID)
     fi
     lkv 1 "Item value" "$value"
@@ -137,7 +132,7 @@ if [ $VERBOSE -gt 0 ]; then
 fi
 
 ### Put all data into one -d for curlicue
-$pwd/contrib/curlicue \
+$BINDIR/curlicue \
     $opts -f $pwd/.consumer -- \
     -sS -d status="$STATUS&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
 

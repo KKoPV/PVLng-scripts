@@ -18,12 +18,18 @@ REQUEST_TIME=$(date +%s.%N)
 ### Show message depending of verbosity level on stderr
 ### $1 - Show from verbose level upwards
 ### $2 - Output, "string" or read from "@file"
-### $3 - Title for file content, default "Result"
+### $3 - If $2 is a file, title for file content, default "Result"
 ##############################################################################
 function log {
     [ $VERBOSE -ge $1 ] || return
     local level=$1
-    local time=[$(date +%H:%M:%S.%N | cut -b-11)]
+    local time=[$(date +%H:%M:%S.%N | cut -b-$TIMESTAMPLENGTH)]
+#   local l='eidp456' ### error info debug paranoia ...
+    local l='0123456' ### error info debug paranoia ...
+
+    if [ "$SHOWVERBOSELEVEL" -a $VERBOSE -ge $SHOWVERBOSELEVEL ]; then
+        time="$time[${l:$level:1}]"
+    fi
 
     shift ### Move out level
 
@@ -33,7 +39,9 @@ function log {
             sec $level "${2:-Result}"
 
             ### At least 1 line break at EOF is needed!
-            [ -s "$file" ] || echo >>"$file"
+            if [ -s "$file" -a $(wc -l "$file" | awk '{print $1}') -eq 0 ]; then
+                echo >>"$file"
+            fi
 
             while read l; do
                 echo "$time $l"
@@ -103,21 +111,23 @@ function read_config {
         exit 1
     fi
 
+    ### If not absolute path given, try relative path from script
     [ -f "$file" ] || file="$(dirname $0)/$file"
-    [ -r "$file" ] || error_exit "Configuration file '$file' is not readable!" 1
+
+    [ -r "$file" ] || error_exit "Configuration file '$file' not exists / is not readable!" 1
+    [ -s "$file" ] || error_exit "Configuration file '$file' is empty!" 1
 
     ### Transform configuration into var="value" format
 
     if [ $VERBOSE -lt 2 ]; then
-        ### eval() direct
-        eval $(sed '/^$/d;/^ *#/d;s/  *\(.*\)/="\1"/;s/""/"/g' $file)
+        ### eval direct
+        eval $(sed '/^$/d; /^ *#/d; s/  *\(.*\)/="\1"/; s/""/"/g' $file)
     else
         ### Pipe through temp. file for log output
-        local cfg=$(temp_file)
-        on_exit_rm $cfg
-        sed '/^$/d;/^ *#/d;s/  *\(.*\)/="\1"/;s/""/"/g' $file >$cfg
-        log 2 @$cfg "$(basename $file)"
-        . $cfg
+        temp_file CFG_TEMP
+        sed '/^$/d; /^ *#/d; s/  *\(.*\)/="\1"/; s/""/"/g' $file >$CFG_TEMP
+        log 2 @$CFG_TEMP "$(basename $file)"
+        . $CFG_TEMP
     fi
 }
 
@@ -206,7 +216,7 @@ function hash {
 ##############################################################################
 function check_default {
     eval local val=\$$1
-    [ "$val" ] || lkv 1 $1 "$2 (default)"
+    [ "$val" ] || lkv 2 $1 "$2 (default)"
     eval : \${$1:=$2}
 }
 
@@ -221,6 +231,19 @@ function check_required {
 }
 
 ##############################################################################
+### Find up to 99 sections defined by GUID_? or USE_?
+##############################################################################
+function getGUIDs() {
+    local ids=
+    local test=
+    for i in $(seq 1 99); do
+        eval test="\$GUID_$i\$USE_$i"
+        [ "$test" ] && ids="$ids $i"
+    done
+    echo $ids
+}
+
+##############################################################################
 ### Define variable level 1
 ### $1 - Variable base name
 ### $2 - Counter level 1
@@ -231,6 +254,20 @@ function check_required {
 function var1 {
     eval local val="\$${1}_${2}"
     [ "$val" ] || val="$3"
+    ### Mask embeded '
+    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
+    lkv 2 $1 "$val"
+}
+
+##############################################################################
+### Define required variable level 1
+### $1 - Variable base name
+### $2 - Counter level 1
+### $3 - Descriptive name for error message if not defined
+##############################################################################
+function var1req {
+    eval local val="\$${1}_${2}"
+    [ "$val" ] || error_exit "${3} is required (${1}_${2})!"
     ### Mask embeded '
     eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
     lkv 2 $1 "$val"
@@ -414,8 +451,9 @@ function check_lock {
 ### $1 - grace period before/after sunrise/sunset in minutes
 ##############################################################################
 function check_daylight {
-    local daylight=$(PVLngGET "daylight/${1:-0}.txt")
-    lkb 2 Daylight $daylight
+    local grace=${1:-0}
+    local daylight=$(PVLngGET "daylight/$grace.txt")
+    lkb 2 "Daylight +-$grace" $daylight
 
     [ "$TEST" -o $daylight -eq 1 ] || exit 127
 }
@@ -965,7 +1003,7 @@ function curl_error_exit {
 ### Exit with error message and return code 127
 ##############################################################################
 function error_exit {
-    ### Display error message and usage and exit
+    VERBOSE=0
     echo
     echo "ERROR: ${1:-"Unknown Error"}" 1>&2
     usage
@@ -1112,7 +1150,7 @@ function run_time {
         t="$(calc "$t / 3600" 1) h"
     fi
 
-    lkv 0 "${2:-Run time}" "$t"
+    lkv $level "${2:-Run time}" "$t"
 }
 
 ##############################################################################
@@ -1148,6 +1186,9 @@ function now {
     date +%s.%N
 }
 
+function d1 { set -x; }
+function d0 { set +x; }
+
 ##############################################################################
 ### Init
 ##############################################################################
@@ -1164,6 +1205,10 @@ fi
 
 ### Scripts disabled?
 [ -f $_ROOT/.paused ] && exit 254
+
+BINDIR=$_ROOT/bin
+
+SHOWVERBOSELEVEL=
 
 ### Load global configuration
 . $_ROOT/PVLng.conf
@@ -1202,3 +1247,5 @@ temp_file TMPFILE
 VERBOSE=0
 
 CONFIG=$(echo "$(basename $0)" | sed 's~\.[^.]*$~.conf~g')
+
+: ${TIMESTAMPLENGTH:=11}

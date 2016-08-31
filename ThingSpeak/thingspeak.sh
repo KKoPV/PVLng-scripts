@@ -12,7 +12,7 @@
 pwd=$(dirname $0)
 
 ### ThingSpeak API URL
-_APIURL='https://api.thingspeak.com/update'
+APIURL='https://api.thingspeak.com/update'
 
 ##############################################################################
 ### Init
@@ -37,7 +37,7 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-check_default APIURL $_APIURL
+check_required APIURL 'ThingSpeak channel API URL'
 check_required APIKEY 'ThingSpeak channel API Write key'
 
 FIELD_N=$(int "$FIELD_N")
@@ -61,16 +61,13 @@ fi
 
 lkv 1 Interval $INTERVAL
 
-i=0
-
-while [ $i -lt $FIELD_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
     ### Fetch for sensor channels average of last x minutes
     fetch="start=-${INTERVAL}minutes&period=${INTERVAL}minutes"

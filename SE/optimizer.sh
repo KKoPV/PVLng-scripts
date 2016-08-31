@@ -38,11 +38,8 @@ check_daylight 60
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-[ "$SITE" ] || exit_required "Site Id" SITE
-[ "$USER" ] || exit_required "User name" USER
-
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || error_exit Sections GUID_N
+check_required SITE "Site Id"
+check_required USER "User name"
 
 ##############################################################################
 ### Go
@@ -68,16 +65,13 @@ echo -e "monitoring.solaredge.com\tFALSE\t/\tFALSE\t0\tSolarEdge_Field_ID\t$SITE
 start=$(calc "$(date +%s) - 300")000
 end=$(date +%s)000
 
-i=0
-
-while [ $i -lt $GUID_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
     var1 SERIAL $i
     [ "$SERIAL" ] || PVLngChannelAttr $GUID SERIAL

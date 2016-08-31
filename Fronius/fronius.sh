@@ -62,9 +62,6 @@ check_daylight 60
 
 check_required APIURL 'Solar Net API URL'
 
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ]|| exit_required Sections GUID_N
-
 ##############################################################################
 ### Go
 ##############################################################################
@@ -72,16 +69,13 @@ temp_file RESPONSEFILE
 
 curl="$(curl_cmd --header 'Content-Type=application/json')"
 
-i=0
-
-while [ $i -lt $GUID_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
     ### Request type and serial, required fields
     PVLngChannelAttr $GUID CHANNEL

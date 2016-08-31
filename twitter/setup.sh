@@ -24,7 +24,7 @@ trap 'rm $consumer_tmp $request_token_tmp $access_token_tmp' 0
 
 pwd=$(dirname $0)
 
-curlicue=$pwd/contrib/curlicue
+curlicue=$pwd/../bin/curlicue
 
 echo "oauth_consumer_key=$CONSUMER_KEY&oauth_consumer_secret=$CONSUMER_SECRET" >$consumer_tmp
 

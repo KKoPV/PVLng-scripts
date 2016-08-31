@@ -1,0 +1,18 @@
+- GUID_?
+        required
+- USE_?
+        optional
+- USER_?
+        required
+- TOKEN_?
+        required
+- DEVICE_?
+        optional
+- TITLE_?
+        optional
+- TEXT_?
+        optional, default '{NAME_DESCTIPTION}: {VALUE} {UNIT}'
+- PRIORITY_?
+        optional, default 0
+- SOUND_?
+        optional

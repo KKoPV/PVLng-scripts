@@ -36,9 +36,6 @@ check_lock $(basename $CONFIG)
 
 check_required DEVICE Device
 
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || exit_required GUID_N Sections
-
 ##############################################################################
 ### Go
 ##############################################################################
@@ -55,16 +52,13 @@ eval $fetch
 
 log 2 @$DATAFILE
 
-i=0
-
-while [ $i -lt $GUID_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
     var1 OBIS $i
     if [ -z "$OBIS" ]; then

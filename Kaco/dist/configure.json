@@ -7,10 +7,7 @@
  * JSON with JavaScript comments
  */
 [
-  {
-    "sections": "GUID"
-  },
-  [
+  [ // Common parameters
     {
       "name": "DEVICE",
       "description": "Serial or USB device, e.g. /dev/ttyUSB0",
@@ -22,7 +19,7 @@
       "default": 30
     }
   ],
-  [
+  [ // Multiple parameters
     {
       "name": "GUID",
       "description": "PVLng channel GUID",

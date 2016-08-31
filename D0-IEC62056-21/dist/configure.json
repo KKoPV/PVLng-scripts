@@ -7,26 +7,23 @@
  * JSON with JavaScript comments
  */
 [
-  {
-    "sections": "GUID"
-  },
-  [
-    {
-      "name": "DEVICE",
-      "description": "Device where the D0 reader is conneted to",
-      "default": "/dev/ttyUSB0",
-      "required": "y"
-    }
-  ],
-  [
-    {
-      "name": "GUID",
-      "description": "PVLng sensor GUID",
-      "help": "If no GUID is given, the section will be ignored."
-    },
-    {
-      "name": "OBIS",
-      "description": "OBIS Id (read from API if empty)"
-    }
-  ]
+    [ // Common parameters
+        {
+            "name": "DEVICE",
+            "description": "Device where the D0 reader is conneted to",
+            "default": "/dev/ttyUSB0",
+            "required": "y"
+        }
+    ],
+    [ // Multiple parameters
+        {
+            "name": "GUID",
+            "description": "PVLng sensor GUID",
+            "help": "If no GUID is given, the section will be ignored."
+        },
+        {
+            "name": "OBIS",
+            "description": "OBIS Id (read from API if empty)"
+        }
+    ]
 ]

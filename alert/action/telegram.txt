@@ -1,0 +1,10 @@
+- GUID_?
+        required
+- USE_?
+        optional
+- TOKEN_?
+        required
+- CHAT_?
+        required
+- TEXT_?
+        optional, default '{NAME_DESCTIPTION}: {VALUE} {UNIT}'

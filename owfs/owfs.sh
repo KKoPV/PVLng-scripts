@@ -40,10 +40,7 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-[ "$SERVER" ] || exit_required "OWFS Server" SERVER
-
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
+check_required SERVER "OWFS Server"
 
 [ $(bool "$CACHED") -eq 0 ] && CACHED='/uncached' || CACHED=
 [ -z "$CACHED" ] && log 1 "Use cached channel values"
@@ -52,17 +49,11 @@ GUID_N=$(int "$GUID_N")
 ##############################################################################
 ### Go
 ##############################################################################
-i=0
-
-while [ $i -lt $GUID_N ]; do
-
-    i=$(($i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    ### GUID given?
     var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
 
     var1 SERIAL $i
     if [ -z "$SERIAL" ]; then

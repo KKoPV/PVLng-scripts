@@ -1,0 +1,10 @@
+- GUID_?
+        required
+- USE_?
+        optional
+- EMAIL_?
+        required
+- SUBJECT_?
+        optional, default '[PVLng] {NAME_DESCTIPTION}: {VALUE} {UNIT}'
+- BODY_?
+        optional

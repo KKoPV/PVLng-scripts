@@ -7,10 +7,7 @@
  * JSON with JavaScript comments
  */
 [
-  {
-    "sections": "GUID"
-  },
-  [
+  [ // Common parameters
     {
       "name": "MOUNTPOINT",
       "description": "OWFS file system mount point",
@@ -38,7 +35,12 @@
       "description": "Path to owread, if script can't detect"
     }
   ],
-  [
+  [ // Multiple parameters
+    {
+      "name": "GUID",
+      "description": "PVLng channel GUID",
+      "required": 1
+    },
     {
       "name": "SERIAL",
       "description": "Sensor serial (read from PVLng channel (serial) by API if empty)"
@@ -46,11 +48,6 @@
     {
       "name": "CHANNEL",
       "description": "Sensor channel (read from PVLng channel (schannel) by API if empty)"
-    },
-    {
-      "name": "GUID",
-      "description": "PVLng channel GUID",
-      "required": 1
     }
   ]
 ]

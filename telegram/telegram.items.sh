@@ -5,7 +5,7 @@
 ### @version     1.2.0
 ###
 ### 1.0.0
-### Initial creation, copy from twitter
+### - Initial creation, copy from twitter
 ##############################################################################
 
 ### Used by item functions for buffering

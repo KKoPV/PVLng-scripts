@@ -265,10 +265,9 @@ ARGS="\$@"
 ### Clean up after self
 rm $build_file
 
-#[ "\$TEST" ] && log 1 "v\$(cat \$_ROOT/.version | head -n 1) (\$(git log --pretty=format:'%h' -n 1)) TEST MODE"
 if [ "\$TEST" ]; then
     _v=v\$(cat \$_ROOT/.version | head -n 1)
-    _c=\$(git log --pretty=format:'%h/%ad' --date=short -n 1)
+    _c=\$(git --git-dir=$_ROOT/.git log --pretty=format:'%h/%ad' --date=short -n 1)
     cat <<EOT
 
 ##############################################################################

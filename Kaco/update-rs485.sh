@@ -11,8 +11,6 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-TIMEOUT=30
-
 ##############################################################################
 ### Init
 ##############################################################################
@@ -37,64 +35,167 @@ check_daylight 60
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-### Check required settings
-[ "$DEVICE" ]|| exit_required Device DEVICE
+check_required DEVICE Device
 
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ]|| exit_required Sections GUID_N
+check_default TIMEOUT 1
+check_default MAXATTEMPT 3
 
 ##############################################################################
 ### Go
 ##############################################################################
 # sudo chmod 666 /dev/ttyUSB0
-stty -F $DEVICE 9600 cs8
+stty -F $DEVICE raw 9600 cs8
 
-i=0
-
-while [ $i -lt $GUID_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    ### shortcut for GUID=GUID_$i
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
-    var1 INVERTER $i
-    [ "$INVERTER" ] || exit_required "Inverter number" INVERTER_$i
+    var1req INVERTER $i "Inverter number"
 
     QUERY="#$(printf '%02d' $INVERTER)0\r"
 
-    ### Log output key = value
     lkv 2 QUERY $QUERY
 
-    ### Send query sequence
-    echo -e $QUERY >$DEVICE
+    ### Up to MAXATTEMPT attempts to get valid data from DEVICE
+    attempt=$MAXATTEMPT
 
-    ### Initialize data string
-    data=
+    while :; do
 
-    ### Read char by char with defined timeout
-    while IFS= read -r -t $TIMEOUT -n 1 c; do
+        lkv 2 'Attempts left' $attempt
 
-        ### Skip 1st \r (response is then still empty)
-        [ -z "$c" -a "$data" ] && break
+        attempt=$((attempt - 1))
 
-        ### Remove invalid characters
-        c=$(echo "$c" | tr -C '\12\40-\176' ' ')
+        ### Query inverter
+        echo -en $QUERY > $DEVICE
 
-        ### Concatenate response string
-        data="$data$c"
+        ### Get data from device
+        data=
 
-    done <$DEVICE
+        while IFS= read -r -t $TIMEOUT -n 1 c; do
+            ### Concatenate data
+            data="$data$c"
+        done < $DEVICE
 
-    [ -z "$data" ] && log 1 'Got no data ...' && continue
+        if [ -z "$data" ]; then
+            ### No data
+            if [ $attempt -le 0 ]; then
+                rc=99
+                dataOut="$MAXATTEMPT times no data from $DEVICE"
+                ### Exit while loop
+                break
+            fi
+            continue
+        fi
 
-    ### Clean up response, condense multiple spaces to one
-    data=$(echo "$data" | sed 's/[^a-zA-Z0-9.*-]/ /g;s/  */ /g')
+        ### Check & manipulate data
+        dataOut=$(echo -n "$data" | \
+        gawk -lordchr.so -v _adr=$INVERTER \
+        '{
+            ### Get data
+            _data = $0;
 
-    ### Save data, extend response with actual timestamp
-    PVLngPUT $GUID "$(date +'%F %H:%M:%S') $data"
+            ### Split to array
+            split(_data, _dataArray, "");
+
+            ### Delete trailing CR
+            if (ord(_dataArray[length (_dataArray)]) == 0x0d) {
+                delete _dataArray[length(_dataArray)];
+            }
+
+            ### Check size
+            switch (length(_dataArray)) {
+                ### Type "00"/"02"
+                case 64:
+                    CRCposition = 57;
+                    break;
+                ### Type "000xi"
+                case 63:
+                    CRCposition = 57;
+                    break;
+                ### Type "XP(old)"
+                case 78:
+                    CRCposition = 61;
+                    break;
+                ### Not valid
+                default:
+                    printf("Invalid data size: %d", length (_dataArray));
+                    exit 1;
+            }
+
+            ### Get CRC
+            _CRC = ord(_dataArray[CRCposition]);
+
+            ### Remove CRC
+            delete _dataArray[CRCposition];
+
+            ### Calc CRC
+            _CRCcalculated = 0;
+            for (i=1; i<CRCposition; i++) {
+                _CRCcalculated += ord(_dataArray[i]);
+            }
+            _CRCcalculated %= 256;
+
+            ### Check CRC
+            if (_CRC != _CRCcalculated) {
+                printf("Invalid crc: %d (data) %d (calculated)", _CRC, _CRCcalculated);
+                exit 2;
+            }
+
+            ### Check "*" at position 1
+            if (_dataArray[1] != "*") {
+                printf ("invalid char: %s (%d) at position %d", _dataArray[1], ord(_dataArray[1]), 1);
+                exit 4;
+            }
+
+            ### Check valid and right address 1..31 at position 2
+            address = "";
+            for (i=2; i<=3; i++) {
+                if (_dataArray[i] ~ /[[:digit:]]/) {
+                    address = address _dataArray[i];
+                }
+            }
+
+            addressNum = strtonum(address);
+            if (addressNum < 1 || addressNum > 31) {
+                printf("Invalid address: %s (%d)", address, addressNum);
+                exit 5;
+            }
+
+            if (addressNum != _adr) {
+                printf("Wrong address: is %d, should %d", addressNum, _adr);
+                exit 6;
+            }
+
+            ### Build _dataOut, join _dataArray back to string
+            for (i in _dataArray) {
+                _dataOut = _dataOut _dataArray[i];
+            }
+
+            ### Delete multiple spaces
+            gsub(/[[:blank:]]+/, " ", _dataOut);
+
+            ### Finally output manipulated data
+            printf("%s", _dataOut);
+        }')
+
+        rc=$?
+
+        ### No error occurred
+        [ $rc -eq 0 ] && break
+
+    done
+
+    if [ $rc -eq 0 ]; then
+        lkv 1 Data "$dataOut"
+        ### Save data, extend response with actual timestamp
+        PVLngPUT $GUID "$(date +'%F %H:%M:%S') $dataOut"
+    else
+        lkv 0 ERROR "$dataOut"
+    fi
 
 done
+

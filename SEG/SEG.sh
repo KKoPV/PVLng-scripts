@@ -40,9 +40,6 @@ read_config "$CONFIG"
 check_required SITE_TOKEN 'SEG site name'
 check_required NODE_NAME 'SEG node name'
 
-STREAM_N=$(int "$STREAM_N")
-[ $STREAM_N -gt 0 ] || exit_required "Stream sections" STREAM_N
-
 ##############################################################################
 ### Go
 ##############################################################################
@@ -63,19 +60,15 @@ fi
 
 lkv 1 Interval $INTERVAL
 
-i=0
-
-while [ $i -lt $STREAM_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    var1 STREAM $i
-    [ -z "$STREAM" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    var1req STREAM $i 'Stream'
 
     ### read value, get last row
     row=$(PVLngGET "data/$GUID.tsv?start=-${INTERVAL}minutes&period=${INTERVAL}minutes" | tail -n1)

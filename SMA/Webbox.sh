@@ -12,7 +12,7 @@
 pwd=$(dirname $0)
 
 ### Default Webbox IP
-_WEBBOX=192.168.0.168:80
+WEBBOX=192.168.0.168:80
 
 ##############################################################################
 ### Init
@@ -40,10 +40,7 @@ check_lock $(basename $CONFIG)
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-check_default WEBBOX $_WEBBOX
-
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
+check_required WEBBOX 'Webbox IP'
 
 ##############################################################################
 ### Go
@@ -58,16 +55,13 @@ if [ "$PASSWORD" ]; then
     PASSWORD=',"passwd":"'$1'"'
 fi
 
-i=0
-
-while [ $i -lt $GUID_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
     var1 SERIAL $i
     if [ -z "$SERIAL" ]; then
@@ -92,7 +86,6 @@ EOT
 
     [ $rc -eq 0 ] || curl_error_exit $rc Webbox
 
-    ### Test mode
     log 2 @$RESPONSEFILE "Webbox response"
 
     ### Check response for error object

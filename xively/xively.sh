@@ -12,7 +12,7 @@
 pwd=$(dirname $0)
 
 ### API URL with placeholders
-APIURL='https://api.xively.com/v2/feeds/$FEED'
+APIURL='https://api.xively.com/v2/feeds'
 
 ##############################################################################
 ### Init
@@ -33,11 +33,9 @@ read_config "$CONFIG"
 ##############################################################################
 ### Check config data
 ##############################################################################
-check_required FEED   'Xively feed'
+check_required APIURL 'Xively API URL'
 check_required APIKEY 'Xively API key'
-
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
+check_required FEED   'Xively feed'
 
 ##############################################################################
 ### Start
@@ -57,22 +55,19 @@ fi
 INTERVAL=$(calc "($NOW - $LAST) / 60" 0)
 [ "$TEST" ] || echo $NOW >$LASTFILE
 
-eval APIURL="$APIURL"
+eval APIURL="$APIURL/$FEED"
 lkv 2 'API Endpoint' $APIURL
 
 curl=$(curl_cmd)
-i=0
 found=
 
-while [ $i -lt $GUID_N ]; do
-
-    i=$((i + 1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    ### required parameters
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
     var1 CHANNEL $i
     if [ -z "$CHANNEL" ]; then

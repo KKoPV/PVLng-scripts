@@ -83,7 +83,7 @@ while [ $i -lt $PATTERN_N ]; do
         STATUSENC=$(urlencode "$STATUS")
 
         ### Put all data into one -d for curlicue
-        $pwd/contrib/curlicue -f $pwd/.consumer $opts -- \
+        $BINDIR/curlicue -f $pwd/.consumer $opts -- \
             -sS -d status="$STATUSENC&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
 
         if grep -q 'errors' $TMPFILE; then

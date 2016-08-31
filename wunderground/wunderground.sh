@@ -37,8 +37,9 @@ read_config "$CONFIG"
 
 check_default LANGUAGE EN
 
-check_required APIKEY   'Wunderground API key'
-check_required GUID     'Wunderground group channel GUID'
+check_required APIURL 'Wunderground API URL'
+check_required APIKEY 'Wunderground API key'
+check_required GUID   'Wunderground group channel GUID'
 
 ##############################################################################
 ### Go

@@ -1,0 +1,10 @@
+- GUID_?
+        required
+- USE_?
+        optional
+- DIR_?
+        required
+- PREFIX_?
+        optional
+- TEXT_?
+        optional, default '{NAME_DESCTIPTION}: {VALUE} {UNIT}'

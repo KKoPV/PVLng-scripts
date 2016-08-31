@@ -7,8 +7,12 @@
  * JSON with JavaScript comments
  */
 [
-  {},
-  [ // Common section
+  [ // Common parameters
+    {
+      "name": "GUID",
+      "description": "PVLng channel GUID",
+      "required": "y"
+    },
     {
       "name": "RESOLUTION",
       "description": "Sensor resolution, impulse per kilo watt hour",
@@ -25,11 +29,6 @@
     {
       "name": "CHANNEL",
       "description": "Device (read from API if empty)"
-    },
-    {
-      "name": "GUID",
-      "description": "PVLng channel GUID",
-      "required": "y"
     }
   ]
 ]

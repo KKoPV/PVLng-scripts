@@ -38,9 +38,6 @@ check_daylight 60
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
-
 ##############################################################################
 ### Go
 ##############################################################################
@@ -52,19 +49,16 @@ curl="$(curl_cmd)"
 
 lines=0
 echo 0 >$CNTFILE
-i=0
 
-while [ $i -lt $GUID_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    var1 PIKOURL $i
-    [ "$PIKOURL" ] || exit_required "Kostal Piko API URL" PIKOURL_$i
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    var1req PIKOURL $i 'Kostal Piko API URL'
 
     ### Fetch data
     $curl --output $TMPFILE $PIKOURL

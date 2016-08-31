@@ -19,10 +19,12 @@ function replace_vars {
     local str="$1"
     local count=${2:-1}
     local i=0
+    local _v=$VERBOSE
 
     ### Helper
     local name=
     local description=
+    local name_desc=
     local value=
     local unit=
     local last=
@@ -35,121 +37,36 @@ function replace_vars {
         str=$(<$str)
     fi
 
+    ### Disable verbose for the loop
+    VERBOSE=0
+    
     while [ $i -lt $count ]; do
         i=$((i+1))
 
         var1 name $i
         var1 description $i
+        var1 name_desc $i
         var1 value $i $EMPTY
         var1 unit $i
         var1 last $i
 
         str=$(echo "$str" | \
               sed "s~[{]NAME_$i[}]~$name~g;s~[{]DESCRIPTION_$i[}]~$description~g;
+                   s~[{]NAME_DESCRIPTION_$i[}]~$name_desc~g;
                    s~[{]VALUE_$i[}]~$value~g;s~[{]UNIT_$i[}]~$unit~g;
                    s~[{]LAST_$i[}]~$last~g")
     done
 
-    ### NAME, DESCRIPTION, VALUE, UNIT and LAST stands also for *_1
+    ### Restore verbose
+    VERBOSE=$_v
+
+    ### NAME, DESCRIPTION, NAME_DESCRIPTION, VALUE, UNIT and LAST stands also for *_1
     echo "$str" | \
     sed "s~[{]NAME[}]~$name_1~g;s~[{]DESCRIPTION[}]~$description_1~g;
+         s~[{]NAME_DESCRIPTION[}]~$name_desc_1~g;
          s~[{]VALUE[}]~${value_1:-$EMPTY}~g;s~[{]UNIT[}]~$unit_1~g;s~[{]LAST[}]~$last_1~g;
-         s~[{]DATE[}]~$(date +%x)~g;s~[{]DATETIME[}]~$(date +'%x %X')~g;s~[{]HOSTNAME[}]~$HOSTNAME~g"
-}
-
-### --------------------------------------------------------------------------
-function alert_log {
-    msg=$(replace_vars '{NAME}: {VALUE} {UNIT}')
-    lkv 1 "PVLng log" "$msg"
-
-    [ "$TEST" ] && return
-    save_log 'Alert' "$msg"
-}
-
-### --------------------------------------------------------------------------
-function alert_logger {
-    var1 MESSAGE $i '{NAME}: {VALUE} {UNIT}'
-    MESSAGE=$(replace_vars "$MESSAGE" $j)
-    lkv 1 Logger "$MESSAGE"
-
-    [ "$TEST" ] && return
-    logger -t PVLng "$MESSAGE"
-}
-
-### --------------------------------------------------------------------------
-function alert_mail {
-    var1 EMAIL $i
-    [ "$EMAIL" ] || exit_required Email EMAIL_$i
-
-    var1 SUBJECT $i '[PVLng] {NAME}: {VALUE} {UNIT}'
-    var1 BODY $i
-
-    sendMail "$(replace_vars "$SUBJECT" $j)" "$(replace_vars "$BODY" $j)" $EMAIL
-}
-
-### --------------------------------------------------------------------------
-function alert_file {
-    var1 DIR $i
-    [ "$DIR" ] || exit_required Directory DIR_$i
-
-    var1 PREFIX $i
-
-    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
-    TEXT=$(replace_vars "$TEXT" $j)
-    lkv 1 TEXT "$TEXT"
-
-    [ "$TEST" ] && return
-    echo -n "$TEXT" >$(mktemp --tmpdir="$DIR" ${PREFIX:-alert}.XXXXXX)
-}
-
-### --------------------------------------------------------------------------
-function alert_twitter {
-    ### Like "file" but with defined file name pattern for twitter-alert.sh
-    var1 TEXT $i '{NAME}: {VALUE}'
-    TEXT=$(replace_vars "$TEXT" $j)
-    lkv 1 TEXT "$TEXT"
-
-    [ "$TEST" ] && return
-    echo -n "$TEXT" >$(mktemp --tmpdir="$RUNDIR" twitter.alert.XXXXXX)
-}
-
-### --------------------------------------------------------------------------
-function alert_pushover {
-    var1 USER $i
-    [ "$USER" ] || exit_required User USER_$i
-
-    var1 TOKEN $i
-    [ "$TOKEN" ] || exit_required Token TOKEN_$i
-
-    var1 DEVICE $i
-    var1 TITLE $i
-    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
-    var1 PRIORITY $i 0
-
-    TITLE=$(replace_vars "$TITLE" $j)
-    lkv 1 TITLE "$TITLE"
-
-    TEXT=$(replace_vars "$TEXT" $j)
-    lkv 1 TEXT "$TEXT"
-
-    [ "$TEST" ] && return
-    lkv 1 Response $($pwd/../bin/pushover.sh -u "$USER" -a "$TOKEN" -d "$DEVICE" -t "$TITLE" -m "$TEXT" -p $PRIORITY)
-}
-
-### --------------------------------------------------------------------------
-function alert_telegram {
-    var1 TOKEN $i
-    [ "$TOKEN" ] || exit_required 'Telegram token' TOKEN_$i
-
-    var1 CHAT $i
-    [ "$CHAT" ] || exit_required 'Telegram chat Id' CHAT_$i
-
-    var1 TEXT $i '{NAME}: {VALUE} {UNIT}'
-    TEXT=$(replace_vars "$TEXT" $j)
-    lkv 1 TEXT "$TEXT"
-
-    [ "$TEST" ] && return
-    lkv 1 Response $($pwd/../bin/telegram.sh $TOKEN $CHAT "$TEXT" >/dev/null 2>&1)
+         s~[{]DATE[}]~$(date +%x)~g;s~[{]DATETIME[}]~$(date +'%x %X')~g;
+         s~[{]HOSTNAME[}]~$HOSTNAME~g"
 }
 
 ##############################################################################
@@ -163,11 +80,29 @@ opt_help_hint "See dist/alert.conf for details."
 
 ### PVLng default options
 opt_define_pvlng
+
+opt_define short=l long=list variable=LIST value=y \
+           desc='List all available functions'
+
 ### Hidden option to force (ignore condition and once flag)
 ### Works only with and set automatic test mode!
 opt_define short=f long=force variable=FORCE value=y
 
 . $(opt_build)
+
+if [ "$LIST" ]; then
+    for file in $pwd/action/*.sh; do
+        action=$(echo $(basename "$file") | sed 's/\.sh//')
+        (   echo '##############################################################################'
+            echo "### $action"
+            echo '##############################################################################'
+            cat $pwd/action/$action.txt
+            echo
+        ) >>$TMPFILE
+    done
+    less $TMPFILE
+    exit
+fi
 
 read_config "$CONFIG"
 
@@ -175,20 +110,14 @@ read_config "$CONFIG"
 ### Start
 ##############################################################################
 [ "$TRACE" ] && set -x
+
 ### Force mode sets automatic Test mode
 [ "$FORCE" ] && TEST=y && VERBOSE=$((VERBOSE+1))
-
-toInt GUID_N
-[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
 
 ##############################################################################
 ### Go
 ##############################################################################
-i=0
-
-while [ $i -lt $GUID_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
@@ -235,6 +164,10 @@ while [ $i -lt $GUID_N ]; do
         eval value_$j="\$value"
         eval unit_$j="\$unit"
         eval last_$j="\$last"
+
+        [ "$description" ] && name="$name ($description)"
+        eval name_desc_$j="\$name"
+
     done
 
     oncekey=$(key_name alert $CONFIG $i.once)
@@ -286,9 +219,8 @@ while [ $i -lt $GUID_N ]; do
     var1 EMPTY $i '<empty>'
 
     ### Check if action function exists
-    eval f=$(declare -F alert_$ACTION)
-    if [ "$f" ]; then
-        eval alert_$ACTION
+    if [ -s "$pwd/action/$ACTION.sh" ]; then
+        . "$pwd/action/$ACTION.sh"
     else
         log 0 ERROR - Unknown function: $ACTION
     fi

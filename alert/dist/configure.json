@@ -7,12 +7,11 @@
  * JSON with JavaScript comments
  */
 [
-  {},
-  [
-    {
-      "name": "Alerts have to be configured manually",
-      "help": "Sorry, but alerts have to be configured manually at the moment,",
-      "description": "please copy dist/alert.conf into this directory and adjust."
-    }
-  ]
+    [
+        {
+            "name": "Alerts have to be configured manually",
+            "description": "Sorry, but alerts have to be configured manually at the moment,",
+            "help": "please refer to ./alert.sh -l and copy dist/alert.conf into this directory and adjust."
+        }
+    ]
 ]

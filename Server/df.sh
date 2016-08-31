@@ -32,9 +32,6 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
-
 ##############################################################################
 ### Go
 ##############################################################################
@@ -43,16 +40,13 @@ temp_file dffile
 df >$dffile
 log 2 @$dffile df
 
-i=0
-
-while [ $i -lt $GUID_N ]; do
-
-    i=$(($i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
     var1 MOUNT $i
     df="$(grep -e ${MOUNT}$ $dffile | head -n1)"

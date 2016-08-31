@@ -46,9 +46,6 @@ read_config "$CONFIG"
 check_required EMAIL Email
 check_required SUBJECT Subject
 
-GUID_N=$(int "$GUID_N")
-[ $GUID_N -gt 0 ] || exit_required Sections GUID_N
-
 ##############################################################################
 ### Go
 ##############################################################################
@@ -61,16 +58,13 @@ fi
 SUBJECT=$(replaceBaseVars "$SUBJECT")
 BODY=$(replaceBaseVars "$BODY")
 
-i=0
-
-while [ $i -lt $GUID_N ]; do
-
-    i=$((i+1))
+for i in $(getGUIDs); do
 
     sec 1 $i
 
-    var1 GUID $i
-    [ -z "$GUID" ] && log 1 Skip && continue
+    ### If not USE is set, set to $i
+    var1 USE $i $i
+    var1 GUID $USE
 
     ### Extract 2nd value == data
     set -- $(PVLngGET data/$GUID.tsv?period=last)
@@ -95,14 +89,15 @@ while [ $i -lt $GUID_N ]; do
     PVLngChannelAttr $GUID NAME
     PVLngChannelAttr $GUID DESCRIPTION
     PVLngChannelAttr $GUID UNIT
+    [ "$DESCRIPTION" ] && NAME_DESCRIPTION="$NAME ($DESCRIPTION)" || NAME_DESCRIPTION="$NAME"
 
     if [ -z "$BODY" ]; then
-        [ "$DESCRIPTION" ] && NAME="$NAME ($DESCRIPTION)"
-        BODY="$BODY- $NAME: $value $unit\n"
+        BODY="$BODY- $NAME_DESCRIPTION: $value $unit\n"
     else
         BODY=$(
             echo "$BODY" | \
             sed "s~[{]NAME_$i[}]~$NAME~g;s~[{]DESCRIPTION_$i[}]~$DESCRIPTION~g;
+                 s~[{]NAME_DESCRIPTION_$i[}]~$NAME_DESCRIPTION~g;
                  s~[{]VALUE_$i[}]~$value~g;s~[{]UNIT_$i[}]~$UNIT~g"
         )
     fi

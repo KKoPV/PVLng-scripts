@@ -11,11 +11,8 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-### API URL with placeholders
-### Personal URL without API key
-APIURL0='https://api.forecast.solar/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
-### Professional URL with API key
-APIURL1='https://api.forecast.solar/$APIKEY/estimate/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK'
+### API URL
+APIURL=https://api.forecast.solar
 
 ##############################################################################
 ### Init
@@ -38,9 +35,16 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-check_required LAT  'Latitude'
-check_required LON  'Longitude'
-check_required GUID 'Pac estimate channel GUID'
+check_required APIURL 'Forecast.Solar API URL'
+check_required LAT    'Latitude'
+check_required LON    'Longitude'
+check_required GUID   'Pac estimate channel GUID'
+
+check_default RESULTSET estimate
+
+if [[ ! $RESULTSET =~ (estimate|history|clearsky) ]]; then
+    error_exit "Unknown RESULTSET '$RESULTSET' - must be one of (estimate|history|clearsky)"
+fi
 
 ##############################################################################
 ### Go
@@ -48,12 +52,12 @@ check_required GUID 'Pac estimate channel GUID'
 temp_file CSVFILE
 
 if [ "$APIKEY" ]; then
-    eval APIURL="$APIURL1"
+    eval APIURL="$APIURL/$APIKEY/$RESULTSET/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK"
 else
-    eval APIURL="$APIURL0"
+    eval APIURL="$APIURL/$RESULTSET/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK"
 fi
 
-log 2 Fetch $APIURL
+log 1 $APIURL
 
 ### Query API, get CSV
 $(curl_cmd) --header 'Accept: text/csv' --output $CSVFILE $APIURL

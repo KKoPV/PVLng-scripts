@@ -1,0 +1,14 @@
+{DATE}                  date +%x
+{DATETIME}              date +'%x %X'
+{WEEK}                  date +%V
+{MONTH}                 date +%m
+{MONTHNAME}             date +%B
+{YEAR}                  date +%Y
+{HOSTNAME}              hostname -f
+
+{NAME_?}                Channel name
+{DESCRIPTION_?}         Channel desctiption
+{NAME_DESCRIPTION_?}    Channel name (channel description),
+                        if no description is set, only channel name
+{VALUE_?}               Channel value for selected item/period
+{UNIT_?}                Channel unit

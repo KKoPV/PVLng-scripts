@@ -11,15 +11,20 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-HOSTNAME=$(hostname -f)
-
 ##############################################################################
 ### Functions
 ##############################################################################
 replaceBaseVars () {
     echo "$1" | sed "s~[{]DATE[}]~$(date +%x)~g;
                      s~[{]DATETIME[}]~$(date +'%x %X')~g;
-                     s~[{]HOSTNAME[}]~$HOSTNAME~g"
+                     s~[{]WEEK[}]~$(date +%V)~g;
+                     s~[{]MONTH[}]~$(date +%m)~g;
+                     s~[{]MONTHNAME[}]~$(date +%B)~g;
+                     s~[{]YEAR[}]~$(date +%Y)~g;
+                     s~[{]HOSTNAME[}]~$HOSTNAME~g
+                     s~[{]NAME_$i[}]~$NAME~g;s~[{]DESCRIPTION_$i[}]~$DESCRIPTION~g;
+                     s~[{]NAME_DESCRIPTION_$i[}]~$NAME_DESCRIPTION~g;
+                     s~[{]VALUE_$i[}]~$value~g;s~[{]UNIT_$i[}]~$UNIT~g"
 }
 
 ##############################################################################
@@ -46,6 +51,8 @@ read_config "$CONFIG"
 check_required EMAIL Email
 check_required SUBJECT Subject
 
+. $pwd/mail.items.sh
+
 ##############################################################################
 ### Go
 ##############################################################################
@@ -55,20 +62,25 @@ if [ "${BODY:0:1}" == @ ]; then
     BODY=$(<$BODY)
 fi
 
-SUBJECT=$(replaceBaseVars "$SUBJECT")
-BODY=$(replaceBaseVars "$BODY")
-
 for i in $(getGUIDs); do
 
     sec 1 $i
 
     ### If not USE is set, set to $i
     var1 USE $i $i
-    var1 GUID $USE
 
-    ### Extract 2nd value == data
-    set -- $(PVLngGET data/$GUID.tsv?period=last)
-    value=$2
+    if [ $USE -ne $i ]; then
+        value=${values[$USE]}
+    else
+        var1 GUID  $i
+        var1 ITEM  $i last
+        fn_exists "mail_$ITEM" || error_exit "Unkwown item function: $ITEM"
+        value=$(mail_$ITEM $GUID)
+    fi
+
+    ### Remember value for re-use
+    values[$i]=$value
+
     lkv 1 Value "$value"
 
     PVLngChannelAttr $GUID NUMERIC
@@ -91,15 +103,12 @@ for i in $(getGUIDs); do
     PVLngChannelAttr $GUID UNIT
     [ "$DESCRIPTION" ] && NAME_DESCRIPTION="$NAME ($DESCRIPTION)" || NAME_DESCRIPTION="$NAME"
 
+    SUBJECT=$(replaceBaseVars "$SUBJECT")
+
     if [ -z "$BODY" ]; then
         BODY="$BODY- $NAME_DESCRIPTION: $value $unit\n"
     else
-        BODY=$(
-            echo "$BODY" | \
-            sed "s~[{]NAME_$i[}]~$NAME~g;s~[{]DESCRIPTION_$i[}]~$DESCRIPTION~g;
-                 s~[{]NAME_DESCRIPTION_$i[}]~$NAME_DESCRIPTION~g;
-                 s~[{]VALUE_$i[}]~$value~g;s~[{]UNIT_$i[}]~$UNIT~g"
-        )
+        BODY=$(replaceBaseVars "$BODY")
     fi
 
 done

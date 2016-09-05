@@ -1071,21 +1071,25 @@ function quotedPrintable {
 ### $4 - Mail from (optional)
 ##############################################################################
 function sendMail {
-    local from=${4:-"PVLng <PVLng@$(hostname -f)>"}
+    local from=${4:-"PVLng <PVLng@$HOSTNAME>"}
     local subject=$1
+    local quoted=$(quotedPrintable "$subject")
     local body=$2
     local email=$3
+
+    if [ "$subject" != "$quoted" ]; then
+        subject="=?utf-8?Q?${quoted}?="
+    fi
 
     if [ "${body:0:1}" == @ ]; then
         local file=${body:1}
         [ -r "$file" ] || error_exit "Missing file: $file"
     else
         echo -e "$body" >$TMPFILE
-        local file=$TMPFILE      
+        local file=$TMPFILE
     fi
 
-    local cmd="mail $MailOpts -a \"From: $from\" \
-                    -s \"=?utf-8?Q?$(quotedPrintable "$subject")?=\" \
+    local cmd="mail $MailOpts -a \"From: $from\" -s \"$subject\" \
                     \"$email\" <$file >/dev/null"
 
     sec 1 "Send email"
@@ -1182,6 +1186,14 @@ function opt_define_pvlng {
 }
 
 ##############################################################################
+### check if a given function exists, for item functions in mail etc.
+##############################################################################
+function fn_exists() {
+    declare -f -F $1 >/dev/null
+    return $?
+}
+
+##############################################################################
 function now {
     date +%s.%N
 }
@@ -1243,6 +1255,8 @@ LocalTime=0
 
 ### Create temp. file e.g. for curl --output and remove on exit
 temp_file TMPFILE
+
+HOSTNAME=$(hostname -f)
 
 VERBOSE=0
 

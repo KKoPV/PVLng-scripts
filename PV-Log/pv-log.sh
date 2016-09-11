@@ -70,7 +70,11 @@ lkv 2 APIURL "$APIURL"
 
 [ "$TEST" ] && exit
 
-$(curl_cmd) --output $TMPFILE --data-urlencode json@$DATAFILE $APIURL
+cmd="$(curl_cmd) -X POST $HEADER --output $TMPFILE --data-urlencode json@$DATAFILE $APIURL"
+
+log 2 $cmd
+
+eval $cmd
 
 log 2 @$TMPFILE "PV-Log API response"
 

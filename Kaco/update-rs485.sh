@@ -30,6 +30,8 @@ read_config "$CONFIG"
 ### Run only during daylight +- 60 min
 check_daylight 60
 
+check_lock $CONFIG
+
 ##############################################################################
 ### Start
 ##############################################################################
@@ -65,6 +67,13 @@ for i in $(getGUIDs); do
 
     while :; do
 
+        if [ $attempt -le 0 ]; then
+            rc=9
+            dataOut="$MAXATTEMPT times no data from $DEVICE"
+            ### Exit while loop
+            break
+        fi
+
         lkv 2 'Attempts left' $attempt
 
         attempt=$((attempt - 1))
@@ -80,16 +89,9 @@ for i in $(getGUIDs); do
             data="$data$c"
         done < $DEVICE
 
-        if [ -z "$data" ]; then
-            ### No data
-            if [ $attempt -le 0 ]; then
-                rc=99
-                dataOut="$MAXATTEMPT times no data from $DEVICE"
-                ### Exit while loop
-                break
-            fi
-            continue
-        fi
+        [ "$data" ] || continue
+
+        lkv 2 'Data raw' "$data"
 
         ### Check & manipulate data
         dataOut=$(echo -n "$data" | \
@@ -194,7 +196,7 @@ for i in $(getGUIDs); do
         ### Save data, extend response with actual timestamp
         PVLngPUT $GUID "$(date +'%F %H:%M:%S') $dataOut"
     else
-        lkv 0 ERROR "$dataOut"
+        lkv 0 ERROR "[$rc] $dataOut"
     fi
 
 done

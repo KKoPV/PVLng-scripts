@@ -234,13 +234,11 @@ function check_required {
 ### Find up to 99 sections defined by GUID_? or USE_?
 ##############################################################################
 function getGUIDs() {
-    local ids=
     local test=
     for i in $(seq 1 99); do
         eval test="\$GUID_$i\$USE_$i"
-        [ "$test" ] && ids="$ids $i"
+        [ "$test" ] && echo $i
     done
-    echo $ids
 }
 
 ##############################################################################
@@ -252,11 +250,12 @@ function getGUIDs() {
 ### If var NOT exists: var1 FACTOR 1 1000 > $FACTOR will get 1000
 ##############################################################################
 function var1 {
+    local msg=
     eval local val="\$${1}_${2}"
-    [ "$val" ] || val="$3"
+    [ -z "$val" ] && val="$3" && msg='(default)'
     ### Mask embeded '
     eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
-    lkv 2 $1 "$val"
+    lkv 2 $1 "$val $msg"
 }
 
 ##############################################################################
@@ -274,46 +273,17 @@ function var1req {
 }
 
 ##############################################################################
-### Define variable level 2
-### $1 - Variable base name
-### $2 - Counter level 1
-### $3 - Counter level 2
-### $4 - Default value, if not set/empty
-### example: var2 ACTION 1 1 > $ACTION will get value of $ACTION_1_1
-##############################################################################
-function var2 {
-    eval local val="\$${1}_${2}_${3}"
-    [ "$val" ] || val="$4"
-    ### Mask embeded '
-    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
-    lkv 2 $1 "$val"
-}
-
-##############################################################################
 ### Define variable level 1 and make integer
 ### $1 - Variable base name
 ### $2 - Counter level 1
 ### $3 - Default value, if not set/empty
 ##############################################################################
 function var1int {
+    local msg=
     eval local val="\$${1}_${2}"
-    [ "$val" ] || val="$3"
+    [ -z "$val" ] && val="$3" && msg='(default)'
     eval $1=$(int "$val")
-    lkv 2 $1 "$val"
-}
-
-##############################################################################
-### Define variable level 2 and make integer
-### $1 - Variable base name
-### $2 - Counter level 1
-### $3 - Counter level 2
-### $4 - Default value, if not set/empty
-##############################################################################
-function var2int {
-    eval local val="\$${1}_${2}_${3}"
-    [ "$val" ] || val="$4"
-    eval $1=$(int "$val")
-    lkv 2 $1 "$val"
+    lkv 2 $1 "$val $msg"
 }
 
 ##############################################################################
@@ -328,13 +298,57 @@ function var1bool {
 }
 
 ##############################################################################
-### Define variable level 2 and interpret as boolean
+### Define config variable
 ### $1 - Variable base name
-### $2 - Counter level 1
-### $3 - Counter level 2
+### $2 - Actual Id
+### $3 - Default value, if not set/empty
+### If var exists:     var1 FACTOR 1 1000 > $FACTOR will get value of $FACTOR_1
+### If var NOT exists: var1 FACTOR 1 1000 > $FACTOR will get 1000
 ##############################################################################
-function var2bool {
-    eval local val="\$${1}_${2}_${3}"
+function var {
+    local msg=
+    eval local val="\$${1}_${2}"
+    [ -z "$val" ] && val="$3" && msg='(default)'
+    ### Mask embeded '
+    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
+    lkv 2 $1 "$val $msg"
+}
+
+##############################################################################
+### Define required config variable
+### $1 - Variable base name
+### $2 - Actual Id
+### $3 - Descriptive name for error message if not defined
+##############################################################################
+function var_req {
+    eval local val="\$${1}_${2}"
+    [ "$val" ] || error_exit "${3} is required (${1}_${2})!"
+    ### Mask embeded '
+    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
+    lkv 2 $1 "$val"
+}
+
+##############################################################################
+### Define config variable and make integer
+### $1 - Variable base name
+### $2 - Actual Id
+### $3 - Default value, if not set/empty
+##############################################################################
+function var_int {
+    local msg=
+    eval local val="\$${1}_${2}"
+    [ -z "$val" ] && val="$3" && msg='(default)'
+    eval $1=$(int "$val")
+    lkv 2 $1 "$val $msg"
+}
+
+##############################################################################
+### Define config variable and interpret as boolean
+### $1 - Variable base name
+### $2 - Actual Id
+##############################################################################
+function var_bool {
+    eval local val="\$${1}_${2}"
     eval $1=$(bool "$val")
     lkb 2 $1 "$val"
 }
@@ -421,8 +435,9 @@ function check_lock {
     ### Skip check in test mode
     [ "$TEST" ] && return
 
-    local file=$RUNDIR/$(echo $(basename "$0") | \
-               sed -e 's~[.].*$~~g' -e 's~[^A-Za-z0-9-]~_~g')$([ "$1" ] && echo ".$1").pid
+    local file=${1:-$0}
+
+    file=$RUNDIR/$(echo $(basename $(dirname $(readlink -f $0)))).$(basename $file).pid
 
     lkv 2 "Lock file" $file
 
@@ -1220,7 +1235,7 @@ fi
 
 BINDIR=$_ROOT/bin
 
-SHOWVERBOSELEVEL=
+SHOWVERBOSELEVEL=9
 
 ### Load global configuration
 . $_ROOT/PVLng.conf

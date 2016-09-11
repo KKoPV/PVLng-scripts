@@ -143,7 +143,7 @@ for i in $(getGUIDs); do
 
         set -- $(PVLngGET data/$GUID.tsv?period=$PERIOD)
         shift ### Shift out timestamp
-        value=$@
+        value="$@"
 
         if [ "$value" ]; then
             var1 FACTOR $i 1

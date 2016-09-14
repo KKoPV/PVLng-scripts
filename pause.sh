@@ -22,6 +22,8 @@ if [ ! "$mode" -a ! -f $file ]; then
     mode=on
 fi
 
+echo "Switch pause mode ${mode:-off}"
+
 if [ "$mode" == on ]; then
     touch $file
 else

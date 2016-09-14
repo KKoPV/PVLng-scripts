@@ -9,6 +9,7 @@ function usage {
     echo Upgrade your installation to lastest state from Github.
     echo
     echo "Usage: $0 <branch>"
+    echo
     exit ${2:-0}
 }
 
@@ -19,9 +20,10 @@ function usage {
 echo
 echo -n 'Fetch last version from GitHub ... '
 
-git checkout $1 >/dev/null 2>&1
+git checkout $1
 rc=$?
 [ $rc -ne 0 ] && exit $rc
-git pull >/dev/null 2>&1
+git pull
 
 echo -e \\b\\b\\b\\b- done
+echo

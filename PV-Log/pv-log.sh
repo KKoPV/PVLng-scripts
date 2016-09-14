@@ -12,7 +12,7 @@
 pwd=$(dirname $0)
 
 ### API URL, will be evaluated later
-APIURL='https://pv-log.com/api/v1/$APIKEY/plant/yield/update/$PLANTKEY'
+APIURL='https://api.pv-log.com/api/v1/$APIKEY/plant/yield/update/$PLANTKEY'
 
 ##############################################################################
 ### Init
@@ -70,7 +70,7 @@ lkv 2 APIURL "$APIURL"
 
 [ "$TEST" ] && exit
 
-cmd="$(curl_cmd) -X POST $HEADER --output $TMPFILE --data-urlencode json@$DATAFILE $APIURL"
+cmd="$(curl_cmd) $HEADER --output $TMPFILE --data-urlencode json@$DATAFILE $APIURL"
 
 log 2 $cmd
 

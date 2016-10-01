@@ -18,10 +18,14 @@ opt_help "Run command each given period (in seconds) for 1 minute.
 Use in cron with period * for each minute."
 opt_help_args "-- command parameter1 parameter2 ..."
 
-### PVLng default options with flag for save data
-opt_define short=p long=period desc="Period in seconds (5..60), define only ONE of -p/-l" variable=PERIOD default=60
-opt_define short=l long=loops desc="Loops in one minute, define only ONE of -p/-l" variable=LOOPS
-opt_define short=n long=nice desc="Niceness range from -20 (most favorable) to 19 (least favorable)" variable=NICE default=10
+opt_define short=p long=period variable=PERIOD default=60 \
+           desc="Period in seconds (5..60), define only ONE of -p/-l"
+opt_define short=l long=loops variable=LOOPS \
+           desc="Loops in one minute, define only ONE of -p/-l"
+opt_define short=n long=nice variable=NICE default=10 \
+           desc="Niceness range from -20 (most favorable) to 19 (least favorable)"
+
+### PVLng default options
 opt_define_pvlng
 
 . $(opt_build)

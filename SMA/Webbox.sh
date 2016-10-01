@@ -28,12 +28,11 @@ opt_define_pvlng x
 
 . $(opt_build)
 
+daemonize
+
 read_config "$CONFIG"
 
-### Run only during daylight +- 60 min
-check_daylight 60
-
-check_lock $(basename $CONFIG)
+#check_lock $(basename $CONFIG)
 
 ##############################################################################
 ### Start
@@ -55,45 +54,56 @@ if [ "$PASSWORD" ]; then
     PASSWORD=',"passwd":"'$1'"'
 fi
 
-for i in $(getGUIDs); do
+while true; do
 
-    sec 1 $i
+    t=$(now)
 
-    ### If not USE is set, set to $i
-    var1 USE $i $i
-    var1 GUID $USE
+    ### Run only during daylight +- 60 min
+    if [ $(check_daylight 60 yes) -eq 1 ]; then
 
-    var1 SERIAL $i
-    if [ -z "$SERIAL" ]; then
-        ### Read from API
-        PVLngChannelAttr $GUID SERIAL
+        for i in $(getGUIDs); do
+
+            sec 1 $i
+
+            ### If not USE is set, set to $i
+            var1 USE $i $i
+            var1 GUID $USE
+
+            var1 SERIAL $i
+            if [ -z "$SERIAL" ]; then
+                ### Read from API
+                PVLngChannelAttr $GUID SERIAL
+            fi
+            [ "$SERIAL" ] || error_exit "No serial number found for GUID: $GUID"
+            lkv 1 "Use SERIAL" "$SERIAL"
+
+            ### Build RPC request, catch all channels from equipment
+            ### Response JSON holds no timestamp, use "id" paramter for this,
+            ### relevant for loading failed data
+            echo '{"version":"1.0","proc":"GetProcessData","id":"'$(date +%s)'","format":"JSON","params":{"devices":[{"key":"'$SERIAL'"}]}'$PASSWORD'}' >$TMPFILE
+
+            log 2 @$TMPFILE "Webbox request"
+
+            ### Query webbox
+            $curl --output $RESPONSEFILE --data-urlencode RPC@$TMPFILE http://$WEBBOX/rpc
+            rc=$?
+
+            [ $rc -eq 0 ] || curl_error_exit $rc Webbox
+
+            log 2 @$RESPONSEFILE "Webbox response"
+
+            ### Check response for error object
+            if grep -q '"error"' $RESPONSEFILE; then
+                error_exit "$(printf "ERROR from Webbox:\n%s" "$(<$RESPONSEFILE)")"
+            fi
+
+            ### Save data
+            PVLngPUT $GUID @$RESPONSEFILE
+
+        done
+
     fi
-    [ "$SERIAL" ] || error_exit "No serial number found for GUID: $GUID"
-    lkv 1 "Use SERIAL" "$SERIAL"
 
-    ### Build RPC request, catch all channels from equipment
-    ### Response JSON holds no timestamp, use "id" paramter for this,
-    ### relevant for loading failed data
-    cat <<EOT >$TMPFILE
-{"version":"1.0","proc":"GetProcessData","id":"$(date +%s)","format":"JSON","params":{"devices":[{"key":"$SERIAL"}]}$PASSWORD}
-EOT
-
-    log 2 @$TMPFILE "Webbox request"
-
-    ### Query webbox
-    $curl --output $RESPONSEFILE --data-urlencode RPC@$TMPFILE http://$WEBBOX/rpc
-    rc=$?
-
-    [ $rc -eq 0 ] || curl_error_exit $rc Webbox
-
-    log 2 @$RESPONSEFILE "Webbox response"
-
-    ### Check response for error object
-    if grep -q '"error"' $RESPONSEFILE; then
-        error_exit "$(printf "ERROR from Webbox:\n%s" "$(<$RESPONSEFILE)")"
-    fi
-
-    ### Save data
-    PVLngPUT $GUID @$RESPONSEFILE
+    daemonize_check $t
 
 done

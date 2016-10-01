@@ -9,20 +9,25 @@
 [
   [ // Common parameters
     {
-      "name": "DEVICE",
-      "description": "Serial or USB device, e.g. /dev/ttyUSB0",
-      "required": 1
-    },
-    {
       "name": "TIMEOUT",
       "description": "Timeout, wait up to ? seconds for device response",
-      "default": 30
+      "default": 1
+    },
+    {
+      "name": "MAXATTEMPT",
+      "description": "How many times should the DEVICE queried",
+      "default": 3
     }
   ],
   [ // Multiple parameters
     {
       "name": "GUID",
       "description": "PVLng channel GUID",
+      "required": 1
+    },
+    {
+      "name": "DEVICE",
+      "description": "Serial or USB device, e.g. /dev/ttyUSB0",
       "required": 1
     },
     {

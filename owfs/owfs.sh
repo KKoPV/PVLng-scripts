@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
 ### @copyright   2012-2015 Knut Kohl
@@ -27,11 +27,9 @@ opt_help_hint "See dist/owfs.conf for details."
 ### PVLng default options with flag for local time and save data
 opt_define_pvlng x
 
-source $(opt_build)
+. $(opt_build)
 
-### check owread binary
-OWREAD=${OWREAD:-$(which owread)}
-[ "$OWREAD" ] || error_exit "Missing owread binary!"
+daemonize
 
 read_config "$CONFIG"
 
@@ -39,6 +37,10 @@ read_config "$CONFIG"
 ### Start
 ##############################################################################
 [ "$TRACE" ] && set -x
+
+### check owread binary
+OWREAD=${OWREAD:-$(which owread)}
+[ "$OWREAD" ] || error_exit "Missing owread binary!"
 
 check_required SERVER "OWFS Server"
 
@@ -49,54 +51,62 @@ check_required SERVER "OWFS Server"
 ##############################################################################
 ### Go
 ##############################################################################
-for i in $(getGUIDs); do
+while true; do
 
-    sec 1 $i
+    t=$(now)
 
-    var1 GUID $i
+    for i in $(getGUIDs); do
 
-    var1 SERIAL $i
-    if [ -z "$SERIAL" ]; then
-        ### Read from API
-        PVLngChannelAttr $GUID SERIAL
-#       SERIAL=$(PVLngNC "$GUID,serial")
-    fi
+        sec 1 $i
 
-    var1 CHANNEL $i
-    if [ -z "$CHANNEL" ]; then
-        ### Read from API
-        PVLngChannelAttr $GUID CHANNEL
-#       CHANNEL=$(PVLngNC "$GUID,channel")
-    fi
+        var1 GUID $i
 
-    if [ "$TEST" ]; then
-        lkv 1 Channel "/${SERIAL}/${CHANNEL}"
-        if [ "$MOUNTPOINT" ]; then
-            lkv 2 Check ${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL}
-            if [ ! -f "${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL}" ]; then
-                log 1 "FAILED, missing ${SERIAL}"
-                continue
-            fi
-        else
-            rc=$(owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL} 2>/dev/null)
-            if [ $rc -ne 1 ]; then
-                log 1 "FAILED, missing ${SERIAL}"
-                continue
+        var1 SERIAL $i
+        if [ -z "$SERIAL" ]; then
+            ### Read from API
+            PVLngChannelAttr $GUID SERIAL
+    #       SERIAL=$(PVLngNC "$GUID,serial")
+        fi
+
+        var1 CHANNEL $i
+        if [ -z "$CHANNEL" ]; then
+            ### Read from API
+            PVLngChannelAttr $GUID CHANNEL
+    #       CHANNEL=$(PVLngNC "$GUID,channel")
+        fi
+
+        if [ "$TEST" ]; then
+            lkv 1 Channel "/${SERIAL}/${CHANNEL}"
+            if [ "$MOUNTPOINT" ]; then
+                lkv 2 Check ${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL}
+                if [ ! -f "${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL}" ]; then
+                    log 1 "FAILED, missing ${SERIAL}"
+                    continue
+                fi
+            else
+                rc=$(owpresent -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL} 2>/dev/null)
+                if [ $rc -ne 1 ]; then
+                    log 1 "FAILED, missing ${SERIAL}"
+                    continue
+                fi
             fi
         fi
-    fi
 
-    ### read value
-    if [ "$MOUNTPOINT" ]; then
-        value=$(<${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL})
-    else
-        cmd="$OWREAD -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
-        lkv 2 Request "$cmd"
-        value="$($cmd 2>/dev/null)"
-    fi
-    lkv 1 Value "$value"
+        ### read value
+        if [ "$MOUNTPOINT" ]; then
+            value=$(<${MOUNTPOINT}${CACHED}/${SERIAL}/${CHANNEL})
+        else
+            cmd="$OWREAD -$UNIT -s $SERVER ${CACHED}/${SERIAL}/${CHANNEL}"
+            lkv 2 Request "$cmd"
+            value="$($cmd 2>/dev/null)"
+        fi
+        lkv 1 Value "$value"
 
-    ### Save data
-    PVLngPUT $GUID $value
+        ### Save data
+        PVLngPUT $GUID $value
+
+    done
+
+    daemonize_check $t
 
 done

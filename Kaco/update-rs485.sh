@@ -37,26 +37,31 @@ check_lock $CONFIG
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-check_required DEVICE Device
-
 check_default TIMEOUT 1
 check_default MAXATTEMPT 3
+
+STTY_DEFAULT='406:0:8bd:8a30:3:1c:7f:8:4:2:64:0:11:13:1a:0:12:f:17:16:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0'
 
 ##############################################################################
 ### Go
 ##############################################################################
 # sudo chmod 666 /dev/ttyUSB0
-stty -F $DEVICE raw 9600 cs8
 
 for i in $(getGUIDs); do
+
+    var_req INVERTER $i "Inverter number"
+    var_req DEVICE $i Device
 
     sec 1 $i
 
     ### If not USE is set, set to $i
-    var1 USE $i $i
-    var1 GUID $USE
+    var USE $i $i
+    var GUID $USE
 
-    var1req INVERTER $i "Inverter number"
+    var STTY $i "$STTY_DEFAULT"
+
+    ### Prepare device
+    stty -F $DEVICE $STTY
 
     QUERY="#$(printf '%02d' $INVERTER)0\r"
 

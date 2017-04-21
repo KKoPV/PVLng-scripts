@@ -55,7 +55,7 @@ while true; do
 
     t=$(now)
 
-    for i in $(getGUIDs); do
+    for i in $GUIDs; do
 
         sec 1 $i
 

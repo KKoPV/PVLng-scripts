@@ -65,7 +65,7 @@ echo -e "monitoring.solaredge.com\tFALSE\t/\tFALSE\t0\tSolarEdge_Field_ID\t$SITE
 start=$(calc "$(date +%s) - 300")000
 end=$(date +%s)000
 
-for i in $(getGUIDs); do
+for i in $GUIDs; do
 
     sec 1 $i
 

@@ -60,7 +60,7 @@ fi
 
 lkv 1 Interval $INTERVAL
 
-for i in $(getGUIDs); do
+for i in $GUIDs; do
 
     sec 1 $i
 

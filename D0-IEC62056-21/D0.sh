@@ -52,7 +52,7 @@ eval $fetch
 
 log 2 @$DATAFILE
 
-for i in $(getGUIDs); do
+for i in $GUIDs; do
 
     sec 1 $i
 

@@ -61,7 +61,7 @@ lkv 2 'API Endpoint' $APIURL
 curl=$(curl_cmd)
 found=
 
-for i in $(getGUIDs); do
+for i in $GUIDs; do
 
     sec 1 $i
 

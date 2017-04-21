@@ -40,7 +40,7 @@ temp_file dffile
 df >$dffile
 log 2 @$dffile df
 
-for i in $(getGUIDs); do
+for i in $GUIDs; do
 
     sec 1 $i
 

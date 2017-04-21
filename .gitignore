@@ -1,6 +1,7 @@
 test-all.sh
 cron.sh
 *.conf
+*.conf.sh
 .notes/
 data/*
 run/*

@@ -99,7 +99,7 @@ function sec () {
 
 ##############################################################################
 ### Read config file
-### $1 - Config file name
+### $1 - Config file name, compile to $1.sh
 ##############################################################################
 function read_config () {
     local file="$1"
@@ -117,20 +117,27 @@ function read_config () {
     [ -r "$file" ] || error_exit "Configuration file '$file' not exists / is not readable!" 1
     [ -s "$file" ] || error_exit "Configuration file '$file' is empty!" 1
 
-    ### Transform configuration into var="value" format
-    local cfg=$(sed '/^$/d; /^ *#/d; s/  *\(.*\)/="\1"/; s/""/"/g' $file)
+    ### Compiled config. file
+    local cfg_file="$file.sh"
 
-    if [ $VERBOSE -lt 2 ]; then
-        ### eval direct
-        eval "$cfg"
+    ### Check, if configuration file is newer than compiled one if exists
+    t=$(stat -c %Y "$cfg_file" 2>/dev/null)
+    if [ ${t:-0} -lt $(stat -c %Y "$file") ]; then
+        ### Transform configuration into var="value" format
+        sed '/^$/d; /^ *#/d; s/  *\(.*\)/="\1"/; s/""/"/g' $file >$cfg_file
+        log 2 @$cfg_file "Create $(basename $cfg_file)"
     else
-        ### Pipe through temp. file for log output
-        temp_file CFG_TEMP
-        echo "$cfg" >$CFG_TEMP
-        log 2 @$CFG_TEMP "$(basename $file)"
-        . $CFG_TEMP
-        rm $CFG_TEMP
+        log 2 @$cfg_file "Reuse $(basename $cfg_file)"
     fi
+
+    ### Import configuration
+    . $cfg_file
+
+    ### Prepare GUIDs, find up to 99 sections defined by GUID_? or USE_?
+    GUIDs=
+    for i in {1..99}; do
+        eval [ "\$GUID_$i\$USE_$i" ] && GUIDs="$GUIDs $i"
+    done
 }
 
 ##############################################################################
@@ -218,15 +225,6 @@ function check_default () {
 function check_required () {
     eval local val=\$$1
     [ "$val" ] || error_exit "$2 required ($1)!"
-}
-
-##############################################################################
-### Find up to 99 sections defined by GUID_? or USE_?
-##############################################################################
-function getGUIDs () {
-    for i in {1..99}; do
-        eval [ "\$GUID_$i\$USE_$i" ] && echo $i
-    done
 }
 
 ##############################################################################
@@ -513,7 +511,7 @@ function save_log () {
     lkv 1 Message "$message"
 
     $(curl_cmd) --request PUT \
-                --header "X-PVLng-key: $PVLngAPIkey" \
+                --header "Authorization: Bearer $PVLngAPIkey" \
                 --header "Content-Type: application/json" \
                 --data "{\"scope\":\"$scope\",\"message\":\"$message\"}" \
                 $PVLngURL/log >/dev/null
@@ -553,7 +551,7 @@ function PVLngStorePUT () {
 
     temp_file _RESPONSE
 
-    rc=$($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+    rc=$($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
                      --header "Content-Type: application/json" \
                      --request PUT --write-out %{http_code} --output $_RESPONSE \
                      --data-binary "$data" $PVLngURL/store/$key.json)
@@ -579,7 +577,7 @@ function PVLngStorePUT () {
 function PVLngStoreGET () {
     local key=$(echo "$1" | tr . -)
     local default=$2
-    local val=$($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $PVLngURL/store/$key.txt)
+    local val=$($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" $PVLngURL/store/$key.txt)
     echo ${val:-$default}
 }
 
@@ -603,9 +601,10 @@ function PVLngChannelAttr () {
         ### Keep data in file
         local file=$(run_file $GUID $attr txt)
         ### If file is older than 1 day, delete to force re-read
-        if [ -s "$file" ]; then
+        if [ -f "$file" ]; then
             [ $(calc "($(stat -c %Z $file) + 60*60*24) >= $(now)" 0) -eq 0 ] && rm "$file"
         fi
+        ### File is not empty?
         if [ ! -s "$file" ]; then
             PVLngGET channel/$GUID/$attr.txt >$file
         fi
@@ -632,7 +631,7 @@ function PVLngChannelAttrBool () {
 function PVLngGET () {
     local url="$PVLngURL/$1"
     lkv 2 'Fetch URL' $url
-    $(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" $url
+    $(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" $url
 }
 
 ##############################################################################
@@ -722,7 +721,7 @@ function PVLngPUT () {
 
     temp_file _RESPONSE
 
-    set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+    set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
                          --header "Content-Type: application/json" \
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
                          --data-binary "$data" $PVLngURL/data/$GUID.txt)
@@ -782,7 +781,7 @@ function PVLngPUTraw () {
 
     temp_file _RESPONSE
 
-    set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+    set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
                          --data-binary $data $PVLngURL/data/raw/$GUID.txt)
 
@@ -824,7 +823,7 @@ function PVLngPUTBatch () {
 
     temp_file _RESPONSE
 
-    set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+    set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
                          --header "Content-Type: text/plain" \
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
                          --data-binary $data $PVLngURL/batch/$GUID.txt)
@@ -853,8 +852,34 @@ function PVLngPUTBatch () {
 ###      <date>;<time>;<value> : Semicolon separated date, time and value data rows
 ##############################################################################
 function PVLngPUTCSV () {
+     _PUT_CSV "$1" "$2"
+}
+
+##############################################################################
+### Save bulk data to PVLng using CSV file, less checks for valid data!
+### $1 = GUID
+### $2 = CSV file - @file_name
+###      <timestamp>;<value>   : Semicolon separated timestamp and value data rows
+###      <date time>;<value>   : Semicolon separated date time and value data rows
+###      <date>;<time>;<value> : Semicolon separated date, time and value data rows
+##############################################################################
+function PVLngPUTbulkCSV () {
+    _PUT_CSV "$1" "$2" bulk
+}
+
+##############################################################################
+### internal use
+### $1 = API route - $PVLngURL/$1/$GUID.txt
+### $2 = GUID
+### $3 = CSV file - @file_name
+###      <timestamp>;<value>   : Semicolon separated timestamp and value data rows
+###      <date time>;<value>   : Semicolon separated date time and value data rows
+###      <date>;<time>;<value> : Semicolon separated date, time and value data rows
+##############################################################################
+function _PUT_CSV () {
     local GUID="$1"
     local data="$2"
+    local bulk="$3"
 
     lkv 2 GUID $GUID
     log 2 "Data file" "$data"
@@ -863,10 +888,10 @@ function PVLngPUTCSV () {
 
     temp_file _RESPONSE
 
-    set -- $($(curl_cmd) --header "X-PVLng-key: $PVLngAPIkey" \
+    set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
                          --header "Content-Type: text/plain" \
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
-                         --data-binary $data $PVLngURL/csv/$GUID.txt)
+                         --data-binary $data $PVLngURL/csv$bulk/$GUID.txt)
 
     if echo "$1" | grep -qe '^20[012]'; then
         ### 200/201/202 ok

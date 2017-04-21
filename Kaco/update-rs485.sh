@@ -47,7 +47,7 @@ STTY_DEFAULT='406:0:8bd:8a30:3:1c:7f:8:4:2:64:0:11:13:1a:0:12:f:17:16:0:0:0:0:0:
 ##############################################################################
 # sudo chmod 666 /dev/ttyUSB0
 
-for i in $(getGUIDs); do
+for i in $GUIDs; do
 
     var_req INVERTER $i "Inverter number"
     var_req DEVICE $i Device

@@ -26,6 +26,9 @@ opt_help_hint "See dist/Webbox.conf for details."
 ### PVLng default options with flag for save data
 opt_define_pvlng x
 
+### Hidden option to test also outside daylight times
+opt_define short=f long=force variable=FORCE value=y
+
 . $(opt_build)
 
 daemonize
@@ -59,9 +62,9 @@ while true; do
     t=$(now)
 
     ### Run only during daylight +- 60 min
-    if [ $(check_daylight 60 yes) -eq 1 ]; then
+    if [ "$FORCE" -o $(check_daylight 60 yes) -eq 1 ]; then
 
-        for i in $(getGUIDs); do
+        for i in $GUIDs; do
 
             sec 1 $i
 
@@ -88,7 +91,13 @@ while true; do
             $curl --output $RESPONSEFILE --data-urlencode RPC@$TMPFILE http://$WEBBOX/rpc
             rc=$?
 
-            [ $rc -eq 0 ] || curl_error_exit $rc Webbox
+            if [ $rc -ne 0 ]; then
+                if [ grep -q "$rc," <<<"$CURLIGNORE," ]; then
+                    ### Exit with error message only if not an ignored error
+                    curl_error_exit $rc Webbox
+                fi
+                exit
+            fi
 
             log 2 @$RESPONSEFILE "Webbox response"
 

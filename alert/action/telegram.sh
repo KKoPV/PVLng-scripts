@@ -6,10 +6,10 @@
 ##############################################################################
 
 var1req TOKEN $i 'Telegram token'
-var1req CHAT  $i 'Telegram chat Id'
+var1req CHAT  $i 'Telegram chat id'
 
 var1 TEXT $i '{NAME_DESCRIPTION}: {VALUE} {UNIT}'
 TEXT=$(replace_vars "$TEXT" $j)
 lkv 1 TEXT "$TEXT"
 
-[ "$TEST" ] || lkv 1 Response $($pwd/../bin/telegram.sh $TOKEN $CHAT "$TEXT" >/dev/null 2>&1)
+[ "$TEST" ] || lkv 1 Response $($pwd/../bin/telegram.sh -a $TOKEN -c $CHAT $TEXT >/dev/null 2>&1)

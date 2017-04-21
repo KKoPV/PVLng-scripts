@@ -69,7 +69,7 @@ while true; do
 
     data="-d api_key=$APIKEY"
 
-    for i in $(getGUIDs); do
+    for i in $GUIDs; do
 
         sec 1 $i
 

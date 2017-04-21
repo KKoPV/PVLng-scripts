@@ -38,7 +38,6 @@ read_config "$CONFIG"
 check_required APIURL 'Forecast.Solar API URL'
 check_required LAT    'Latitude'
 check_required LON    'Longitude'
-check_required GUID   'Pac estimate channel GUID'
 
 check_default RESULTSET estimate
 
@@ -46,25 +45,39 @@ if [[ ! $RESULTSET =~ (estimate|history|clearsky) ]]; then
     error_exit "Unknown RESULTSET '$RESULTSET' - must be one of (estimate|history|clearsky)"
 fi
 
+if [ "$APIKEY" ]; then
+    APIURL="$APIURL/$APIKEY/$RESULTSET/watts/$LAT/$LON"
+else
+    APIURL="$APIURL/$RESULTSET/watts/$LAT/$LON"
+fi
+
 ##############################################################################
 ### Go
 ##############################################################################
 temp_file CSVFILE
 
-if [ "$APIKEY" ]; then
-    eval APIURL="$APIURL/$APIKEY/$RESULTSET/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK"
-else
-    eval APIURL="$APIURL/$RESULTSET/watts/$LAT/$LON/$DECLINATION/$AZIMUTH/$POWERPEAK"
-fi
+curl=$(curl_cmd)
 
-log 1 $APIURL
+for i in $GUIDs; do
 
-### Query API, get CSV
-$(curl_cmd) --header 'Accept: text/csv' --output $CSVFILE $APIURL
-rc=$?
+    sec 1 $i
 
-[ $rc -eq 0 ] || curl_error_exit $rc "Forecast.Solar API"
+    var1 GUID $i
+    var1 PLANE $i
 
-log 2 @$CSVFILE "API response"
+    URL="$APIURL/$PLANE"
 
-PVLngPUTCSV $GUID @$CSVFILE
+    log 1 $URL
+
+    ### Query API, get CSV
+    $curl --header 'Accept: text/csv' --output $CSVFILE $URL
+    rc=$?
+    lkv 1 'Curl return' $rc
+
+    [ $rc -eq 0 ] || curl_error_exit $rc "Forecast.Solar API"
+
+    log 2 @$CSVFILE "API response"
+
+    PVLngPUTbulkCSV $GUID @$CSVFILE
+
+done

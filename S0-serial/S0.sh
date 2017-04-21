@@ -105,7 +105,7 @@ fi
 ### Go
 ##############################################################################
 ### Log file for measuring data
-LOG=$(run_file S0 "$CONFIG")
+LOG=$(run_file S0-serial "$CONFIG")
 
 lkv 1 Device $CHANNEL
 

@@ -2,3 +2,15 @@
 
 - serial  -- REAL serial as 28CA2307040000E0 - NOT 28.CA2307040000 !
 - channel -- the channel to read, e.g. temperature
+
+Needed packages on Debian/Ubuntu:
+
+    sudo apt-get install owfs ow-shell
+
+Change /etc/owfs.conf like this
+
+    # This part must be changed on real installation
+    #server: FAKE = DS18S20,DS2405
+    #
+    # USB device: DS9490
+    server: usb = all

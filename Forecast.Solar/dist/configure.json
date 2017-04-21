@@ -9,19 +9,8 @@
 [
     [ // Common section
         {
-            "name": "GUID",
-            "description": "PVLng channel GUID",
-            "required": "y"
-        },
-        {
             "name": "APIKEY",
             "description": "Your API key, if you have a Professional account"
-        },
-        {
-            "name": "RESULTSET",
-            "description": "Which result set should be loaded",
-            "values": [ "estimate", "history", "clearsky" ],
-            "default": "estimate"
         },
         {
             "name": "LAT",
@@ -38,23 +27,22 @@
             "required": "y"
         },
         {
-            "name": "DECLINATION",
-            "description": "Declination angle of the PV modules",
-            "help": "0 (horizontal) ... 90 (vertical)",
-            "type": "n",
+            "name": "RESULTSET",
+            "description": "Which result set should be loaded",
+            "values": [ "estimate", "history", "clearsky" ],
+            "default": "estimate"
+        }
+    ],
+    [ // Multiple sections
+        {
+            "name": "GUID",
+            "description": "PVLng channel GUID",
             "required": "y"
         },
         {
-            "name": "AZIMUTH",
-            "description": "Azimuth angle of the PV modules",
-            "help": "-180 ... 180 (-180 = north, -90 = east, 0 = south, 90 = west, 180 = north)",
-            "type": "n",
-            "required": "y"
-        },
-        {
-            "name": "POWERPEAK",
-            "description": "Peak Power of the PV modules in kilo watts (kWp)",
-            "type": "n",
+            "name": "PLANE",
+            "description": "Declination angle, azimuth and installed kWp of the PV modules",
+            "help": "Up to 3 planes: dec.1/az.1/kWp1[/dec.2/az.2/kWp2[/dec.3/az.3/kWp3]]",
             "required": "y"
         }
     ]

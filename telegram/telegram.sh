@@ -66,7 +66,7 @@ check_required STATUS 'Status message'
 ##############################################################################
 ### Go
 ##############################################################################
-for i in $(getGUIDs); do
+for i in $GUIDs; do
 
     sec 1 $i
 
@@ -120,4 +120,4 @@ log 1 @$TMPFILE Result
 
 [ "$TEST" ] && exit
 
-$pwd/../bin/telegram.sh $TOKEN $CHAT @$TMPFILE >/dev/null 2>&1
+$pwd/../bin/telegram.sh -a $TOKEN -c $CHAT @$TMPFILE >/dev/null 2>&1

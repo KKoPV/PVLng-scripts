@@ -20,7 +20,7 @@ APIURL=https://api.pushover.net/1/messages.json
 
 : ${CURL:=$(which curl)}
 
-[ "$CURL" ]    || usage 'ERROR: Missing curl binary' 1
+[ "$CURL" ] || usage 'ERROR: Missing curl binary' 1
 
 ### Script options
 opt_help      "Send message to pushover.net, refer to https://pushover.net/api for details"

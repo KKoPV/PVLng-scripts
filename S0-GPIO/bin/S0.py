@@ -14,8 +14,8 @@ except:
 ### Settings
 ### --------------------------------------------------------------------------
 
-LED_heartbeat = 35          ### Pin for red LED
-LED_impulse   = 47          ### Pin for green LED
+LED_heartbeat = 47          ### Pin for green LED
+LED_impulse   = 35          ### Pin for red LED
 
 options = {
     'pin':        23,       ### A common GPIO pin
@@ -29,7 +29,7 @@ options = {
 ### Functions
 ### --------------------------------------------------------------------------
 def usage(rc):
-    print '''
+    print('''
 Listen for S0 impulses on a Raspberry GPIO pin
 
 Usage: %s [options]
@@ -42,13 +42,13 @@ Options:
                           If not given, script will run in foreground
     -v                    Verbose mode
     -h                    This help
-''' % sys.argv[0]
+''' % sys.argv[0])
     sys.exit(rc)
 
 ### --------------------------------------------------------------------------
 def log(level, format, *args):
     if options['verbose'] >= level:
-        print '[' + str(datetime.datetime.now()) + '] ' + format % args
+        print('[' + str(datetime.datetime.now()) + '] ' + format % args)
 
 ### --------------------------------------------------------------------------
 ### Make argument integer or throw error message
@@ -57,7 +57,7 @@ def int_arg(arg, msg):
     try:
         return int(arg)
     except:
-        print '\n%s: %s\n' % (msg, arg)
+        print('\n%s: %s\n' % (msg, arg))
         sys.exit()
 
 ### --------------------------------------------------------------------------
@@ -123,7 +123,7 @@ for opt, arg in opts:
         try:
             with open(options['log'], 'a') as f: f.close()
         except:
-            print '\nCan\'t open log file: %s\n' % options['log']
+            print('\nCan\'t open log file: %s\n' % options['log'])
             usage(1)
     elif opt == '-v':
         options['verbose'] += 1

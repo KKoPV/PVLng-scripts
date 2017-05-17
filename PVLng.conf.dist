@@ -16,7 +16,8 @@
 ### to your settings, Port is optional if it is the default (80)
 ##############################################################################
 PVLngDomain="localhost"
-PVLngHost="http://$PVLngDomain:80"
+
+PVLngURL="http://$PVLngDomain/api"
 
 ##############################################################################
 ### API key

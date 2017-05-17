@@ -1316,7 +1316,7 @@ SHOWVERBOSELEVEL=9
 . $_ROOT/opt.sh
 
 ### Latest API release
-PVLngURL="$PVLngHost/api/latest"
+PVLngURL="$PVLngURL/latest"
 
 ### Setup curl command
 : ${CURL:=$(which curl 2>/dev/null)}

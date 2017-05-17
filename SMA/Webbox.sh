@@ -47,8 +47,6 @@ check_required WEBBOX 'Webbox IP'
 ##############################################################################
 ### Go
 ##############################################################################
-temp_file RESPONSEFILE
-
 curl="$(curl_cmd)"
 
 ### Check for provided installer password
@@ -88,7 +86,7 @@ while true; do
             log 2 @$TMPFILE "Webbox request"
 
             ### Query webbox
-            $curl --output $RESPONSEFILE --data-urlencode RPC@$TMPFILE http://$WEBBOX/rpc
+            $curl --output $TMPFILE --data-urlencode RPC@$TMPFILE http://$WEBBOX/rpc
             rc=$?
 
             if [ $rc -ne 0 ]; then
@@ -99,15 +97,15 @@ while true; do
                 exit
             fi
 
-            log 2 @$RESPONSEFILE "Webbox response"
+            log 2 @$TMPFILE "Webbox response"
 
             ### Check response for error object
-            if grep -q '"error"' $RESPONSEFILE; then
-                error_exit "$(printf "ERROR from Webbox:\n%s" "$(<$RESPONSEFILE)")"
+            if grep -q '"error"' $TMPFILE; then
+                error_exit "$(printf "ERROR from Webbox:\n%s" "$(<$TMPFILE)")"
             fi
 
             ### Save data
-            PVLngPUT $GUID @$RESPONSEFILE
+            PVLngPUT $GUID @$TMPFILE
 
         done
 

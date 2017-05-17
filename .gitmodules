@@ -1,0 +1,3 @@
+[submodule "WS-2300/bin/ws2300"]
+	path = WS-2300/bin/ws2300
+	url = https://github.com/seattleacademy/ws2300.git

@@ -1,0 +1,26 @@
+#
+# This is the config file for /etc/init.d/ws2300.  Its usually
+# put into /etc/default/ws2300.
+#
+# Default values are shown.
+
+# The TTY device the WS2300 is connected to.
+#
+#WS2300_TTY=/dev/ttyS0
+
+# The config file to use.  /etc/init.d/ws2300 will silently fail to start
+# if this file isn't present.  And by default it isn't.
+#
+#WS2300_CONF=/etc/ws2300/ws2300.conf
+
+# Who to send email to if the program exits because of an error.
+#
+#WS2300_EMAIL=root
+
+# Place to save recovery information.
+#
+#WS2300_RECOVERY=.		# Ie - feature turned off
+
+# Port to listen on for serial port sharing.
+#
+#WS2300_PORT=8192

@@ -1,0 +1,100 @@
+#!/bin/bash
+#
+# ws2300.rc
+#
+# Start the LaCrosse WS-2300 weather station daemon if
+# /etc/ws2300/ws2300.conf is present.
+# 
+# chkconfig:	345 99 01
+#
+### BEGIN INIT INFO
+# Provides:	     ws2300
+# Description:	     LaCrosse WS-2300 weather station daemon
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start the LaCrosse WS-2300 weather station daemon
+### END INIT INFO
+set -e
+
+.  /lib/lsb/init-functions
+
+log_action_end_msg_and_exit() {
+  log_action_end_msg "$1" ${2:+" $2"}
+  exit $1
+}
+
+WS2300_CONF=/etc/ws2300/ws2300.conf
+WS2300_DESC="LaCrosse WS-2300 daemon"
+WS2300_EMAIL=root
+WS2300_PID=/var/run/ws2300.pid
+WS2300_PORT=8192
+WS2300_PROG=/usr/bin/ws2300
+WS2300_RECOVERY=.
+WS2300_TTY=/dev/ttyS0
+
+[ ! -s  "/etc/default/ws2300" ]   || . /etc/default/ws2300
+[ ! -s  "/etc/sysconfig/ws2300" ] || . /etc/sysconfig/ws2300
+
+[ -s "$WS2300_CONF" ] || exit 0
+[ -x "$WS2300_PROG" ] || exit 1
+
+getpid() {
+  local pid=$(cat "$WS2300_PID" 2>/dev/null)
+  [ -z "$pid" ] || ! (ps -fp $pid | grep -q [w]s2300) || echo $pid
+}
+
+isdead() {
+  local pid=$1
+  local i=0
+  local npid=$(getpid)
+  while [ ."$pid" = ."$npid" -a $i -lt 10 ]
+  do
+    sleep 1
+    npid=$(getpid)
+    i=$(($i + 1))
+  done
+  [ "$pid" != ."$npid" ]
+}
+
+case "$1" in
+    start)
+	log_begin_msg "Starting $WS2300_DESC: "
+	[ -z $(getpid) ] || log_action_end_msg_and_exit 0 "already running!"
+	[ -c "$WS2300_TTY" ] ||
+	  log_action_end_msg_and_exit 1 "tty $WS2300_TTY not present!"
+	"$WS2300_PROG" "$WS2300_TTY" record "$WS2300_CONF" "${WS2300_PID:-.}" "${WS2300_EMAIL:-.}" "${WS2300_RECOVERY:-.}" "${WS2300_PORT:-.}" ||
+	  log_action_end_msg_and_exit $?
+	log_action_end_msg_and_exit $? "${WS2300_PROG##*/}."
+        ;;
+
+    stop)
+	log_begin_msg "Stopping $WS2300_DESC: "
+	pid=$(getpid)
+	[ -n "$pid" ] || log_action_end 0 "not running!"
+	kill $pid
+	isdead $pid || kill -9 $pid 
+	isdead $pid || log_action_end_msg_and_exit 1
+	log_action_end_msg_and_exit $? "${WS2300_PROG##*/}."
+        ;;
+
+    reload|force-reload|restart)
+	$0 stop
+	$0 start
+	;;
+
+    status)
+        [ -n "${WS2300_PID}" ] || exit 4
+	pid=$(cat "${WS2300_PID}" 2>/dev/null) || exit 3
+	[ -n "${pid}" ] || exit 3
+	ps -fp "${pid}" | grep --silent "[w]s2300" || exit 1
+	exit 0 ;;
+
+    *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+	;;
+esac
+
+exit 0

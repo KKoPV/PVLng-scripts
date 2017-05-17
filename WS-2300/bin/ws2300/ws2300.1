@@ -1,0 +1,937 @@
+.\" Copyright (c) 2014 Russell Stuart
+.TH WS2300 1 "May 2014" "Version 1.9" "ws2300"
+.SH NAME
+ws2300 \- LaCrosse WS-2300 weather station tool
+.SH SYNOPSIS
+.B ws2300
+help-measures
+.br
+.B ws2300
+.I tty-device
+.IR measure [= value |= reset ]
+\&...
+.br
+.B ws2300
+.I tty-device
+display
+.I fields
+.RI [ url 
+.RI [ sample 
+.RI [ save 
+.RI [ insert ]]]]
+.br
+.B ws2300
+.I tty-device
+record
+.I config-file-name
+.RI [ pid-file-name
+.RI [ email-address
+.RI [ recovery-file-name
+.RI [ port ]]]]
+.SH DESCRIPTION
+.I Ws2300
+manipulates the LaCrosse WS-2300 weather station via its RS232 interface.
+It can read and write values,
+and can continuously log data from WS-2300 to a file or SQL database.
+
+.PP
+The first form prints a list of values (measures)
+in the WS-2300 that 
+.I ws2300
+can read and set.
+The second form is used to read and set the measures individually.
+The third form is used capturing a single sample to a log file or SQL database.
+The fourth form causes
+.I ws2300
+to become a daemon continuously saving samples to log files and databases.
+
+.I tty-device
+is the name of the tty device the WS-2300's serial interface is connected to.
+It can also have the form \fBws2300://\fP\fIhost\fP\fB:\fP\fIport\fP,
+which means share the port a
+.I ws2300
+daemon that is running on
+.I host
+and listening to
+.I port
+is using.
+
+.SH WARNING
+This program was developed with no input from the manufacturer, LaCrosse.
+LaCrosse has said that using non-standard software such as this program
+with the weather station may damage it,
+and such damage is not covered by the warranty.
+
+.PP
+In the past LaCrosse has threatened to legally pursue people who publish
+the protocols used by WS-2300.  As the source code to this program documents
+the protocols publishing it may put you at risk.
+
+.SH READING, SETTING AND RESETTING MEASURES
+.I Measures
+can be displayed in a human readable format
+and set in an interactive fashion using the command line.
+
+.IP help-measures
+Prints a table of known measures.
+Measures have two names - a short one and a long one.
+You can use either, but be sure to quote the spaces in the long names
+to protect them from the shell.
+Other information in the table are the units used by the measure
+and the is position of the measure value in the WS-2300's memory map.
+Eg
+.B 300:1
+means the
+.I measure
+lives at address
+.B 300
+(hex) and is
+.B 1
+nybble (4 bits) long.
+.B 310.3
+means the
+.I measure
+lives at address
+.B 300
+(hex), is a 1
+bit quantity and is stored
+in bit 
+.B 3
+(1 << 3).
+If it isn't obvious, the measures
+.BR cd ,
+.BR ct 
+and
+.BR cw ,
+which print various renditions of the date of the computer running
+.IR ws2300 ,
+aren't read from the weather station.
+
+.IP \fImeasure\fP
+Putting one or more
+.I measure
+names on the command line displays their current values.
+In addition to 
+.I measure
+names you can supply
+.IR hexaddress : length
+to display the raw nybbles at
+.IR hexaddress ,
+and
+.BR history :
+.IR recno [- recno ]
+to display a [range] of history records starting at 
+.IR recno .
+.I Recno
+is
+.B 0
+for the most recently written record,
+.B 1
+for the next most recently written record and so on.
+
+.IP \fB=\fP\fIvalue\fP|\fB=reset\fP
+Appending \fB=\fP\fIvalue\fP to a
+.I measure
+sets the
+.I measure
+rather than displaying it.
+The
+.I value
+is supplied in the same form it is displayed by the read command.
+If a value contains spaces protect them from the shell by quoting them.
+.B Reset
+can be supplied instead of a
+.I value
+for min/max
+.IR measure 's
+and their associated times.  This will set a min/max
+.I measure
+to the current reading or its time to the current station time.
+History and raw memory writes are also supported.
+The length may be omitted when when doing raw writes
+as it can be derived from the data.
+The raw nybbles are always displayed singularly,
+but you can combine them to specify a large number.
+Their order is reversed when you combine them as the WS-2300
+stores numbers in little endian order, so
+.B 1,2,3
+is equivalent to
+.BR 321 .
+If commands to both display and set values are given on the command line
+all display commands are executed first.
+
+.SH CAPTURING DATA
+When used in the third and fourth forms, 
+.I ws2300
+captures weather data from the WS-2300 and
+outputs it in a format
+suitable for logging
+or inserting it into an SQL database.
+Rapidly changing data (eg wind velocity) needs to be captured frequently
+in order to build up an accurate picture of what happened.
+This can generate a lot of data.
+To reduced the amount of data that needs to be stored
+.I Ws2300
+can aggregate samples taken over a period of time and write them
+to a single record.
+
+.IP \fBdisplay\fP
+Capture one record of data and exit.  These options follow
+.BR display :
+
+.RS
+.IP \fIfields\fP
+The list of values to be stored for each record.
+Separate the values using the character '!'.
+These values are actually Python expressions that are evaluated
+each time a sample is taken.
+They are described in the section "FIELD EXPRESSIONS" below.
+
+.IP \fIurl\fB
+Where the data should be saved.
+If it has the format
+.B csv:filename
+or
+.B ssv:filename
+the fields are appended to a file
+as comma (csv) or space (ssv) separated values,
+one line per record.
+If
+.B filename
+is omitted they are printed on stdout instead.
+If
+.I url
+has the format
+.B CSV:filename
+or
+.B SSV:filename
+the file is overwritten with the new data rather than being appended to.
+Otherwise the
+.I url
+specifies the name of a database
+.I ws2300
+must connect to to save the data.
+It must have the format
+.B sqlmodule:keyword=value,...
+.B Sqlmodule
+is the name of a Python module that implements the Python Database API, and
+.I keyword=value
+are the keyword arguments that will be passed to that modules
+"connect()" method.
+The "EXAMPLES" section has
+.IR url 's
+for the more common open source SQL databases.
+If omitted
+.I url
+defaults to
+.BR csv ,
+so comma separated values are written to stdout.
+
+.IP \fIsample\fP
+Samples are taken every
+.I sample
+seconds.
+Be aware that at best, when using a cable connection,
+the WS-2300 updates its internal data every 8 seconds.
+If the sampling frequency is faster than the WS-2300
+can supply them then samples will be skipped.
+If omitted it defaults to
+.B 1
+second.
+
+.IP \fIsave\fP
+Records are saved every
+.I save
+seconds.
+This can't be smaller than
+.IR sample .
+Making this N times larger than
+.I sample
+means N samples will be taken per record.
+Records are always saved at pre-determined times - at
+.I save
+second intervals from the start of the day.
+Thus the first record saved may have less samples than normal.
+If omitted it defaults to
+.B 1
+second.
+
+.IP \fIinsert\fP
+The SQL statement that will be executed to insert a row into the database.
+This should be omitted for
+.B csv
+and
+.B ssv
+.IR urls .
+The statement must use the '?'s as place holders for the values to be inserted,
+and the '?'s must match the values in
+.I fields
+both in order and number.
+.RE
+
+.IP \fBrecord\fP
+Continuously capture weather data.
+Ie, what
+.B display
+does once
+.B record
+does continuously.  
+These options follow
+.BR record :
+
+.RS
+.IP \fIconfig-file-name\fP
+This option is mandatory.
+It is the name of a file that specifies what to record and where to put it.
+This information is described in the same way it is to
+.BR display .
+You put the same command line options
+.B display
+takes, ie
+.IR fields ,
+.IR url ,
+.IR sample ,
+.IR save ,
+and
+.IR insert ,
+into
+.I config-file-name
+in the same order.
+Each option must start on a new line
+but can be split over multiple lines
+by starting successive lines with white space.
+Unlike
+.BR display ,
+.B record
+can save to several databases at once.
+Each
+.IR field ,
+.IR url ,
+etc definition is separated with blank lines or comments.
+A comment is a line starting with a
+.I #
+character.
+
+.IP \fIpid-file-name\fP
+If supplied and is not the character
+.RB ' . '
+(decimal point) the program runs in the background and
+writes its messages to the syslog LOG_DAEMON.
+The pid of the background process is written to
+.I pid-file-name
+if it is supplied and isn't
+.RB ' . '
+(decimal point) or
+.RB ' - '
+(minus).
+
+.IP \fIemail-address\fP
+This is a comma separated list of address to send email to
+if the program exits abnormally.
+.I /usr/sbin/sendmail
+is used to send the email.
+It is supplied by most 'nix SMTP servers.
+If this is a
+.RB ' . '
+(decimal point) no email is sent.
+
+.IP \fIrecovery-file-name\fP
+If not
+.RB ' . '
+(decimal point) samples that haven't been saved to disk
+are written to this file.
+When the program is next started it reads all unwritten samples
+from the recovery file, saving them when the time comes.
+If a recovery file is not used all unsaved data is lost when
+the daemon is restarted.
+If the configuration is changed such that new fields are added
+that aren't in the saved data
+then their values are taken from the current weather station readings.
+This heuristic doesn't work well if daemon is restarted a long time
+after changing the configuration file.
+
+.IP \fIport\fP
+If not
+.RB ' . '
+(decimal point) 
+.I ws2300
+will make its serial port available to other instances of
+.IR ws2300
+via this TCP port.
+The other instances use the \fBws2300://\fP\fIhost\fP\fB:\fP\fIport\fP
+syntax for
+.I tty-device
+to access it.
+As communications to the ws2300 is very slow this feature
+can't be used too heavily.
+.RE
+
+
+.SH FIELD EXPRESSIONS
+The expressions in the
+.I fields
+parameter are Python expressions.
+The following variables are available.
+In the variable names only the short forms of the
+.I measure
+names may be used.
+The variables always return floating point numbers.
+In the case of dates and times this represents the number of seconds since
+midnight 1970-01-01, UTC.
+
+.RS
+.IP \fBendtime\fP
+The time the save period finishes.
+Times recorded when a sample is taken such as
+.B cw
+and
+.B sw
+are unpredictable in that they depend on when sampling
+was started and when how long the WS-2300 takes to respond.
+The
+.B endtime
+on the other hand is always exactly the time the save period is due to finish,
+regardless of when samples where taken or how long it took to read them.
+For example, if samples are being saved every hour
+then this value will always be exactly on the hour,
+and thus the minutes and seconds will be 0.
+
+.IP \fBNone\fP
+An SQL null.
+
+.IP \fBstarttime\fP
+The time the save period started.
+For the first sample saved this will be the time
+.I ws2300
+was started.
+Thereafter it always equals the previous
+.BR endtime .
+
+.IP \fBws.\fImeasure\fB[0]\fP
+The first sample taken for
+.IR measure .
+
+.IP \fBws.\fImeasure\fB[-1]\fP
+The last sample taken for
+.IR measure .
+
+.IP \fBws.\fImeasure\fB.avg\fP
+The average (arithmetic mean) of the samples taken for
+.IR measure .
+
+.IP \fBws.\fImeasure\fB.cnt\fP
+The number of the samples taken for
+.IR measure .
+
+.IP \fBws.\fImeasure\fB.max\fP
+The maximum sample taken for
+.IR measure .
+
+.IP \fBws.\fImeasure\fB.median\fP
+The median of the samples taken for
+.IR measure .
+
+.IP \fBws.\fImeasure\fB.min\fP
+The minimum sample taken for
+.IR measure .
+
+.IP \fBws.\fImeasure\fB.std\fP
+The standard deviation of samples taken for
+.IR measure .
+
+.IP "\fBws.wv.dir\fP, \fBws.wv.speed\fP"
+The
+.I measure
+.B wv
+(wind velocity) is special.
+It is a vector that has two components: direction and speed.
+The aggregates (first, last, average, etc) are stored separately.
+Thus
+.B ws.wv.dir.avg
+is the average wind velocity direction.
+To get a feel for what the wind velocity is,
+imagine an air molecule at the sensor at the start of the recording period.
+It gets blown around by the wind during the recording period,
+and at the end of the recording period we take note of its position.
+The speed and direction it would take to get from the sensor
+to that position in a straight line over the recording period is
+its average wind velocity.
+All the other aggregates are calculated the same way its scalar cousins,
+.B ws
+(wind speed) and
+.B w0
+(wind direction).
+.RE
+
+.PP
+The following Python modules are also available:
+.RS
+datetime
+.br
+math
+.br
+re
+.br
+string
+.br
+time
+.RE
+
+.PP
+All Python's builtin methods are available.
+In addition these functions can be used:
+
+.RS
+.IP "\fBdb.DateFromTicks(ticks)\fP"
+Convert a time field into something acceptable for a
+DATE field in the SQL database being used.
+
+.IP "\fBdb.TimeFromTicks(ticks)\fP"
+Convert a time field into something acceptable for a
+TIME field in the SQL database being used.
+
+.IP "\fBdb.TimespanFromTicks(ticks)\fP"
+Convert a time field into something acceptable for a
+TIMESPAN field in the SQL database being used.
+
+.IP "\fBselect(\fI'table.field'\fB, \fIwhereclause\fB)\fP"
+Return a value from an SQL table.
+In
+.B csv
+and
+.B ssv
+.IR url's
+this function always returns 0.
+The value from the first row found by this select clause is returned:
+.RS
+.PP
+.RS
+select
+.I field
+from
+.I table
+where
+.I whereclause
+.RE
+.RE
+
+.IP "\fBgenerator(\fI'table.field'\fB, \fIwhereclause\fB)\fP"
+Identical to
+.BR select ,
+except the field in the database is incremented
+after each call.
+In
+.B csv
+and
+.B ssv
+.IR url's
+this function returns the number of records saved so far.
+.RE
+
+.SH EXTENDING ws2300
+.I Ws2300
+can be extended in two ways.
+Both require the ability to program in Python.
+The simple way is to write your own Python Database API module.
+This is not as complex as it sounds as
+.I ws2300
+doesn't actually use much of the API.
+Here is a example that appends the records as lines
+containing '|' separated fields to a text file:
+
+.PP
+.RS
+.ft CW
+.nf
+mydb.py:
+    class Db:
+      def __init__(self, filename):
+	self.handle = file(filename, "a")
+      def cursor(self): return self
+      def commit(self): pass
+      def close(self): self.handle.close()
+      #
+      # Called by ws2300 each to write each new record.
+      # data is a tuple containing the fields, ie the
+      # result of evaluating the Python expressions
+      # given on the command line.
+      #
+      def execute(self, sql, data):
+        record = '|'.join([str(field) for field in data])
+        self.handle.write(record+"\\n")
+
+    def connect(filename=None):
+      return Db(filename)
+.fi
+.RE
+
+.PP
+To use your module simply stick it in the current directory,
+and pass a
+.I url
+like
+.B """mydb:filename='weather.txt'"""
+to
+.IR ws2300 .
+
+.PP
+To do really radical things ws2300.py can be used as a module.
+Things defined in there are:
+
+.IP SerialPort
+A class defining the abstract interface to a serial port.
+Porting
+.I ws2300
+to Windows for example would be just a case of
+implementing this interface under Windows
+and arranging it to be used instead of
+.IR LinuxSerialPort .
+
+.IP LinuxSerialPort
+A class implementing
+.B SerialPort
+for Linux.
+After creating one of these using
+.BR LinuxSerialPort(tty_device) ,
+call
+.B open()
+and call
+.B close()
+when you are finished with it.
+
+
+.IP Ws2300
+A class that implements the protocol used by the WS-2300.
+.B Ws2300(serialPort)
+creates an instance of this class.  You pass it an open
+.BR SerialPort .
+.B read_safe(address,nybble_count)
+reads
+.I nybble_count
+nybbles starting at
+.I address
+and returns them in a tuple of int's.
+Similarly, 
+.B write_safe(address,data)
+writes the nybbles in the tuple
+.I data
+to
+.IR address .
+
+.IP Measure
+Is a class that defines a
+.IR measure .
+Instances have the fields:
+.IR address ,
+the address of the measure in the Ws2300's memory map,
+.IR conv ,
+an instance of
+.B Conversion
+defining the type of data,
+.IR id ,
+the short name of the measure, and
+.I name
+the long name of the measure.
+The class variable
+.I Measure.IDS
+is a mapping from a measures short name to its
+.I Measure
+instance.
+
+.IP Conversion
+Is a class that defines a data type stored by the WS-2300.
+Instances have the fields:
+.IR description ,
+a string describing the type,
+.IR nybble_count ,
+the number of nybbles occupied by the data type on the WS-2300, and
+.IR units ,
+the SI units used to represent the
+.IR measure .
+Instances have the functions:
+.I binary2value(nybbles)
+converts the raw nybbles returned by
+.B Ws2300.read_safe()
+into the number used to represent the
+.I measure
+in Python,
+.I value2binary(value)
+converts the Python number used to represent the
+.I measure
+into nybbles that can be written by
+.BR Ws2300.write_safe() ,
+.I str(value)
+converts the Python value into a human readable string, and
+.I parse(str)
+converts the string produced by
+.I str()
+to its Python value.
+
+.IP HistoryMeasure
+is a class defining a history measure.
+It has a separate class because history is unusual in two ways.
+Unlike say indoor temperature which has a single occurence
+there are many history records,
+and whereas an indoor temperature is represented by a single number
+a history record contains multiple values.
+The class method
+.I HistoryMeasure.set_constants(ws2300)
+must be called prior to use to initialise the class.
+The constructor 
+.I HistoryMeasure(record_number)
+creates a
+.B Measure
+for the passed history record number.
+The instance method
+.I binary2value(nybbles)
+returns a
+.I HistoryConversion.HistoryRecord
+instance which contains the properties
+.IR temp_indoor ,
+.IR temp_outdoor .
+.IR pressure_absolute ,
+.IR humidity_indoor ,
+.IR humidity_outdoor ,
+.IR rain ,
+.IR wind_speed
+and
+.IR wind_direction .
+
+.IP read_measures(ws2300,measures)
+Identical to the Python expression
+.BR "[ws2300.read_data(m.address, m.conv.nybble_count) for m in measures]" ,
+except its more efficient.
+
+.PP
+A complete program that would print the indoor temperature and humidity
+reported by the WS-2300,
+followed by the same things from the first 10 history records.
+
+.PP
+.RS
+.ft CW
+.nf
+#!/usr/bin/python
+import ws2300
+serialPort = ws2300.LinuxSerialPort("/dev/ttyS0")
+try:
+  ws = ws2300.Ws2300(serialPort)
+  measures = [
+      ws2300.Measure.IDS["it"],
+      ws2300.Measure.IDS["ih"]]
+  data = ws2300.read_measurements(ws, measures)
+  hist_measures = [ws2300.HistoryMeasure(recno) for recno in range(10)]
+  hist_data = ws2300.read_measurements(ws, hist_measures)
+finally:
+  serialPort.close()
+print [
+    m.conv.binary2value(d)
+    for m, d in zip(measures, data)]
+for recno in range(len(hist_measures)):
+  history_record = hist_measures[recno].conv.binary2value(hist_data[recno])
+  print history_record.temp_indoor, history_record.humidity_indoor
+.fi
+.RE
+
+.SH EXAMPLES
+In these examples the WS-2300 is assumed to be connected to
+the serial port /dev/ttyS0.
+
+.IP "ws2300 help-measures"
+Prints out all known measures.  This is the first thing you should run.
+
+.IP "ws2300 /dev/ttyS0 'indoor temp' 'indoor humidity'"
+Displays the indoor temperature and humidity in a nice readable format.
+
+.IP "ws2300 /dev/ttyS0 it ih"
+Same as the previous example, but uses the short
+.I measure
+names.
+
+.IP "ws2300 /dev/ttyS0 'lcd backlight=on'"
+Sets the LCD Backlight bit on in the WS-2300's memory.
+As you might guess, this turns on the backlight.
+
+.IP "ws2300 /dev/ttyS0 sd=2005-12-25 st=12:00:00"
+Set the weather station's idea of the date and time to 12 noon
+Christmas day, 2005.
+
+.IP "ws2300 /dev/ttyS0 sd=$(date +%Y-%d-%m) st=$(date +%H-%M-%S)"
+If entered on a unix/linux machines command prompt
+this with set the stations idea of the date and time
+to the computers time.
+
+.IP "ws2300 /dev/ttyS0 wch=reset wchw=reset"
+Reset the wind chill maximum.
+You should always reset both the value and the time.
+
+.IP "ws2300 /dev/ttyS0 54d:1"
+Display the connection type nybble, which happens to live at address 54d.
+
+.IP "ws2300 /dev/ttyS0 54d=0,2,3"
+Set nybbles at addresses 54d, 54e and 54f to 0, 2 and 3 respectively.
+DON'T DO THIS!
+
+.IP "ws2300 /dev/ttyS0 54d=0,32"
+Identical to the previous example.
+DON'T DO THIS!
+
+.IP "ws2300 /dev/ttyS0 history:0"
+Display the most recent history record.
+
+.IP "ws2300 /dev/ttyS0 history:0-174"
+Display all history records.
+
+.IP "ws2300 /dev/ttyS0 display ws.cw[0]!ws.sw"
+Print to stdout the computers time and the current station time as
+as floating pointing numbers representing the number of seconds
+since the start of 1970-01-01, UTC.
+Probably not what you wanted.
+
+.IP "ws2300 /dev/ttyS0 display 'db.TimestampFromTicks(ws.cw[0])!db.TimestampFromTicks(ws.sw)'"
+Print to stdout the computers time and the current station time
+as text, UTC.  Still probably not what you wanted.
+
+.IP "ws2300 /dev/ttyS0 display 'db.TimestampFromTicks(ws.cw[0]-time.timezone)!db.TimestampFromTicks(ws.sw-time.timezone)'"
+Print to stdout the computers time and the current station time
+as text, local time.
+
+.IP "ws2300 /dev/ttyS0 display 'ws.it[0]!ws.ws[0]'"
+Print to stdout the indoor temperature in degrees Celsius,
+and the wind speed in meters per second.
+
+.IP "ws2300 /dev/ttyS0 display 'ws.it[0]*9/5+32!ws.ws[0]/1609.344*3600'"
+Print to stdout the indoor temperature in degrees Fahrenheit,
+and the wind speed in miles per hour.
+
+.IP "ws2300 /dev/ttyS0 display ws.wv.dir.avg!ws.wv.speed.avg csv 8 300"
+Print to stdout the average wind velocity over a 5 minute period,
+sampling every 8 seconds.
+
+.IP "ws2300 /dev/ttyS0 display ws.wv.dir.avg!ws.wv.speed.avg 'kinterbasdb: dsn=""127.0.0.1:/home/rstuart/weather.db"", user=""sysdba"", password=""sysdba"", dialect=3' 8 900 'insert into weather values (?,?)'"
+Display the average wind velocity over a 15 minute period,
+sampling every 8 seconds,
+to the table 'weather' in a firebird database running on the local
+machine and stored in the file /home/rstuart/weather.gdb.
+
+.IP "ws2300 /dev/ttyS0 display ws.wv.dir.avg!ws.wv.speed.avg 'pyPgSql.PgSql: host=""127.0.0.1"", port=5432, database=""weather"", user=""me"", password=""my""' 8 900 'insert into weather values (?,?)'"
+Display the average wind velocity over a 15 minute period,
+sampling every 8 seconds,
+to the table 'weather' in a postgresql database running on the local
+machine and stored in the database weather.
+
+.IP "ws2300 /dev/ttyS0 display ws.wv.dir.avg!ws.wv.speed.avg '_mysql: host=""127.0.0.1"", port=5432, db=""weather"", user=""me"", passwd=""my""' 8 900 'insert into weather values (?,?)'"
+Display the average wind velocity over a 15 minute period,
+sampling every 8 seconds,
+to the table 'weather' in a MySql database running on the local
+machine and stored in the database weather.
+
+.IP "ws2300 /dev/ttyS0 record /etc/ws2300/ws2300.conf /var/run/ws2300.pid root /var/lib/ws2300/ws2300.recovery 8192"
+Run in the background recording
+the data specified in the file /etc/ws2300/ws2300.conf.
+Write the PID of the background process to /var/run/ws2300.pid.
+If something goes wrong
+(eg the WS-2300 fails to response or a database update fails)
+send email to root before exiting.
+Save unwritten data to /var/lib/ws2300/ws2300.recovery,
+so that if the daemon is restarted no data is lost.
+Make the serial port available to other instances of ws2300 via TCP socket 8192.  
+If those other instances were running on the same machine
+they would access the serial port by using
+ws2300://127.0.0.1:8192 for the
+.IR tty-device .
+If this is the contents of /etc/ws2300/ws2300.conf then three sets of
+data would be captured, as described in the comments.
+
+.RS
+.ft CW
+.nf
+#
+# This first capture spec writes the data to csv text
+# file, overwriting it for each new data sample.  The
+# data is actually written to a temporary file which
+# is then moved to the correct filename so it someone
+# reading it never sees 1/2 written data.  This format
+# easily digested by CGI scripts to generate web pages.
+#
+db.TimestampFromTicks(ws.cw[\-1]\-time.timezone)   !
+  db.TimestampFromTicks(ws.sw[\-1]\-time.timezone) !
+  ws.ot[\-1]       ! ws.oh[\-1]                    !
+  ws.wv.speed.avg ! ws.wv.dir.avg                !
+  ws.rd[\-1]       ! ws.pa[\-1]
+CSV:/var/lib/ws2300/current-weather.csv
+8
+8
+
+#
+# This capture spec captures all weather data every hour.
+# It is written to an SQL database.
+#
+db.TimestampFromTicks(starttime)   ! db.TimestampFromTicks(endtime)   !
+  db.TimestampFromTicks(ws.sw[\-1]) ! db.TimestampFromTicks(ws.cw[\-1]) !
+  ws.sw.cnt                        !
+  ws.ot.avg                        ! ws.oh.avg                        !
+  ws.rt[\-1]                        ! ws.pa.avg                        !
+  ws.it.avg                        ! ws.ih.avg                        !
+  ws.wv.speed.avg                  ! ws.wv.speed.std                  !
+  ws.wv.dir.avg                    ! ws.wv.dir.std                    !
+  ws.ws.avg
+kinterbasdb:
+  dsn="127.0.0.1:/var/lib/ws2300/weather.gdb",
+  user="sysdba", password="sysdba",
+  dialect=3
+8
+3600
+insert into weather_all values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+
+#
+# This capture spec captures the wind velocity data
+# every 5 minutes and writes it to an SQL database.
+# Wind velocity changes rapidly, so I like to keep a
+# close eye on it.
+#
+db.TimestampFromTicks(starttime)   ! db.TimestampFromTicks(endtime)   !
+  ws.ws.cnt                        ! ws.ws.avg                        !
+  ws.wv.speed.avg                  ! ws.wv.speed.std                  !
+  ws.wv.dir.avg                    ! ws.wv.dir.std 
+kinterbasdb:
+  dsn="127.0.0.1:/var/lib/ws2300/weather.gdb",
+  user="sysdba", password="sysdba",
+  dialect=3
+8
+300
+insert into weather_wind values (?,?,?,?,?,?,?,?)
+.fi
+.RE
+
+.SH SEE ALSO
+
+.IP http://www.heavyweather.info/english_uk/english_uk_2300.html
+LaCrosse's home page for the WS-2300.
+
+.IP http://www.webmet.com/met_monitoring/62.html
+Covers the math for to aggregating wind velocities.
+
+.IP "http://www.lavrsen.dk/twiki/bin/view/Open2300/WebHome http://sf.net/projects/open2300"
+The code base
+.I ws2300
+was derived from.
+.B Open2300 
+was written by Kenneth Lavrsen.
+If
+.I ws2300
+doesn't suit your needs perhaps
+.B open2300
+will.
+
+.IP memory_map_2300.txt
+The WS-2300's memory map.
+It was put together by reverse engineering the WS-2300.
+This was done mainly on the German language Weather Station Forum,
+http://www.wetterstationsforum.de/phpBB/viewforum.php?f=28.
+This file should be included with the
+.I ws2300
+distribution.
+
+.SH AUTHOR
+Russell Stuart, <russell-ws2300@stuart.id.au>.

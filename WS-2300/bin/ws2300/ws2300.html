@@ -1,0 +1,150 @@
+<!doctype html public '-//W3C//DTD HTML 4.01//EN'
+  'http://www.w3.org/TR/html4/strict.dtd'>
+
+<html>
+
+<head>
+  <title>Ws2300 - a driver for LaCrosse WS-2300 weather stations</title>
+  <meta name="Author" content="Russell Stuart">
+  <meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+
+  <style type="text/css">
+    h1     	{ margin-left: 0em; margin-top: 0; text-align: center; font-size: 200%; font-weight: bold; background-color: #8080FF }
+    p		{ margin-left: 2em }
+    table	{ margin-left: 4em }
+    ul		{ margin-left: 2em }
+  </style>
+
+</head>
+
+<body>
+
+<h1>Ws2300<br>A driver for the LaCrosse WS-2300</h1>
+
+<p>
+  Ws2300 manipulates the LaCrosse WS-2300 weather station via its
+  RS232 interface.  It can read and write values, and can
+  continuously log data from WS-2300 to a file or SQL database.
+</p>
+
+<p>
+  I use this program with a WS-2300, and others have reported it working
+  on a WS-2357.  It probably works with every LaCrosse WS-23xx weather
+  station that connects to a computer using serial or USB.
+</p>
+
+<p>
+  The primary differences between Ws2300 and LaCrosse's software is:
+</p>
+
+<ul>
+  <li>It is open source.</li>
+  <li>It runs on Linux.</li>
+  <li>It can be easily extended.</li>
+  <li>It is a console application.</li>
+</ul>
+
+<h2>Documentation</h2>
+
+<p>
+  There is a
+  <a href="ws2300.1.html">man page</a>, a
+  <a href="ChangeLog.txt">change log</a>, a
+  <a href="README.txt">README.txt</a> and
+  a file describing the WS-2300's
+  <a href="memory_map_2300.txt">memory map</a>.
+  The WS-2300 weather station hardware is described at its
+  <a href="http://www.heavyweather.info/english_uk/english_uk_2300.html">home page</a>.
+
+</p>
+
+<h2>Similar projects</h2>
+
+<p>
+  If ws2300 doesn't suite your needs, perhaps open2300 will.
+  Its home page is:
+  <a href="http://www.lavrsen.dk/twiki/bin/view/Open2300/WebHome">http://www.lavrsen.dk/twiki/bin/view/Open2300/WebHome</a>.
+  The project itself is based at Source Forge.
+  Here is its project page:
+  <a href="http://sf.net/projects/open2300">http://sf.net/projects/open2300</a>.
+</p>
+
+<h2>Acknowledgements</h2>
+
+<p>
+  Ws2300 is based on open2300, and owes a lot to it.
+  Open2300 was developed by Kenneth Lavrsen.
+</p>
+
+<p>
+  The WS-2300 was reverse engineered mainly by people on the
+  German language Weather Station Forum,
+  which is located at:
+  <a href="http://www.wetterstationsforum.de/phpBB/viewforum.php?f=28">http://www.wetterstationsforum.de/phpBB/viewforum.php?f=28</a>.
+</p>
+
+<h2>Copyright and License</h2>
+
+<p>
+  Ws2300 is copyright &copy; 2007,2008,2010,2011,2012,2013,2014 Russell Stuart.
+  It is licensed under the <a href="agpl-3.0.txt">GNU Affero General Public License</a>.
+</p>
+
+<p>
+  This program is free software: you can redistribute it and/or modify it
+  under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or (at your
+  option) any later version.
+</p>
+
+<p>
+  The copyright holders grant you an additional permission under Section 7
+  of the GNU Affero General Public License, version 3, exempting you from
+  the requirement in Section 6 of the GNU General Public License, version 3,
+  to accompany Corresponding Source with Installation Information for the
+  Program or any work based on the Program. You are still required to
+  comply with all other Section 6 requirements to provide Corresponding
+  Source.
+</p>
+
+<p>
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+</p>
+
+<h2>Downloading, Feedback & Contributing</h2>
+  
+<p>
+Development for ws2300 is hosted on
+<a href="http://sourceforge.net/projects/ws2300/">Source forge</a>:
+</p>
+
+<ul>
+  <li>
+    <a href="https://sourceforge.net/projects/ws2300/files/">Download area</a>,
+    (.tar.gz, .deb, .rpm).
+  </li>
+  <li>
+    <a href="http://sourceforge.net/p/ws2300/tickets/">Issue tracker</a>,
+    bugs, features or just questions.
+  </li>
+  <li>
+    <a href="https://sourceforge.net/p/ws2300/code/ref/default/">Source repository</a>.
+  </li>
+  <li>
+    FreeBSD: install using &ldquo;pkg add py27-ws2300&rdquo;,
+    or from the port at /usr/ports/science/py-ws2300.
+  </li>
+</ul>
+
+<p>&nbsp;</p>
+
+<hr>
+<p style="margin-left: 0">
+  Russell Stuart, 2014-May-06.
+</p>
+
+</body>
+</html>

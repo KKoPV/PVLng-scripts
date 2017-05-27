@@ -228,6 +228,15 @@ function check_required () {
 }
 
 ##############################################################################
+### Find up to 99 sections defined by GUID_? or USE_?
+##############################################################################
+function getGUIDs () {
+    for i in {1..99}; do
+        eval [ "\$GUID_$i\$USE_$i" ] && echo $i
+    done
+}
+
+##############################################################################
 ### Define variable level 1
 ### $1 - Variable base name
 ### $2 - Counter level 1
@@ -647,6 +656,10 @@ function PVLngPUT () {
     local timestamp=$3
     local dataraw=
     local datafile=
+    local time=$(int $LOCALTIME)
+
+    ### Use for MQTT local time if not given
+    [ "$mosquittoServer" ] && time=1
 
     sec 2 "API PUT data"
     lkv 2 GUID $GUID
@@ -658,7 +671,6 @@ function PVLngPUT () {
     fi
 
     lkv 2 Data "$data"
-    LOCALTIME=$(int $LOCALTIME)
 
     if [ "${data:0:1}" != "@" ]; then
         ### No file
@@ -668,21 +680,22 @@ function PVLngPUT () {
             if echo "$timestamp" | grep -qe '[^0-9]'; then
                 ### Date time
                 lkv 2 'Datetime given' "$timestamp"
+                data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
             else
                 ### numeric timestamp
                 lkv 2 'Timestamp given' "$(date --date="@$timestamp")"
+                data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":$timestamp}"
             fi
-            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
-        elif [ $LOCALTIME == 0 ]; then
+        elif [ $time == 0 ]; then
             ### Only data, use timestamp from destination
             data="{\"data\":\"$(JSON_quote "$data")\"}"
         else
             ### Send local timestamp rounded to $LOCALTIME secods
-            lkv 1 "Use local time" "rounded to $LOCALTIME seconds"
+            lkv 1 "Use local time" "rounded to $time seconds"
             ### force floor of division part, awk have no "round()" or "floor()"
-            timestamp=$(calc "int($(date +%s) / $LOCALTIME) * $LOCALTIME" 0)
-            lkv 2 'Timestamp local' "$(date --date=@$timestamp)"
-            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
+            timestamp=$(calc "int($REQUEST_TIME / $time) * $time" 0)
+            lkv 2 'Timestamp local' $(date -Iseconds --date=@$timestamp)
+            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":$timestamp}"
         fi
         lkv 2 Send "$data"
     else
@@ -709,34 +722,58 @@ function PVLngPUT () {
 #                --header "X-URL-for: $PVLngURL/data/$GUID.txt" \
 #                --request PUT --data-binary $data $binUrl >/dev/null 2>&1
 
-    ### Try to send to Queue server
-    if [ "$SocketServerPort" ]; then
-        if [ ! "$datafile" ]; then
-            rc=$(PVLngNC "SaveData|$GUID|$data")
-        else
-            rc=$(PVLngNC "SaveData|$GUID|$(<$datafile)")
-        fi
-        [ $rc -eq 0 ] && return
-    fi
-
     temp_file _RESPONSE
 
-    set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
-                         --header "Content-Type: application/json" \
-                         --request PUT --write-out %{http_code} --output $_RESPONSE \
-                         --data-binary "$data" $PVLngURL/data/$GUID.txt)
+    error=
 
-    if echo "$1" | grep -qe '^20[012]'; then
-        ### 200/201/202 ok
-        lkv 1 "HTTP code" $1
-        [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
+    if [ "$mosquittoServer" ]; then
+        ### Send to mosquitto server
+
+        set -- $(echo $mosquittoServer | sed 's/:/ /g')
+        host=$1
+        port=${2:-1883}
+
+        if [ ! "$datafile" ]; then
+            mosquitto_pub -d -h $host -p $port -t pvlng/$PVLngAPIkey/data/$GUID -q 1 -m "$data" >$_RESPONSE 2>&1
+        else
+            mosquitto_pub -d -h $host -p $port -t pvlng/$PVLngAPIkey/data/$GUID -q 1 -f $datafile >$_RESPONSE 2>&1
+        fi
+
+        if [ $? -ne 0 ]; then
+            ### Log error
+            error="$(<$_RESPONSE)"
+        else
+            log 2 @$_RESPONSE mosquitto_pub
+        fi
+
     else
-        ### errors
+        ### Send via HTTP
+        [ $VERBOSE -ge 2 ] && dbg="--header X-Debug:true"
+
+        set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
+                             --header "Content-Type: application/json" $dbg \
+                             --request PUT --write-out %{http_code} --output $_RESPONSE \
+                             --data-binary "$data" $PVLngURL/data/$GUID.txt)
+
+        if echo "$1" | grep -qe '^20[012]'; then
+            ### 200/201/202 ok
+            lkv 1 "HTTP code" $1
+            [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
+        else
+            ### Errors
+            error="HTTP code: $1"
+
+            [ -f $_RESPONSE ] && log 0 @$_RESPONSE Response
+            save_log "$GUID" "HTTP code: $1"
+            [ -f $_RESPONSE ] && save_log "$GUID" @$_RESPONSE
+
+        fi
+    fi
+
+    if [ -n "$error" ]; then
         lkv 0 Data "$data"
-        lkv 0 "HTTP code" $1
-        [ -f $_RESPONSE ] && log 0 @$_RESPONSE Response
-        save_log "$GUID" "HTTP code: $1"
-        [ -f $_RESPONSE ] && save_log "$GUID" @$_RESPONSE
+        lkv 0 ERROR "$error"
+        save_log "$GUID" "$error"
 
         ### Log always failed data
         if [ "$dataraw" ]; then
@@ -747,8 +784,6 @@ function PVLngPUT () {
             save_log "$GUID" "@$datafile"
         fi
     fi
-
-    rm $_RESPONSE
 }
 
 ##############################################################################
@@ -781,7 +816,9 @@ function PVLngPUTraw () {
 
     temp_file _RESPONSE
 
-    set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
+    [ $VERBOSE -ge 2 ] && dbg="--header X-Debug:true"
+
+    set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" $dbg \
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
                          --data-binary $data $PVLngURL/data/raw/$GUID.txt)
 
@@ -823,8 +860,10 @@ function PVLngPUTBatch () {
 
     temp_file _RESPONSE
 
+    [ $VERBOSE -ge 2 ] && dbg="--header X-Debug:true"
+
     set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
-                         --header "Content-Type: text/plain" \
+                         --header "Content-Type: text/plain" $dbg \
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
                          --data-binary $data $PVLngURL/batch/$GUID.txt)
 
@@ -835,7 +874,7 @@ function PVLngPUTBatch () {
     else
         ### errors
         lkv 0 "HTTP code" $1
-        [ -f $_RESPONSE ] && log -1 @$_RESPONSE Response
+        [ -f $_RESPONSE ] && log 0 @$_RESPONSE Response
         save_log "$GUID" "HTTP code: $1 - raw: $raw"
         [ -f $_RESPONSE ] && save_log "$GUID" @$_RESPONSE
     fi
@@ -888,8 +927,10 @@ function _PUT_CSV () {
 
     temp_file _RESPONSE
 
+    [ $VERBOSE -ge 2 ] && dbg="--header X-Debug:true"
+
     set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
-                         --header "Content-Type: text/plain" \
+                         --header "Content-Type: text/plain" $dbg \
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
                          --data-binary $data $PVLngURL/csv$bulk/$GUID.txt)
 
@@ -900,7 +941,7 @@ function _PUT_CSV () {
     else
         ### errors
         lkv 0 "HTTP code" $1
-        [ -f $_RESPONSE ] && log -1 @$_RESPONSE Response
+        [ -f $_RESPONSE ] && log 0 @$_RESPONSE Response
         save_log "$GUID" "HTTP code: $1 - raw: $raw"
         [ -f $_RESPONSE ] && save_log "$GUID" @$_RESPONSE
     fi

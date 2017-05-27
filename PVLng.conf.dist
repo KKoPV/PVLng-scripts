@@ -57,6 +57,7 @@ SaveDataDir=
 CurlOpts="--connect-timeout 10 --retry 3 --retry-max-time 60"
 
 ##############################################################################
-### Port for Socket Server
+### Send to mosquitto Server running on $mosquittoServer
 ##############################################################################
-SocketServerPort=12121
+### <Sever>[:<port>]
+#mosquittoServer=$PVLngDomain:1883

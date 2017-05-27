@@ -1,0 +1,140 @@
+bz    buzzer ........................ 0x006.3   on=0,off=1
+cc    connection time till connect .. 0x54f:2   s, time interval
+cd    this computer's date .......... -0006.6   yyyy-mm-dd
+cn    connection type ............... 0x54d:1   cable=0,lost=3,wireless=15,unknown-X
+ct    this computer's time .......... -0018.6   hh:mm:ss
+cw    this computer's date time ..... -0012.12  yyyy-mm-dd hh:mm:ss
+dp    dew point ..................... 0x3ce:4   C, temperature
+dph   dew point max ................. 0x3d8:4   C, temperature
+dpha  dew point max alarm ........... 0x3f6:4   C, temperature
+dphs  dew point max alarm set ....... 0x01c.3   off=0,on=1
+dphv  dew point max alarm active .... 0x023.3   inactive=0,active=1
+dphw  dew point max when ............ 0x3e6:10  yyyy-mm-dd hh:mm
+dpl   dew point min ................. 0x3d3:4   C, temperature
+dpla  dew point min alarm ........... 0x3f1:4   C, temperature
+dpls  dew point min alarm set ....... 0x01c.2   off=0,on=1
+dplv  dew point min alarm active .... 0x023.2   inactive=0,active=1
+dplw  dew point min when ............ 0x3dc:10  yyyy-mm-dd hh:mm
+for   forecast ...................... 0x26b:1   rainy=0,cloudy=1,sunny=2,unknown-X
+hc    history time till sample ...... 0x6b5:3   min, time interval
+hi    history interval .............. 0x6b2:3   min, time interval
+hn    history number of records ..... 0x6c4:2   record number
+hp    history last record pointer ... 0x6c2:2   record number
+hw    history last sample when ...... 0x6b8:10  yyyy-mm-dd hh:mm
+ih    in humidity ................... 0x3fb:2   %, humidity
+ihh   in humidity max ............... 0x3ff:2   %, humidity
+ihha  in humidity max alarm ......... 0x417:2   %, humidity
+ihhs  in humidity max alarm set ..... 0x01d.3   off=0,on=1
+ihhv  in humidity max alarm active .. 0x024.3   inactive=0,active=1
+ihhw  in humidity max when .......... 0x40b:10  yyyy-mm-dd hh:mm
+ihl   in humidity min ............... 0x3fd:2   %, humidity
+ihla  in humidity min alarm ......... 0x415:2   %, humidity
+ihls  in humidity min alarm set ..... 0x01d.2   off=0,on=1
+ihlv  in humidity min alarm active .. 0x024.2   inactive=0,active=1
+ihlw  in humidity min when .......... 0x401:10  yyyy-mm-dd hh:mm
+it    in temp ....................... 0x346:4   C, temperature
+ith   in temp max ................... 0x350:4   C, temperature
+itha  in temp max alarm ............. 0x36e:4   C, temperature
+iths  in temp max alarm set ......... 0x01b.1   off=0,on=1
+ithv  in temp max alarm active ...... 0x022.1   inactive=0,active=1
+ithw  in temp max when .............. 0x35e:10  yyyy-mm-dd hh:mm
+itl   in temp min ................... 0x34b:4   C, temperature
+itla  in temp min alarm ............. 0x369:4   C, temperature
+itls  in temp min alarm set ......... 0x01b.0   off=0,on=1
+itlv  in temp min alarm active ...... 0x022.0   inactive=0,active=1
+itlw  in temp min when .............. 0x354:10  yyyy-mm-dd hh:mm
+lb    lcd backlight ................. 0x016.0   off=0,on=1
+lc    lcd contrast (ro) ............. 0x266:1   contrast
+oh    out humidity .................. 0x419:2   %, humidity
+ohh   out humidity max .............. 0x41d:2   %, humidity
+ohha  out humidity max alarm ........ 0x435:2   %, humidity
+ohhs  out humidity max alarm set .... 0x01d.1   off=0,on=1
+ohhv  out humidity max alarm active . 0x024.1   inactive=0,active=1
+ohhw  out humidity max when ......... 0x429:10  yyyy-mm-dd hh:mm
+ohl   out humidity min .............. 0x41b:2   %, humidity
+ohla  out humidity min alarm ........ 0x433:2   %, humidity
+ohls  out humidity min alarm set .... 0x01d.0   off=0,on=1
+ohlv  out humidity min alarm active . 0x024.0   inactive=0,active=1
+ohlw  out humidity min when ......... 0x41f:10  yyyy-mm-dd hh:mm
+ot    out temp ...................... 0x373:4   C, temperature
+oth   out temp max .................. 0x37d:4   C, temperature
+otha  out temp max alarm ............ 0x39b:4   C, temperature
+oths  out temp max alarm set ........ 0x01b.3   off=0,on=1
+othv  out temp max alarm active ..... 0x022.3   inactive=0,active=1
+othw  out temp max when ............. 0x38b:10  yyyy-mm-dd hh:mm
+otl   out temp min .................. 0x378:4   C, temperature
+otla  out temp min alarm ............ 0x396:4   C, temperature
+otls  out temp min alarm set ........ 0x01b.2   off=0,on=1
+otlv  out temp min alarm active ..... 0x022.2   inactive=0,active=1
+otlw  out temp min when ............. 0x381:10  yyyy-mm-dd hh:mm
+pa    pressure absolute ............. 0x5d8:5   hPa, pressure
+pah   pressure absolute max ......... 0x60a:5   hPa, pressure
+pal   pressure absolute min ......... 0x5f6:5   hPa, pressure
+pc    pressure correction ........... 0x5ec:5   hPa, pressure
+pha   pressure max alarm ............ 0x650:5   hPa, pressure
+phs   pressure max alarm set ........ 0x01a.3   off=0,on=1
+phv   pressure max alarm active ..... 0x021.3   inactive=0,active=1
+phw   pressure max when ............. 0x628:10  yyyy-mm-dd hh:mm
+pla   pressure min alarm ............ 0x63c:5   hPa, pressure
+pls   pressure min alarm set ........ 0x01a.2   off=0,on=1
+plv   pressure min alarm active ..... 0x021.2   inactive=0,active=1
+plw   pressure min when ............. 0x61e:10  yyyy-mm-dd hh:mm
+pr    pressure relative ............. 0x5e2:5   hPa, pressure
+prh   pressure relative max ......... 0x614:5   hPa, pressure
+prl   pressure relative min ......... 0x600:5   hPa, pressure
+rd    rain 24h ...................... 0x497:6   mm, rain
+rdh   rain 24h max .................. 0x49d:6   mm, rain
+rdha  rain 24h max alarm ............ 0x4ae:6   mm, rain
+rdhs  rain 24h alarm set ............ 0x01e.0   off=0,on=1
+rdhv  rain 24h alarm active ......... 0x025.0   inactive=0,active=1
+rdhw  rain 24h max when ............. 0x4a3:10  yyyy-mm-dd hh:mm
+rh    rain 1h ....................... 0x4b4:6   mm, rain
+rhh   rain 1h max ................... 0x4ba:6   mm, rain
+rhha  rain 1h max alarm ............. 0x4cb:6   mm, rain
+rhhs  rain 1h alarm set ............. 0x01e.1   off=0,on=1
+rhhv  rain 1h alarm active .......... 0x025.1   inactive=0,active=1
+rhhw  rain 1h max when .............. 0x4c0:10  yyyy-mm-dd hh:mm
+rt    rain total .................... 0x4d2:6   mm, rain
+rtrw  rain total reset when ......... 0x4d8:10  yyyy-mm-dd hh:mm
+sd    station set date .............. 0x24d:6   yyyy-mm-dd
+siv   icon alarm active ............. 0x020.2   inactive=0,active=1
+sss   storm warn alarm set .......... 0x019.2   off=0,on=1
+st    station set time .............. 0x200:6   hh:mm:ss
+sts   station time alarm set ........ 0x019.0   off=0,on=1
+stv   station time alarm active ..... 0x020.0   inactive=0,active=1
+sw    station current date time ..... 0x23b:11  yyyy-mm-dd hh:mm
+ten   tendency ...................... 0x26c:1   steady=0,rising=1,falling=2,unknown-X
+w0    wind direction ................ 0x52c:1   deg, North=0 clockwise
+w1    wind direction 1 .............. 0x52d:1   deg, North=0 clockwise
+w2    wind direction 2 .............. 0x52e:1   deg, North=0 clockwise
+w3    wind direction 3 .............. 0x52f:1   deg, North=0 clockwise
+w4    wind direction 4 .............. 0x530:1   deg, North=0 clockwise
+w5    wind direction 5 .............. 0x531:1   deg, North=0 clockwise
+wc    wind chill .................... 0x3a0:4   C, temperature
+wch   wind chill max ................ 0x3aa:4   C, temperature
+wcha  wind chill max alarm .......... 0x3c8:4   C, temperature
+wchs  wind chill max alarm set ...... 0x01c.1   off=0,on=1
+wchv  wind chill max alarm active ... 0x023.1   inactive=0,active=1
+wchw  wind chill max when ........... 0x3b8:10  yyyy-mm-dd hh:mm
+wcl   wind chill min ................ 0x3a5:4   C, temperature
+wcla  wind chill min alarm .......... 0x3c3:4   C, temperature
+wcls  wind chill min alarm set ...... 0x01c.0   off=0,on=1
+wclv  wind chill min alarm active ... 0x023.0   inactive=0,active=1
+wclw  wind chill min when ........... 0x3ae:10  yyyy-mm-dd hh:mm
+wds   wind direction alarm set ...... 0x01f.2   off=0,on=1
+wdv   wind direction alarm active ... 0x026.2   inactive=0,active=1
+ws    wind speed .................... 0x529:3   m/s, speed
+wsh   wind speed max ................ 0x4f4:3   m/s, speed
+wsha  wind speed max alarm .......... 0x538:3   m/s, speed
+wshs  wind speed max alarm set ...... 0x01f.1   off=0,on=1
+wshv  wind speed max alarm active ... 0x026.1   inactive=0,active=1
+wshw  wind speed max when ........... 0x502:10  yyyy-mm-dd hh:mm
+wsl   wind speed min ................ 0x4ee:3   m/s, speed
+wsla  wind speed min alarm .......... 0x533:3   m/s, speed
+wsls  wind speed min alarm set ...... 0x01f.0   off=0,on=1
+wslv  wind speed min alarm active ... 0x026.0   inactive=0,active=1
+wslw  wind speed min when ........... 0x4f8:10  yyyy-mm-dd hh:mm
+wso   wind speed overflow ........... 0x527:1   no=0,overflow=1,unknown-X
+wsu   wind speed units .............. 0x00f:1   m/s=0,knots=1,beaufort=2,km/h=3,mph=4,unknown-X
+wsv   wind speed validity ........... 0x528:1   ok=0,invalid=1,overflow=2,unknown-X
+wv    wind velocity ................. 0x529:4   ms,d, wind speed and direction

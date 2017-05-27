@@ -62,7 +62,7 @@ while true; do
     ### Run only during daylight +- 60 min
     if [ "$FORCE" -o $(check_daylight 60 yes) -eq 1 ]; then
 
-        for i in $GUIDs; do
+        for i in $(getGUIDs); do
 
             sec 1 $i
 

@@ -41,7 +41,7 @@ cat /proc/meminfo >$MEMFILE
 
 log 2 @$MEMFILE /proc/meminfo
 
-for i in $GUIDs; do
+for i in $(getGUIDs); do
 
     sec 1 $i
 

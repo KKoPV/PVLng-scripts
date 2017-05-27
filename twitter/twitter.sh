@@ -68,7 +68,7 @@ check_required STATUS 'Status message'
 ### Used by twitter item functions for buffering
 temp_file ITEMTMPFILE
 
-for i in $GUIDs; do
+for i in $(getGUIDs); do
 
     sec 1 $i
 

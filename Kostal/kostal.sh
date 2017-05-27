@@ -50,7 +50,7 @@ curl="$(curl_cmd)"
 lines=0
 echo 0 >$CNTFILE
 
-for i in $GUIDs; do
+for i in $(getGUIDs); do
 
     sec 1 $i
 

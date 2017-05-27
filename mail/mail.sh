@@ -62,7 +62,7 @@ if [ "${BODY:0:1}" == @ ]; then
     BODY=$(<$BODY)
 fi
 
-for i in $GUIDs; do
+for i in $(getGUIDs); do
 
     sec 1 $i
 

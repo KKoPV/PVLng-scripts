@@ -58,7 +58,7 @@ temp_file CSVFILE
 
 curl=$(curl_cmd)
 
-for i in $GUIDs; do
+for i in $(getGUIDs); do
 
     sec 1 $i
 

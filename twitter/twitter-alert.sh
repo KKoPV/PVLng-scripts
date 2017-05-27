@@ -17,7 +17,7 @@ pwd=$(dirname $0)
 . $pwd/../PVLng.sh
 
 ### Script options
-opt_help      "Post status from alert/alert.sh - method 'twitter'"
+opt_help "Post status from alert/alert.sh - method 'twitter'"
 
 ### PVLng default options
 opt_define_pvlng

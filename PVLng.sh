@@ -132,12 +132,12 @@ function read_config () {
 
     ### Import configuration
     . $cfg_file
-
-    ### Prepare GUIDs, find up to 99 sections defined by GUID_? or USE_?
-    GUIDs=
-    for i in {1..99}; do
-        eval [ "\$GUID_$i\$USE_$i" ] && GUIDs="$GUIDs $i"
-    done
+#
+#     ### Prepare GUIDs, find up to 99 sections defined by GUID_? or USE_?
+#     GUIDs=
+#     for i in {1..99}; do
+#         eval [ "\$GUID_$i\$USE_$i" ] && GUIDs="$GUIDs $i"
+#     done
 }
 
 ##############################################################################

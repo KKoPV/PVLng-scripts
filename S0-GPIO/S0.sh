@@ -53,7 +53,8 @@ S0SaveData () {
 ##############################################################################
 . $pwd/../PVLng.sh
 
-S0=$pwd/bin/S0.py
+: ${PYTHON:=$(which python2)}
+S0="$PYTHON $pwd/bin/S0.py"
 
 ### Script options
 opt_help      "Read S0 impulses via GPIO pin"

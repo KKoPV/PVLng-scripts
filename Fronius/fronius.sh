@@ -69,7 +69,7 @@ temp_file RESPONSEFILE
 
 curl="$(curl_cmd --header 'Content-Type=application/json')"
 
-for i in $GUIDs; do
+for i in $(getGUIDs); do
 
     sec 1 $i
 

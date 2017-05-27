@@ -659,7 +659,10 @@ function PVLngPUT () {
     local time=$(int $LOCALTIME)
 
     ### Use for MQTT local time if not given
-    [ "$mosquittoServer" ] && time=1
+    if [ "$mosquittoServer" ]; then
+        log 1 "Send data via MQTT $mosquittoServer, use local timestamp by default"
+        time=1
+    fi
 
     sec 2 "API PUT data"
     lkv 2 GUID $GUID

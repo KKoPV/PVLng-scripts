@@ -1,9 +1,8 @@
 #!/bin/bash
 ##############################################################################
 ### @author     Knut Kohl <github@knutkohl.de>
-### @copyright  2012-2015 Knut Kohl
+### @copyright  2012 Knut Kohl
 ### @license    MIT License (MIT) http://opensource.org/licenses/MIT
-### @version    1.0.0
 ##############################################################################
 
 ##############################################################################
@@ -20,7 +19,7 @@ opt_help_hint "See dist/loadavg.conf for details."
 ### PVLng default options with flag for local time and save data
 opt_define_pvlng x
 
-source $(opt_build)
+. $(opt_build)
 
 read_config "$CONFIG"
 
@@ -28,9 +27,11 @@ read_config "$CONFIG"
 ### Functions
 ##############################################################################
 SaveLoadAvg () {
+    [ "$1" -a "$2" ] || return 0
+
     i=$((i+1))
-    [ "$1" ] && sec 1 $i
-    [ "$1" -a "$2" ] && PVLngPUT $@
+    sec 1 $i
+    PVLngPUT $@
 }
 
 ##############################################################################

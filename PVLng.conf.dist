@@ -10,14 +10,21 @@
 ##############################################################################
 
 ##############################################################################
-### Host for HTTP API and Socket Server
+### Host of HTTP API server
 ##############################################################################
 ### If your PVLng installation runs not exclusive on this server, change it
 ### to your settings, Port is optional if it is the default (80)
+### <Server>[:<port>]
 ##############################################################################
 PVLngDomain="localhost"
 
 PVLngURL="http://$PVLngDomain/api"
+
+##############################################################################
+### Host of Mosquitto server
+##############################################################################
+### <Server>[:<port>]
+#mosquittoServer=$PVLngDomain:1883
 
 ##############################################################################
 ### API key
@@ -55,9 +62,3 @@ SaveDataDir=
 ### More at http://curl.haxx.se/docs/manpage.html
 ##############################################################################
 CurlOpts="--connect-timeout 10 --retry 3 --retry-max-time 60"
-
-##############################################################################
-### Send to mosquitto Server running on $mosquittoServer
-##############################################################################
-### <Sever>[:<port>]
-#mosquittoServer=$PVLngDomain:1883

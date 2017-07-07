@@ -11,15 +11,18 @@
 ##############################################################################
 pwd=$(dirname $0)
 
+### API URL with placeholders
+### Units: ca: same as si, except that windSpeed is in kilometers per hour
+APIURL='https://api.darksky.net/forecast/$APIKEY/$LAT,$LON?units=si&lang=$LANGUAGE&exclude=minutely,daily,alerts,flags'
+
 ##############################################################################
 ### Init
 ##############################################################################
 . $pwd/../PVLng.sh
 
 ### Script options
-opt_help      "Get last reading of a single channel.
-Can be logged to file for e.g. for solar estimate over day"
-opt_help_hint "See dist/watch.conf for details."
+opt_help      "Fetch data from Dark Sky API"
+opt_help_hint "See dist/forecast.conf for details."
 
 ### PVLng default options
 opt_define_pvlng
@@ -33,21 +36,31 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
-check_required GUID "Channel GUID"
-check_default FORMAT "%s"
+check_default LANGUAGE EN
+
+check_required APIURL 'Dark Sky API URL'
+check_required APIKEY 'Dark Sky API key'
+check_required GUID   'Dark Sky group channel GUID'
 
 ##############################################################################
 ### Go
 ##############################################################################
-set -- $(PVLngGET "data/$GUID.tsv?period=readlast")
 
-### Got data?
-[ "$1" ] || exit 0
+### Get location from PVLng settings
+LAT=$(PVLngGET settings/core/null/Latitude.txt)
+LON=$(PVLngGET settings/core/null/Longitude.txt)
 
-### date time;timestamp
-dt=$(date -d @$1 +'%Y-%m-%d %H:%M:%S;%s')
+eval APIURL="\""$APIURL"\""
 
-printf -v result "$dt;$FORMAT" "$2"
+log 2 $APIURL
 
-sec 1 Result
-[ "$TEST" ] && log 1 "$result" || echo $result
+### Query Dark Sky API
+$(curl_cmd) --output $TMPFILE $APIURL
+rc=$?
+
+[ $rc -eq 0 ] || curl_error_exit $rc "Dark Sky API"
+
+### Test mode
+log 2 @$TMPFILE "API response"
+
+[ "$TEST" ] || PVLngPUT $GUID @$TMPFILE

@@ -1,0 +1,7 @@
+API features require an API key.
+
+Sign up for a key:
+http://www.wunderground.com/weather/api/
+
+Check your language code here:
+http://www.wunderground.com/weather/api/d/docs?d=resources/country-to-iso-matching

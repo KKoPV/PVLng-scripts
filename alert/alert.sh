@@ -150,7 +150,7 @@ for i in $(getGUIDs); do
             [ $FACTOR != 1 ] && value=$(calc "$value * $FACTOR")
 
             var1 FORMAT $i '%s'
-            printf -v value $FORMAT $value
+            printf -v value $FORMAT "$value"
         fi
 
         lkv 2 "$name" "$value"
@@ -218,9 +218,11 @@ for i in $(getGUIDs); do
 
     var1 EMPTY $i '<empty>'
 
+    sh="$pwd/action/$ACTION.sh"
     ### Check if action function exists
-    if [ -s "$pwd/action/$ACTION.sh" ]; then
-        . "$pwd/action/$ACTION.sh"
+    if [ -s "$sh" ]; then
+        lkv 2 Run "$sh"
+        . "$sh"
     else
         log 0 ERROR - Unknown function: $ACTION
     fi

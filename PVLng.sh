@@ -676,31 +676,25 @@ function PVLngPUT () {
     lkv 2 Data "$data"
 
     if [ "${data:0:1}" != "@" ]; then
-        ### No file
+        ### No data file
         dataraw="$data"
         if [ "$timestamp" ]; then
             ### Given timestamp
             if echo "$timestamp" | grep -qe '[^0-9]'; then
                 ### Date time
                 lkv 2 'Datetime given' "$timestamp"
-                data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
+                timestamp=$(date --date="$timestamp" +%s)
             else
                 ### numeric timestamp
                 lkv 2 'Timestamp given' "$(date --date="@$timestamp")"
-                data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":$timestamp}"
             fi
-        elif [ $time == 0 ]; then
-            ### Only data, use timestamp from destination
-            data="{\"data\":\"$(JSON_quote "$data")\"}"
-        else
+        elif [ $time -gt 0 ]; then
             ### Send local timestamp rounded to $LOCALTIME secods
             lkv 1 "Use local time" "rounded to $time seconds"
             ### force floor of division part, awk have no "round()" or "floor()"
             timestamp=$(calc "int($REQUEST_TIME / $time) * $time" 0)
             lkv 2 'Timestamp local' $(date -Iseconds --date=@$timestamp)
-            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":$timestamp}"
         fi
-        lkv 2 Send "$data"
     else
         ### File
         datafile="${data:1}"
@@ -719,12 +713,6 @@ function PVLngPUT () {
         fi
     fi
 
-#    ### For debugging only, register a "request bin" before at http://requestb.in/
-#    binUrl=http://requestb.in/...
-#    $(curl_cmd) --header "Content-Type: application/json" \
-#                --header "X-URL-for: $PVLngURL/data/$GUID.txt" \
-#                --request PUT --data-binary $data $binUrl >/dev/null 2>&1
-
     temp_file _RESPONSE
 
     error=
@@ -737,9 +725,13 @@ function PVLngPUT () {
         port=${2:-1883}
 
         if [ ! "$datafile" ]; then
-            mosquitto_pub -d -h $host -p $port -t pvlng/$PVLngAPIkey/data/$GUID -q 1 -m "$data" >$_RESPONSE 2>&1
+            mosquitto_pub -d -i $HOSTNAME-publisher -h $host -p $port -q 1 \
+                          -t pvlng/$PVLngAPIkey/data/$GUID/$timestamp/$data \
+                          -n >$_RESPONSE 2>&1
         else
-            mosquitto_pub -d -h $host -p $port -t pvlng/$PVLngAPIkey/data/$GUID -q 1 -f $datafile >$_RESPONSE 2>&1
+            mosquitto_pub -d -i $HOSTNAME-publisher -h $host -p $port -q 1 \
+                          -t pvlng/$PVLngAPIkey/data/$GUID \
+                          -f $datafile >$_RESPONSE 2>&1
         fi
 
         if [ $? -ne 0 ]; then
@@ -751,6 +743,21 @@ function PVLngPUT () {
 
     else
         ### Send via HTTP
+
+        if [ "${data:0:1}" != "@" ]; then
+            ### Raw data, no file
+            if [ $time == 0 ]; then
+                ### Only data, use timestamp from destination
+                data="{\"data\":\"$(JSON_quote "$data")\"}"
+            else
+                data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":$timestamp}"
+            fi
+        fi
+
+        request_bin $GUID "$data"
+
+        lkv 2 Send "$data"
+
         [ $VERBOSE -ge 2 ] && dbg="--header X-Debug:true"
 
         set -- $($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" \
@@ -1321,6 +1328,19 @@ function daemonize_check () {
     else
         ### End script
         exit
+    fi
+}
+
+##############################################################################
+### Register a "request bin" at http://requestb.in/
+### $1 - Channel GUID
+### $2 - Measuring data
+##############################################################################
+function request_bin () {
+    if [ "$RequestBinUrl" ]; then
+        curl --header "Content-Type: application/json" \
+             --header "X-URL-for: $PVLngURL/data/$1.txt" \
+             --request POST --data-binary "$2" $RequestBinUrl >/dev/null 2>&1
     fi
 }
 

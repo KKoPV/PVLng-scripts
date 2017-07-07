@@ -3,16 +3,16 @@
 #set -x
 
 pwd=$(readlink -f $(dirname $0))
-tmp=$1
-
-[ -z "$tmp" ] && printf "\nUsage: $0 <temp. dir>\n\n" && exit 1
+tmp=${1:-$(dirname $(mktemp -u))}
 
 rsync -a "$pwd" "$tmp" --exclude .git --exclude data
+
+[ $? -eq 0 ] || exit
 
 echo
 echo "Put this to your crontab:"
 echo "    @reboot $pwd/$(basename $0) $tmp"
 echo
-echo "Run your scripts in crontab with this base dir:"
-echo "    $tmp/"
+echo "Run your scripts in crontab like this"
+echo "    bash $tmp/<directory>/<script> ..."
 echo

@@ -725,6 +725,7 @@ function PVLngPUT () {
         port=${2:-1883}
 
         if [ ! "$datafile" ]; then
+            ### Send single sclar reading as null message direct as topic
             mosquitto_pub -d -i $HOSTNAME-publisher -h $host -p $port -q 1 \
                           -t pvlng/$PVLngAPIkey/data/$GUID/$timestamp/$data \
                           -n >$_RESPONSE 2>&1
@@ -780,7 +781,7 @@ function PVLngPUT () {
         fi
     fi
 
-    if [ -n "$error" ]; then
+    if [ "$error" ]; then
         lkv 0 Data "$data"
         lkv 0 ERROR "$error"
         save_log "$GUID" "$error"

@@ -21,7 +21,7 @@ REQUEST_TIME=$(date +%s.%N)
 ### $3 - If $2 is a file, title for file content, default "Result"
 ##############################################################################
 function log () {
-    [ $VERBOSE -ge $1 ] || return
+    [ $VERBOSE -ge $1 ] || return 0
     local level=$1
     local time=[$(date +%H:%M:%S.%N | cut -b-$TIMESTAMPLENGTH)]
 #   local l='eidp456' ### error info debug paranoia ...
@@ -60,7 +60,7 @@ function log () {
 ### $3 - Value
 ##############################################################################
 function lkv () {
-    [ $VERBOSE -ge $1 ] || return
+    [ $VERBOSE -ge $1 ] || return 0
     log $1 "$(printf "%-15s = %s" "$2" "$3")"
 }
 
@@ -71,7 +71,7 @@ function lkv () {
 ### $3 - Value
 ##############################################################################
 function lkb () {
-    [ $VERBOSE -ge $1 ] || return
+    [ $VERBOSE -ge $1 ] || return 0
     local value=
     [ $(bool "$3") -eq 1 ] && value=true || value=false
     lkv $1 "$2" $value
@@ -84,7 +84,7 @@ function lkb () {
 ### $@ - Output
 ##############################################################################
 function sec () {
-    [ $VERBOSE -ge $1 ] || return
+    [ $VERBOSE -ge $1 ] || return 0
     local level=$1
     shift ### Move out level
     local header=$1
@@ -428,7 +428,7 @@ function run_file () {
 ##############################################################################
 function check_lock () {
     ### Skip check in test mode
-    [ "$TEST" ] && return
+    [ "$TEST" ] && return 0
 
     local file=${1:-$0}
 
@@ -556,7 +556,7 @@ function PVLngStorePUT () {
         log 2 $data "Send file"
     fi
 
-    [ "$TEST" ] && return
+    [ "$TEST" ] && return 0
 
     temp_file _RESPONSE
 
@@ -670,7 +670,7 @@ function PVLngPUT () {
     ### Skip empty data
     if [ -z "$data" ]; then
         log 2 "Skip empty data"
-        return
+        return 0
     fi
 
     lkv 2 Data "$data"
@@ -702,7 +702,7 @@ function PVLngPUT () {
         log 2 @$datafile
     fi
 
-    [ "$TEST" ] && return
+    [ "$TEST" ] && return 0
 
     ### Log data
     if [ "$SAVEDATA" ]; then
@@ -820,7 +820,7 @@ function PVLngPUTraw () {
         log 2 @$datafile
     fi
 
-    [ "$TEST" ] && return
+    [ "$TEST" ] && return 0
 
     ### Log data
     [ "$SAVEDATA" ] && _saveFile "" $GUID $datafile
@@ -867,7 +867,7 @@ function PVLngPUTBatch () {
     lkv 2 GUID $GUID
     lkv 2 "Data file" "$data"
 
-    [ "$TEST" ] && return
+    [ "$TEST" ] && return 0
 
     temp_file _RESPONSE
 
@@ -934,7 +934,7 @@ function _PUT_CSV () {
     lkv 2 GUID $GUID
     log 2 "Data file" "$data"
 
-    [ "$TEST" ] && return
+    [ "$TEST" ] && return 0
 
     temp_file _RESPONSE
 
@@ -1174,7 +1174,7 @@ function sendMail () {
 
     lkv 2 Command "$(echo "$cmd" | sed 's~\s\+~ ~g')"
 
-    [ "$TEST" ] && return
+    [ "$TEST" ] && return 0
 
     eval $cmd
 }
@@ -1205,11 +1205,11 @@ function jq () {
 ##############################################################################
 function run_time () {
 
-    [ $(int $DAEMONIZE) -gt 0 ] && return
+    [ $(int $DAEMONIZE) -gt 0 ] && return 0
 
     local level=${1:-2}
 
-    [ $VERBOSE -ge $level ] || return
+    [ $VERBOSE -ge $level ] || return 0
 
     ### Time gone since script start
     local t=$(calc "$(now) - $REQUEST_TIME")
@@ -1283,12 +1283,12 @@ function fn_exists () {
 ##############################################################################
 function daemonize () {
 
-    [ $(int $DAEMONIZE) -ne 0 ] || return
+    [ $(int $DAEMONIZE) -ne 0 ] || return 0
 
     ### Check if the script is running in foreground
     case $(ps -o stat= -p $$) in
-        *+*)        ;; # Starter script running in foreground
-          *) return ;; # Background script!
+        *+*)          ;; # Starter script running in foreground
+          *) return 0 ;; # Background script!
     esac
 
     local params="-d $DAEMONIZE -c $(basename $CONFIG)"
@@ -1306,14 +1306,14 @@ function daemonize () {
         exit
     fi
 
-    [ "$TEST" ] && DAEMONIZE=0 && return
+    [ "$TEST" ] && DAEMONIZE=0 && return 0
 
     log 0 "Start with interval ${DAEMONIZE}s ..."
 
     ### Start itself in background
     nohup $cmd >/dev/null 2>&1 &
 
-    exit
+    exit 0
 }
 
 ##############################################################################
@@ -1328,7 +1328,7 @@ function daemonize_check () {
         sleep $sleep
     else
         ### End script
-        exit
+        exit 0
     fi
 }
 

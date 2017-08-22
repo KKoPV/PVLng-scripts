@@ -658,12 +658,6 @@ function PVLngPUT () {
     local datafile=
     local time=$(int $LOCALTIME)
 
-    ### Use for MQTT local time if not given
-    if [ "$mosquittoServer" ]; then
-        log 1 "Send data via MQTT $mosquittoServer, use local timestamp by default"
-        time=1
-    fi
-
     sec 2 "API PUT data"
     lkv 2 GUID $GUID
 
@@ -693,7 +687,8 @@ function PVLngPUT () {
             lkv 1 "Use local time" "rounded to $time seconds"
             ### force floor of division part, awk have no "round()" or "floor()"
             timestamp=$(calc "int($REQUEST_TIME / $time) * $time" 0)
-            lkv 2 'Timestamp local' $(date -Iseconds --date=@$timestamp)
+            timestamp=$(date +%FT%T%:z --date=@$timestamp) # ISO 8601
+            lkv 2 'Timestamp local' $timestamp
         fi
     else
         ### File
@@ -725,14 +720,18 @@ function PVLngPUT () {
         port=${2:-1883}
 
         if [ ! "$datafile" ]; then
-            ### Send single sclar reading as null message direct as topic
+            ### Use for scalar data and MQTT always local time if not given
+            if [ -z "$timestamp" ]; then
+                log 1 "Send data via MQTT $mosquittoServer, use local timestamp"
+                timestamp=$(date +%FT%T%:z) # ISO 8601
+            fi
+            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
+            lkv 2 Send "$data"
             mosquitto_pub -d -i $HOSTNAME-publisher -h $host -p $port -q 1 \
-                          -t pvlng/$PVLngAPIkey/data/$GUID/$timestamp/$data \
-                          -n >$_RESPONSE 2>&1
+                          -t pvlng/$PVLngAPIkey/data/$GUID  -m $data>$_RESPONSE 2>&1
         else
             mosquitto_pub -d -i $HOSTNAME-publisher -h $host -p $port -q 1 \
-                          -t pvlng/$PVLngAPIkey/data/$GUID \
-                          -f $datafile >$_RESPONSE 2>&1
+                          -t pvlng/$PVLngAPIkey/data/$GUID -f $datafile >$_RESPONSE 2>&1
         fi
 
         if [ $? -ne 0 ]; then

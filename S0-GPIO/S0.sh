@@ -24,6 +24,7 @@ S0StartListener () {
     eval "$cmd &"
 }
 
+##############################################################################
 S0SaveData () {
     ### log exists and is not empty?
     [ -s "$LOG" ] || return
@@ -104,7 +105,6 @@ pid=($(ps ax | grep -e "[ /]S0.py" | grep "$CHANNEL"))
 if [ ! "$pid" ]; then
     ### Mostly 1st run, start S0 listener
     S0StartListener
-
 else
     ### Fine, S0 listener is running
     lkv 1 "S0 listener pid" $pid
@@ -116,8 +116,9 @@ else
         log 0 "Remove log $LOG ..."
         rm "$LOG" 2>/dev/null
         log 0 'Done'
-        exit
+    else
+        S0SaveData
     fi
-
-    S0SaveData
 fi
+
+exit 0

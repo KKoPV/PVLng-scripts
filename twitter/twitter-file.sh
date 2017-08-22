@@ -110,3 +110,5 @@ while [ $i -lt $PATTERN_N ]; do
     done
 
 done
+
+exit 0

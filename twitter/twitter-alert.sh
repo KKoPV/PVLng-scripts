@@ -36,3 +36,5 @@ args=$@
 ### Go
 ##############################################################################
 $pwd/twitter-file.sh $args -p $RUNDIR/twitter.alert.\*
+
+exit 0

@@ -81,3 +81,5 @@ for i in $(getGUIDs); do
     PVLngPUTbulkCSV $GUID @$CSVFILE
 
 done
+
+exit 0

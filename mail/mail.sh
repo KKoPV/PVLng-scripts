@@ -127,3 +127,5 @@ else
 fi
 
 [ "$result" -eq 1 ] && sendMail "$SUBJECT" "$BODY" "$EMAIL"
+
+exit 0

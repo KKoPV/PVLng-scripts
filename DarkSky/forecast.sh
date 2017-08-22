@@ -64,3 +64,5 @@ rc=$?
 log 2 @$TMPFILE "API response"
 
 [ "$TEST" ] || PVLngPUT $GUID @$TMPFILE
+
+exit 0

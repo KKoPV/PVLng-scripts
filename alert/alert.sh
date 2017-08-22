@@ -101,7 +101,7 @@ if [ "$LIST" ]; then
         ) >>$TMPFILE
     done
     less $TMPFILE
-    exit
+    exit 0
 fi
 
 read_config "$CONFIG"
@@ -228,3 +228,5 @@ for i in $(getGUIDs); do
     fi
 
 done
+
+exit 0

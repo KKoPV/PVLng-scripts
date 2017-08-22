@@ -46,3 +46,5 @@ check_required GUID   'Wunderground group channel GUID'
 $PYTHON $pwd/bin/read.py -c $CHANNELS -w -d $DEVICE -o $TMPFILE
 
 PVLngPUT $GUID @$TMPFILE
+
+exit 0

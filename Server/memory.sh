@@ -1,9 +1,8 @@
 #!/bin/bash
 ##############################################################################
 ### @author      Knut Kohl <github@knutkohl.de>
-### @copyright   2012-2015 Knut Kohl
+### @copyright   2012 Knut Kohl
 ### @license     MIT License (MIT) http://opensource.org/licenses/MIT
-### @version     1.0.0
 ##############################################################################
 
 ##############################################################################
@@ -35,11 +34,18 @@ read_config "$CONFIG"
 ##############################################################################
 ### Go
 ##############################################################################
-temp_file MEMFILE
+### Memory usage snapshot
+cp /proc/meminfo $TMPFILE
 
-cat /proc/meminfo >$MEMFILE
+log 2 @$TMPFILE /proc/meminfo
 
-log 2 @$MEMFILE /proc/meminfo
+### Transform output to variable settings, so
+### MemTotal:        7162764 kB
+### becomes
+### MemTotal=7162764
+while read line; do
+    eval $(echo $line | sed 's/[()]//g' | awk -F':| +' '{print $1"="$3}')
+done <$TMPFILE
 
 for i in $(getGUIDs); do
 
@@ -51,12 +57,21 @@ for i in $(getGUIDs); do
 
     var1 KEY $i
 
-    set -- $(grep "$KEY" $MEMFILE | sed -e 's/[: ]\+/\t/g')
-    [ "$1" ] || continue
+    ### https://stackoverflow.com/a/17383066
+    ### \< matches the transition from non-word to word.
+    KEY=$(echo $KEY | sed -e 's/\</$/g')
 
-    lkv 1 Value $2
+    lkv 2 Formula "$KEY"
+
+    ### Try to replace variables with numerics
+    eval KEY=\"$KEY\"
+    lkv 2 Formula "$KEY"
+
+    value=$(calc "$KEY" 0)
+
+    lkv 1 Value $value
 
     ### Save data
-    PVLngPUT $GUID $2
+    PVLngPUT $GUID $value
 
 done

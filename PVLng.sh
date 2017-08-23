@@ -674,22 +674,23 @@ function PVLngPUT () {
         dataraw="$data"
         if [ "$timestamp" ]; then
             ### Given timestamp
+            lkv 2 'Datetime given' "$timestamp"
             if echo "$timestamp" | grep -qe '[^0-9]'; then
                 ### Date time
-                lkv 2 'Datetime given' "$timestamp"
                 timestamp=$(date --date="$timestamp" +%s)
-            else
-                ### numeric timestamp
-                lkv 2 'Timestamp given' "$(date --date="@$timestamp")"
             fi
         elif [ $time -gt 0 ]; then
             ### Send local timestamp rounded to $LOCALTIME secods
-            lkv 1 "Use local time" "rounded to $time seconds"
-            ### force floor of division part, awk have no "round()" or "floor()"
-            timestamp=$(calc "int($REQUEST_TIME / $time) * $time" 0)
-            timestamp=$(date +%FT%T%:z --date=@$timestamp) # ISO 8601
-            lkv 2 'Timestamp local' $timestamp
+            log 1 Use local time rounded down to next $time seconds
+            ### Force floor of division part, awk have no "round()" or "floor()"
+            timestamp=$(calc "int($REQUEST_TIME / $time) * $time")
+        elif [ "$mosquittoServer" ]; then
+            ### Use for scalar data and MQTT always local time if not given
+            log 1 "Send data via MQTT $mosquittoServer, use local timestamp"
+            timestamp=$REQUEST_TIME
         fi
+        timestamp=$(dateISO8601 $timestamp)
+        lkv 2 'Timestamp used' $timestamp
     else
         ### File
         datafile="${data:1}"
@@ -719,19 +720,16 @@ function PVLngPUT () {
         host=$1
         port=${2:-1883}
 
-        if [ ! "$datafile" ]; then
-            ### Use for scalar data and MQTT always local time if not given
-            if [ -z "$timestamp" ]; then
-                log 1 "Send data via MQTT $mosquittoServer, use local timestamp"
-                timestamp=$(date +%FT%T%:z) # ISO 8601
-            fi
-            data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":\"$timestamp\"}"
+        if [ -z "$datafile" ]; then
+            data="{\"timestamp\":\"$timestamp\",\"data\":\"$(JSON_quote "$data")\"}"
             lkv 2 Send "$data"
-            mosquitto_pub -d -i $HOSTNAME-publisher -h $host -p $port -q 1 \
-                          -t pvlng/$PVLngAPIkey/data/$GUID  -m $data>$_RESPONSE 2>&1
+            mosquitto_pub -d -i $HOSTNAME-publisher -h $host -p $port \
+                          -t pvlng/$PVLngAPIkey/data/$GUID -q 1 \
+                          -m $data >$_RESPONSE 2>&1
         else
-            mosquitto_pub -d -i $HOSTNAME-publisher -h $host -p $port -q 1 \
-                          -t pvlng/$PVLngAPIkey/data/$GUID -f $datafile >$_RESPONSE 2>&1
+            mosquitto_pub -d -i $HOSTNAME-publisher -h $host -p $port \
+                          -t pvlng/$PVLngAPIkey/data/$GUID -q 1 \
+                          -f $datafile >$_RESPONSE 2>&1
         fi
 
         if [ $? -ne 0 ]; then
@@ -744,13 +742,13 @@ function PVLngPUT () {
     else
         ### Send via HTTP
 
-        if [ "${data:0:1}" != "@" ]; then
-            ### Raw data, no file
+        if [ -z "$datafile" ]; then
+            ### Raw data
             if [ $time == 0 ]; then
                 ### Only data, use timestamp from destination
                 data="{\"data\":\"$(JSON_quote "$data")\"}"
             else
-                data="{\"data\":\"$(JSON_quote "$data")\",\"timestamp\":$timestamp}"
+                data="{\"timestamp\":\"$timestamp\",\"data\":\"$(JSON_quote "$data")\"}"
             fi
         fi
 
@@ -1345,10 +1343,29 @@ function request_bin () {
 }
 
 ##############################################################################
+### Actual timestamp with nanoseconds
+##############################################################################
 function now () {
     date +%s.%N
 }
 
+##############################################################################
+### Format actual or given timestamp in ISO 8601 format
+### $1 - Timestamp [seconds]
+##############################################################################
+function dateISO8601 () {
+    local timestamp=$1
+    [ "$timestamp" ] && timestamp="--date=@$timestamp"
+    ### Most common Bash date commands for timestamping
+    ### https://zxq9.com/archives/795
+    ### Max. 6 digits for nanoseconds, more doesn't work with PHP strtotime!
+    date +%FT%T.%6N%:z $timestamp
+#    date -Iseconds $timestamp
+}
+
+##############################################################################
+### Shortcuts to enable/disable debugging
+##############################################################################
 function d1 () { set -x; }
 function d0 () { set +x; }
 

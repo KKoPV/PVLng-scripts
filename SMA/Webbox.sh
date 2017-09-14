@@ -49,21 +49,12 @@ check_required WEBBOX 'Webbox IP'
 ##############################################################################
 curl="$(curl_cmd)"
 
-### Check for provided installer password
-if [ "$PASSWORD" ]; then
-    set -- $(echo -n "$PASSWORD" | md5sum)
-    PASSWORD=',"passwd":"'$1'"'
-fi
-
 while true; do
-
-    t=$(now)
+    t=$(now) ### Remember start timestamp
 
     ### Run only during daylight +- 60 min
     if [ "$FORCE" -o $(check_daylight 60 yes) -eq 1 ]; then
-
         for i in $(getGUIDs); do
-
             sec 1 $i
 
             ### If not USE is set, set to $i
@@ -81,7 +72,8 @@ while true; do
             ### Build RPC request, catch all channels from equipment
             ### Response JSON holds no timestamp, use "id" paramter for this,
             ### relevant for loading failed data
-            echo '{"version":"1.0","proc":"GetProcessData","id":"'$(date +%s)'","format":"JSON","params":{"devices":[{"key":"'$SERIAL'"}]}'$PASSWORD'}' >$TMPFILE
+            sed "s/#ID#/$(date +%s)/;s/#SERIAL#/$SERIAL/;s/#PASSWD#/$PASSWORD/" \
+                $pwd/files/GetProcessData.json >$TMPFILE
 
             log 2 @$TMPFILE "Webbox request"
 
@@ -97,8 +89,6 @@ while true; do
                 exit
             fi
 
-            log 2 @$TMPFILE "Webbox response"
-
             ### Check response for error object
             if grep -q '"error"' $TMPFILE; then
                 error_exit "$(printf "ERROR from Webbox:\n%s" "$(<$TMPFILE)")"
@@ -106,11 +96,8 @@ while true; do
 
             ### Save data
             PVLngPUT $GUID @$TMPFILE
-
         done
-
     fi
 
     daemonize_check $t
-
 done

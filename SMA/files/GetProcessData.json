@@ -1,0 +1,14 @@
+{
+    "version": "1.0",
+    "proc": "GetProcessData",
+    "id": "#ID#",
+    "format": "JSON",
+    "params": {
+        "devices": [
+            {
+                "key": "#SERIAL#"
+            }
+        ]
+    },
+    "passwd":"#PASSWD#"
+}

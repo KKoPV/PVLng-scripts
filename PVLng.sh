@@ -43,9 +43,14 @@ function log () {
                 echo >>"$file"
             fi
 
-            while read l; do
-                echo "$time $l"
+            ### http://fahdshariff.blogspot.de/2008/06/read-file-without-trimming-leading.html
+            local OIFS=$IFS
+            IFS=
+            while read -r line; do
+                echo "$time $line"
             done <$file
+            IFS=$OIFS
+
             sec $level ---
         else
             echo "$time $@"
@@ -157,7 +162,7 @@ function bool () {
 ### Return 0 for invalid/empty parameter $1
 ##############################################################################
 function int () {
-    local t=
+    local t
     [ "$1" ] && t=$(expr "$1" \* 1 2>/dev/null)
     [ -z "$t" ] && echo 0 || echo $t
 }
@@ -170,7 +175,7 @@ function int () {
 ##############################################################################
 function calc () {
     ### Replace all ' in formula with "
-    local term=$(echo "${1:-0}" | sed 's/'\''/"/g')
+    local term=$(sed 's/'\''/"/g' <<< "${1:-0}")
     local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }")
 
     lkv ${3:-9} CALC "$term"
@@ -249,7 +254,7 @@ function var1 () {
     eval local val="\$${1}_${2}"
     [ -z "$val" ] && val="$3" && msg='(default)'
     ### Mask embeded '
-    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
+    eval $1="'$(sed -e s/\'/\'\\\\\'\'/g <<< $val)'"
     lkv 2 $1 "$val $msg"
 }
 
@@ -263,7 +268,7 @@ function var1req () {
     eval local val="\$${1}_${2}"
     [ "$val" ] || error_exit "${3} is required (${1}_${2})!"
     ### Mask embeded '
-    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
+    eval $1="'$(sed -e s/\'/\'\\\\\'\'/g <<< $val)'"
     lkv 2 $1 "$val"
 }
 
@@ -305,7 +310,7 @@ function var () {
     eval local val="\$${1}_${2}"
     [ -z "$val" ] && val="$3" && msg='(default)'
     ### Mask embeded '
-    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
+    eval $1="'$(sed -e s/\'/\'\\\\\'\'/g <<< $val)'"
     lkv 2 $1 "$val $msg"
 }
 
@@ -319,7 +324,7 @@ function var_req () {
     eval local val="\$${1}_${2}"
     [ "$val" ] || error_exit "${3} is required (${1}_${2})!"
     ### Mask embeded '
-    eval $1="'$(echo $val | sed -e s/\'/\'\\\\\'\'/g)'"
+    eval $1="'$(sed -e s/\'/\'\\\\\'\'/g <<< $val)'"
     lkv 2 $1 "$val"
 }
 
@@ -357,7 +362,7 @@ function var_bool () {
 function on_exit_init () {
     local next="$1"
     eval "function on_exit () {
-        local new=\"$(echo "$next" | sed -e s/\'/\'\\\\\'\'/g); \$1\"
+        local new=\"$(sed -e s/\'/\'\\\\\'\'/g <<< "$next"); \$1\"
         trap -- \"\$new\" 0
         on_exit_init \"\$new\"
     }"
@@ -371,7 +376,7 @@ on_exit_init true
 ### $1 - file name
 ##############################################################################
 function on_exit_rm () {
-    [ "$1" ] && on_exit 'rm -f "'$1'" >/dev/null 2>&1'
+    [ "$1" ] && on_exit 'rm -f "'$1'" &>/dev/null'
 }
 
 ##############################################################################
@@ -396,7 +401,7 @@ function temp_file () {
 ##############################################################################
 function key_name () {
     ### Remove extension from $2 and replace all not allowed chars with single _
-    local config=$(echo $(basename "$2") | sed 's~[.].*$~~g;s~[^A-Za-z0-9-]~_~g;s~_+~_~g')
+    local config=$(sed 's~[.].*$~~g;s~[^A-Za-z0-9-]~_~g;s~_+~_~g' <<< $(basename "$2"))
     name="$1.$config"
     [ "$3" ] && name="$name.$3"
     echo $name
@@ -450,7 +455,7 @@ function check_lock () {
             exit ${2:-0}
         else
             log 2 "Lock file exists, process $pid missing, purge lock"
-            rm "$file"
+            rm "$file" &>/dev/null
         fi
     fi
 }
@@ -464,6 +469,8 @@ function check_lock () {
 function check_daylight () {
     local grace=${1:-0}
     local daylight=$(PVLngGET "daylight/$grace.txt")
+    daylight=$(int "$daylight")
+
     lkb 2 "Daylight +-$grace" $daylight
 
     if [ "$2" ]; then
@@ -497,7 +504,7 @@ function curl_cmd () {
 ##############################################################################
 function JSON_quote () {
     ### Quote " to \\"
-    echo "$1" | sed -e 's~"~\\"~g' -e 's/^ *//' -e 's/ *$//'
+    sed -e 's~"~\\"~g' -e 's/^ *//' -e 's/ *$//' <<< "$1"
 }
 
 ##############################################################################
@@ -531,7 +538,7 @@ function save_log () {
 ### $1 = GUID or GUID,<attribute>
 ##############################################################################
 function PVLngNC () {
-    echo "$1" | netcat $PVLngDomain $SocketServerPort 2>/dev/null
+    netcat $PVLngDomain $SocketServerPort <<< "$1" 2>/dev/null
     echo $?
 }
 
@@ -541,7 +548,7 @@ function PVLngNC () {
 ### $2 = Value
 ##############################################################################
 function PVLngStorePUT () {
-    local key=$(echo "$1" | tr . -)
+    local key=$(tr . - <<< "$1")
     local value=$2
 
     if [ "${value:0:1}" != "@" ]; then
@@ -565,7 +572,7 @@ function PVLngStorePUT () {
                      --request PUT --write-out %{http_code} --output $_RESPONSE \
                      --data-binary "$data" $PVLngURL/store/$key.json)
 
-    if echo "$rc" | grep -qe '^201'; then
+    if grep -qe '^201' <<< "$rc"; then
         ### 200/201/202 ok
         lkv 2 "HTTP code" $rc
     else
@@ -575,7 +582,7 @@ function PVLngStorePUT () {
         log 0 $data
     fi
 
-    rm $_RESPONSE
+    rm $_RESPONSE &>/dev/null
 }
 
 ##############################################################################
@@ -584,7 +591,7 @@ function PVLngStorePUT () {
 ### $2 = Default value if empty
 ##############################################################################
 function PVLngStoreGET () {
-    local key=$(echo "$1" | tr . -)
+    local key=$(tr . - <<< "$1")
     local default=$2
     local val=$($(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" $PVLngURL/store/$key.txt)
     echo ${val:-$default}
@@ -611,7 +618,7 @@ function PVLngChannelAttr () {
         local file=$(run_file $GUID $attr txt)
         ### If file is older than 1 day, delete to force re-read
         if [ -f "$file" ]; then
-            [ $(calc "($(stat -c %Z $file) + 60*60*24) >= $(now)" 0) -eq 0 ] && rm "$file"
+            [ $(calc "($(stat -c %Z $file) + 60*60*24) >= $(now)" 0) -eq 0 ] && rm "$file" &>/dev/null
         fi
         ### File is not empty?
         if [ ! -s "$file" ]; then
@@ -675,7 +682,7 @@ function PVLngPUT () {
         if [ "$timestamp" ]; then
             ### Given timestamp
             lkv 2 'Datetime given' "$timestamp"
-            if echo "$timestamp" | grep -qe '[^0-9]'; then
+            if grep -qe '[^0-9]' <<< "$timestamp"; then
                 ### Date time
                 timestamp=$(date --date="$timestamp" +%s)
             fi
@@ -716,7 +723,7 @@ function PVLngPUT () {
     if [ "$mosquittoServer" ]; then
         ### Send to mosquitto server
 
-        set -- $(echo $mosquittoServer | sed 's/:/ /g')
+        set -- $(sed 's/:/ /g' <<< "$mosquittoServer")
         host=$1
         port=${2:-1883}
 
@@ -763,7 +770,7 @@ function PVLngPUT () {
                              --request PUT --write-out %{http_code} --output $_RESPONSE \
                              --data-binary "$data" $PVLngURL/data/$GUID.txt)
 
-        if echo "$1" | grep -qe '^20[012]'; then
+        if grep -qe '^20[012]' <<< "$1"; then
             ### 200/201/202 ok
             lkv 1 "HTTP code" $1
             [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
@@ -830,7 +837,7 @@ function PVLngPUTraw () {
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
                          --data-binary $data $PVLngURL/data/raw/$GUID.txt)
 
-    if echo "$1" | grep -qe '^20[012]'; then
+    if grep -qe '^20[012]' <<< "$1"; then
         ### 200/201/202 ok
         lkv 1 "HTTP code" $1
         [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
@@ -846,7 +853,7 @@ function PVLngPUTraw () {
         save_log "$GUID" "@$datafile"
     fi
 
-    rm $_RESPONSE
+    rm $_RESPONSE &>/dev/null
 }
 
 ##############################################################################
@@ -875,7 +882,7 @@ function PVLngPUTBatch () {
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
                          --data-binary $data $PVLngURL/batch/$GUID.txt)
 
-    if echo "$1" | grep -qe '^20[012]'; then
+    if grep -qe '^20[012]' <<< "$1"; then
         ### 200/201/202 ok
         lkv 1 "HTTP code" $1
         [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
@@ -887,7 +894,7 @@ function PVLngPUTBatch () {
         [ -f $_RESPONSE ] && save_log "$GUID" @$_RESPONSE
     fi
 
-    rm $_RESPONSE
+    rm $_RESPONSE &>/dev/null
 }
 
 ##############################################################################
@@ -942,7 +949,7 @@ function _PUT_CSV () {
                          --request PUT --write-out %{http_code} --output $_RESPONSE \
                          --data-binary $data $PVLngURL/csv$bulk/$GUID.txt)
 
-    if echo "$1" | grep -qe '^20[012]'; then
+    if grep -qe '^20[012]' <<< "$1"; then
         ### 200/201/202 ok
         lkv 1 "HTTP code" $1
         [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
@@ -954,7 +961,7 @@ function _PUT_CSV () {
         [ -f $_RESPONSE ] && save_log "$GUID" @$_RESPONSE
     fi
 
-    rm $_RESPONSE
+    rm $_RESPONSE &>/dev/null
 }
 
 ##############################################################################
@@ -1131,7 +1138,7 @@ function urlencode () {
 ### Encode spial chars as quoted printable
 ##############################################################################
 function quotedPrintable () {
-  echo $@ | perl -pe 'use MIME::QuotedPrint; $_=MIME::QuotedPrint::encode($_);'
+  perl -pe 'use MIME::QuotedPrint; $_=MIME::QuotedPrint::encode($_);' <<< "$@"
 }
 
 ##############################################################################
@@ -1386,6 +1393,7 @@ fi
 ### Scripts disabled?
 [ -f $_ROOT/.paused ] && exit 254
 
+### Binaries location
 BINDIR=$_ROOT/bin
 
 SHOWVERBOSELEVEL=9
@@ -1424,10 +1432,13 @@ LOCALTIME=0
 ### Create temp. file e.g. for curl --output and remove on exit
 temp_file TMPFILE
 
+### Where we are?
 HOSTNAME=$(hostname -f)
 
+### Quiet
 VERBOSE=0
 
-CONFIG=$(echo "$(basename $0)" | sed 's~\.[^.]*$~.conf~g')
+### Same as script name
+CONFIG=$(sed 's~\.[^.]*$~.conf~g' <<< "$(basename $0)")
 
 : ${TIMESTAMPLENGTH:=11}

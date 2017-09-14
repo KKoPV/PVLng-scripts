@@ -17,8 +17,14 @@
 ### <Server>[:<port>]
 ##############################################################################
 PVLngDomain="localhost"
+PVLngApiPath="/api"
 
-PVLngURL="http://$PVLngDomain/api"
+### For API on different (sub-)domain for example
+#PVLngDomain="api.example.com"
+#PVLngApiPath="/"
+
+### Build full Url
+PVLngURL="http://$PVLngDomain$PVLngApiPath"
 
 ##############################################################################
 ### Host of Mosquitto server

@@ -463,6 +463,7 @@ function check_lock () {
 ##############################################################################
 ### Check for daylight times +- offset
 ### Exit script with rc 127 if not
+### Will be ignored if $TEST or $FORCE is set
 ### $1 - grace period before/after sunrise/sunset in minutes
 ### $2 - if set, return (0|1) for further processing
 ##############################################################################
@@ -475,8 +476,9 @@ function check_daylight () {
 
     if [ "$2" ]; then
         echo $daylight
-    else
-        [ "$TEST" -o $daylight -eq 1 ] || exit 127
+    elif [ -z "$TEST" -a -z "$FORCE" -a $daylight -eq 0 ]; then
+        log 1 "Stopping outside daylight time!"
+        exit 0
     fi
 }
 
@@ -647,7 +649,7 @@ function PVLngChannelAttrBool () {
 function PVLngGET () {
     local url="$PVLngURL/$1"
     lkv 2 'Fetch URL' $url
-    $(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" $url
+    $(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" "$url"
 }
 
 ##############################################################################
@@ -1128,7 +1130,8 @@ function urlencode () {
     for ((i=0; i<length; i++)); do
         c="${1:i:1}"
         case $c in
-            [a-zA-Z0-9.~_-]) printf "$c" ;;
+            [a-zA-Z0-9.~_-]) printf $c ;;
+            [\ ])            printf + ;;
             *)               printf '%%%02X' "'$c"
         esac
     done
@@ -1203,6 +1206,18 @@ function jq () {
 }
 
 ##############################################################################
+### Slugify string data
+### https://automatthias.wordpress.com/2007/05/21/slugify-in-a-shell-script/
+### $1 - String to slugify
+### $2 - Replaceent string, default minus
+##############################################################################
+function slugify () {
+    local s=${2:--}
+    sed -e "s/[^[:alnum:]]/$s/g;s/^$s*//g;s/$s*\$//g" <<< $1 | \
+    tr -s $s | tr A-Z a-z
+}
+
+##############################################################################
 ### Show run time of script
 ### $1 - Verbose level, default 2
 ### $2 - Custom title for output in between scripts, default "Run time"
@@ -1235,6 +1250,7 @@ function run_time () {
         t="$(calc "$t / 3600" 1)h"
     fi
 
+    log $level $_SCRIPT -c $CONFIG
     lkv $level "${2:-Run time}" "$t"
 }
 
@@ -1391,7 +1407,11 @@ if [ ! -f $_ROOT/PVLng.conf ]; then
 fi
 
 ### Scripts disabled?
-[ -f $_ROOT/.paused ] && exit 254
+[ -f $_ROOT/.paused ] && exit 0
+
+_SCRIPT=$(readlink -f $0)
+
+VERSION=$(head -n 1 $_ROOT/.version)
 
 ### Binaries location
 BINDIR=$_ROOT/bin

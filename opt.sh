@@ -159,6 +159,11 @@ opt_define_quiet () {
 }
 
 ##############################################################################
+opt_define_force () {
+    opt_define short=f long=force variable=FORCE value=y desc='Force processing'
+}
+
+##############################################################################
 opt_define_trace () {
     ### Prepare a TRACE variable to "set -x" after preparation
     ### No description, not shown in help

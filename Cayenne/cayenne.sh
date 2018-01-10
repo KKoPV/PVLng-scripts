@@ -45,8 +45,6 @@ opt_define_force ### Used by check_daylight
 
 . $(opt_build)
 
-. $pwd/const.sh
-
 read_config "$CONFIG"
 
 check_daylight 15
@@ -70,8 +68,14 @@ temp_file _RESPONSE
 
 lkv 1 Broker "$HOST:$PORT"
 
-sendMqttData sys/model Bash &>/dev/null
-sendMqttData sys/version 1.0.0 &>/dev/null
+[ "$TEST" ] || (
+    sendMqttData sys/model PVLng
+    sendMqttData sys/version $VERSION
+) > $_RESPONSE 2>&1
+
+log 2 @$_RESPONSE
+
+. $pwd/datatypes.sh
 
 for i in $(getGUIDs); do
 
@@ -80,18 +84,16 @@ for i in $(getGUIDs); do
     sec 1 $i
 
     var1 GUID $i
-    var1 FACTOR $i
-    var1 TYPE $i
-    var1 UNIT $i
-    var1 START $i
-    var1 EMPTY $i
-    var1 CHANNEL $i ### NOT documented
 
-    if [ "$START" ]; then
-        START='&start='$(urlencode "$START")
+    PVLngChannelAttr $GUID METER x
+    if [ "$METER" -eq 0 ]; then
+        ### Fetch for sensors only 5 minutes backwards to detect offline sensors
+        set -- $(PVLngGET "data/$GUID.tsv?period=last&start=5+min+ago")
+    else
+        set -- $(PVLngGET "data/$GUID.tsv?period=last")
     fi
 
-    set -- $(PVLngGET "data/$GUID.tsv?period=last$START")
+    var1 EMPTY $i
     value=${2:-$EMPTY}
 
     ### Silently skip empty data
@@ -99,23 +101,26 @@ for i in $(getGUIDs); do
 
     lkv 2 Value "$value"
 
+    var1 FACTOR $i
     [ "$FACTOR" ] && value=$(calc "$value * $FACTOR")
 
+    var1 CHANNEL $i ### undocumented
     if [ -z "$CHANNEL" ]; then
         ### Build channel name by default from name  + description
-        PVLngChannelAttr $GUID NAME
-        PVLngChannelAttr $GUID DESCRIPTION
+        PVLngChannelAttr $GUID NAME x
+        PVLngChannelAttr $GUID DESCRIPTION x
         CHANNEL="$NAME $DESCRIPTION"
     fi
 
-    ### Reformat if a data type was given
-    [ "$TYPE" -a "$UNIT" ] && value="$TYPE,$UNIT=$value"
+    ### Reformat if a data type and unit was given
+    var1 DATATYPE $i ANALOG_SENSOR_ANALOG
+    value=$($DATATYPE "$value")
 
     lkv 1 Send "$value"
 
     [ "$TEST" ] && continue
 
-    sendMqttData data/$(slugify "$CHANNEL" _) "$value" &>>$_RESPONSE
+    sendMqttData data/$(slugify "$CHANNEL") "$value" &>>$_RESPONSE
 
     rc=$?
     # -4: MQTT_CONNECTION_TIMEOUT - the server didn't respond within the keepalive time

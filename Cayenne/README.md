@@ -26,3 +26,5 @@ the **client id** is different for each device.
     cp dist/cayenne.conf .
 
 Fill your credentials and channels.
+
+Find the correct datatye and unit for your channels in `datatypes.sh`.

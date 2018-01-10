@@ -11,9 +11,6 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-### Twitter API push URL
-APIURL='https://api.twitter.com/1.1/statuses/update.json'
-
 ##############################################################################
 ### Functions
 ##############################################################################
@@ -22,7 +19,7 @@ listItems () {
     typeset -F | grep ' twitter_' | sed -e 's/.*twitter_//'| \
     while read line; do
         eval help="\$twitter_${line}_help"
-        printf '    - %-25s - %s\n' "$line" "$help"
+        printf '    - %-30s - %s\n' "$line" "$help"
     done
     printf "\nSee $pwd/twitter.items.sh for more details\n"
 }
@@ -60,6 +57,8 @@ read_config "$CONFIG"
 ##############################################################################
 [ "$TRACE" ] && set -x
 
+check_required USER   'Twitter account'
+check_required PASS   'Twittter password'
 check_required STATUS 'Status message'
 
 ##############################################################################
@@ -67,6 +66,7 @@ check_required STATUS 'Status message'
 ##############################################################################
 ### Used by twitter item functions for buffering
 temp_file ITEMTMPFILE
+# on_exit "rm -f $ITEMTMPFILE &>/dev/null"
 
 for i in $(getGUIDs); do
 
@@ -108,7 +108,7 @@ done
 
 STATUS=$(echo "$STATUS" | sed -e 's/ *|| */\\n/g')
 
-sec 2 Template "$STATUS"
+sec 2 Template  "$STATUS"
 sec 2 Parameter "$PARAMS"
 
 (   ### Sub shell for IFS change
@@ -123,30 +123,12 @@ lkv 2 Length $(wc -c $TMPFILE)
 
 [ "$TEST" ] && exit
 
-STATUS=$(urlencode "$(<$TMPFILE)")
+$BINDIR/tweet.sh "$USER" "$PASS" "$(<$TMPFILE)" >$TMPFILE
 
-if [ $VERBOSE -gt 0 ]; then
-    opts="-v"
-    ### Heavy debug
-    set -x
-fi
+rc=$?
 
-### Put all data into one -d for curlicue
-$BINDIR/curlicue \
-    $opts -f $pwd/.consumer -- \
-    -sS -d status="$STATUS&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
+[ $rc -eq 0 ] || error_exit "$(<$TMPFILE)"
 
-if grep -q 'errors' $TMPFILE; then
-    ### Ignore {"errors":[{"code":187,"message":"Status is a duplicate."}]}
-    ### Ignore {"errors":[{"code":186,"message":"Status is over 140 characters."}]}
+log 2 @$TMPFILE
 
-    ### Extract code from JSON: errors > 0 > code
-    code=$($(curl_cmd) --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/code.txt)
-
-    if [ $code -ne 186 -a $code -ne 187 ]; then
-        msg=$($(curl_cmd) --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/message.txt)
-        sec -1 'Twitter update error' "[$code] $msg"
-    fi
-fi
-
-exit $?
+exit $rc

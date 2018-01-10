@@ -20,26 +20,22 @@
 ### $1 GUID
 ### $2 URL parameters
 ### Return value only, no timestamp
-##############################################################################
 function _twitter_fetch_value {
     PVLngGET "data/$1.tsv?$2" | cut -f2-
 }
 
 ##############################################################################
-twitter_last_help='Actual/last value'
 ### $1 - GUID
-##############################################################################
 function twitter_last {
     _twitter_fetch_value $1 "period=last"
 }
+twitter_last_help='Actual/last value'
 
 ##############################################################################
-twitter_last_meter_help='Actual/last value of meter since $1, default "midnight"'
 ### $1 - Start time; optional, default "midnight"
 ### $2 - GUID
 ### Example params: midnight | first%20day%20of%20this%20month
 ### Start at today midnight  | 1st of this month
-##############################################################################
 function twitter_last_meter {
     local start=$1
     local GUID=$2
@@ -50,29 +46,26 @@ function twitter_last_meter {
     fi
     _twitter_fetch_value $GUID "start=${start}&period=last"
 }
+twitter_last_meter_help='Actual/last value of meter since $1, default "midnight"'
 
 ##############################################################################
-twitter_readlast_help='Generic item to read last value'
 ### $1 - GUID
-##############################################################################
 function twitter_readlast {
     _twitter_fetch_value $1 "period=readlast"
 }
+twitter_readlast_help='Generic item to read last value'
 
 ##############################################################################
-twitter_overall_help='Overall production in MWh'
 ### $1 - GUID
-##############################################################################
 function twitter_overall {
     _twitter_fetch_value $1 "period=readlast"
 }
+twitter_overall_help='Overall production in MWh'
 
 ##############################################################################
-twitter_average_help='Average value since $1, default "midnight"'
 ### $1 - Start time; optional, default "midnight"
 ### $2 - GUID
 ### Example params: midnight
-##############################################################################
 function twitter_average {
     local start=$1
     local GUID=$2
@@ -83,14 +76,13 @@ function twitter_average {
     fi
     _twitter_fetch_value $GUID "start=${start}&period=99y"
 }
+twitter_average_help='Average value since $1, default "midnight"'
 
 ##############################################################################
-twitter_maximum_help='Maximum value since $1, default "midnight"'
 ### $1 - Start time; optional, default "midnight"
 ### $2 - GUID
 ### Example params: midnight | first%20day%20of%20this%20month
 ### Start at today midnight  | 1st of this month
-##############################################################################
 function twitter_maximum {
     local start=$1
     local GUID=$2
@@ -103,9 +95,8 @@ function twitter_maximum {
     PVLngGET "data/$GUID.tsv?start=$start" | \
     awk 'NR==1 { max=$2 } { if ($2>max) max=$2 } END { print max }'
 }
+twitter_maximum_help='Maximum value since $1, default "midnight"'
 
-##############################################################################
-twitter_today_working_hours_help='Today working hours in hours :-)'
 ##############################################################################
 function twitter_today_working_hours {
     ### Get all data rows
@@ -120,9 +111,8 @@ function twitter_today_working_hours {
     ### to hours
     calc "($max - $min) / 3600"
 }
+twitter_today_working_hours_help='Today working hours in hours :-)'
 
-##############################################################################
-twitter_today_working_hours_help='Today working hours in hh:mm'
 ##############################################################################
 function twitter_today_working_hours_minutes {
     local hours=$(twitter_today_working_hours $1)
@@ -136,4 +126,5 @@ function twitter_today_working_hours_minutes {
     fi
     printf "%d:%02d" $h $m
 }
+twitter_today_working_hours_minutes_help='Today working hours in hh:mm'
 

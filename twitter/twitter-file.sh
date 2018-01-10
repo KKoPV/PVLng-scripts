@@ -11,9 +11,6 @@
 ##############################################################################
 pwd=$(dirname $0)
 
-### Twitter API push URL
-APIURL='https://api.twitter.com/1.1/statuses/update.json'
-
 ##############################################################################
 ### Init
 ##############################################################################
@@ -38,6 +35,9 @@ CONFIG=$1
 if [ "$PATTERN" ]; then
     PATTERN_N=1
     PATTERN_1=$PATTERN
+    read_config twitter-file.conf
+    check_required USER 'Twitter account'
+    check_required PASS 'Twittter password'
 else
     read_config "$CONFIG"
 fi
@@ -54,8 +54,6 @@ PATTERN_N=$(int "$PATTERN_N")
 ### Go
 ##############################################################################
 [ $VERBOSE -gt 0 ] && opts="-v"
-
-curl=$(curl_cmd)
 
 i=0
 
@@ -80,23 +78,12 @@ while [ $i -lt $PATTERN_N ]; do
         [ "$TEST" ] && continue
 
         printf -v STATUS "$(sed 's~ *|| *~\\n~g' "$file")"
-        STATUSENC=$(urlencode "$STATUS")
 
-        ### Put all data into one -d for curlicue
-        $BINDIR/curlicue -f $pwd/.consumer $opts -- \
-            -sS -d status="$STATUSENC&lat=$LAT&long=$LONG" "$APIURL" >$TMPFILE
+        $BINDIR/tweet.sh "$USER" "$PASS" "$STATUS" >$TMPFILE
 
-        if grep -q 'errors' $TMPFILE; then
-            ### Ignore {"errors":[{"code":187,"message":"Status is a duplicate."}]}
-            ### Ignore {"errors":[{"code":186,"message":"Status is over 140 characters."}]}
-
-            ### Extract code from JSON: errors > 0 > code
-            code=$($curl --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/code.txt)
-
-            if [ $code -ne 186 -a $code -ne 187 ]; then
-                msg=$($curl --request POST --data-binary @$TMPFILE $PVLngURL/json/errors/0/message.txt)
-                log -1 "Twitter update error [$code] $msg"
-            fi
+        if [ $? -ne 0 ]; then
+            log 0 @$TMPFILE
+            continue
         fi
 
         var1 MOVEDIR $i

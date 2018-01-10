@@ -129,7 +129,7 @@ function read_config () {
     t=$(stat -c %Y "$cfg_file" 2>/dev/null)
     if [ ${t:-0} -lt $(stat -c %Y "$file") ]; then
         ### Transform configuration into var="value" format
-        sed '/^$/d; /^ *#/d; s/  *\(.*\)/="\1"/; s/""/"/g' $file >$cfg_file
+        sed '/^$/d; /^ *#/d; s/  *\(.*\)/='"'"'\1'"'"'/; s/=["'"'"']*/='"'"'/; s/["'"'"']*$/'"'"'/' $file >$cfg_file
         log 2 @$cfg_file "Create $(basename $cfg_file)"
     else
         log 2 @$cfg_file "Reuse $(basename $cfg_file)"
@@ -137,12 +137,6 @@ function read_config () {
 
     ### Import configuration
     . $cfg_file
-#
-#     ### Prepare GUIDs, find up to 99 sections defined by GUID_? or USE_?
-#     GUIDs=
-#     for i in {1..99}; do
-#         eval [ "\$GUID_$i\$USE_$i" ] && GUIDs="$GUIDs $i"
-#     done
 }
 
 ##############################################################################
@@ -176,7 +170,7 @@ function int () {
 function calc () {
     ### Replace all ' in formula with "
     local term=$(sed 's/'\''/"/g' <<< "${1:-0}")
-    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }")
+    local result=$(awk "BEGIN { printf \"%.${2:-4}f\", ($term) }" 2>/dev/null)
 
     lkv ${3:-9} CALC "$term"
     [ $(numeric "$result") -eq 1 ] && echo $result || echo 0
@@ -354,29 +348,25 @@ function var_bool () {
 }
 
 ##############################################################################
-### Wrapper function to add more than one command to "trap ... 0"
-### Builds a queue of commands to execute on script exit (signal 0)
-### http://stackoverflow.com/a/21212552
+### Builds a queue of commands to execute on script EXIT (signal 0)
 ### Usage: on_exit "command ..."
 ##############################################################################
-function on_exit_init () {
-    local next="$1"
-    eval "function on_exit () {
-        local new=\"$(sed -e s/\'/\'\\\\\'\'/g <<< "$next"); \$1\"
-        trap -- \"\$new\" 0
-        on_exit_init \"\$new\"
-    }"
+function on_exit () {
+    if [ -z "$ON_EXIT_CMDS" ]; then
+        ON_EXIT_CMDS=$(temp_file)
+        trap ". $ON_EXIT_CMDS" EXIT
+        ### Delete the file itself
+        on_exit_rm $ON_EXIT_CMDS
+    fi
+    echo "$1" >>$ON_EXIT_CMDS
 }
-
-### Initialize wrapper, required to declare 1st "on_exit" function
-on_exit_init true
 
 ##############################################################################
 ### Remove given file name on script exit
 ### $1 - file name
 ##############################################################################
 function on_exit_rm () {
-    [ "$1" ] && on_exit 'rm -f "'$1'" &>/dev/null'
+    [ "$1" ] && on_exit "rm -f $1 &>/dev/null"
 }
 
 ##############################################################################
@@ -618,9 +608,9 @@ function PVLngChannelAttr () {
     if [ "$3" -o ! -s "$pwd/.read" ]; then
         ### Keep data in file
         local file=$(run_file $GUID $attr txt)
-        ### If file is older than 1 day, delete to force re-read
+        ### If file is older than 1 hour, delete to force re-read
         if [ -f "$file" ]; then
-            [ $(calc "($(stat -c %Z $file) + 60*60*24) >= $(now)" 0) -eq 0 ] && rm "$file" &>/dev/null
+            [ $(calc "($(stat -c %Z $file) + 60*60) >= $(now)" 0) -eq 0 ] && rm "$file" &>/dev/null
         fi
         ### File is not empty?
         if [ ! -s "$file" ]; then
@@ -649,7 +639,10 @@ function PVLngChannelAttrBool () {
 function PVLngGET () {
     local url="$PVLngURL/$1"
     lkv 2 'Fetch URL' $url
-    $(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" "$url"
+    temp_file GETFILE
+    $(curl_cmd) --header "Authorization: Bearer $PVLngAPIkey" "$url" >$GETFILE
+    ### If soething went wrong, the resonse contains HTML tags, ignore
+    grep -q '<' $GETFILE || cat $GETFILE
 }
 
 ##############################################################################
@@ -953,8 +946,8 @@ function _PUT_CSV () {
 
     if grep -qe '^20[012]' <<< "$1"; then
         ### 200/201/202 ok
-        lkv 1 "HTTP code" $1
-        [ -f $_RESPONSE ] && log 2 @$_RESPONSE Response
+        lkv 2 "HTTP code" $1
+        [ -f $_RESPONSE ] && log 1 $(<$_RESPONSE)
     else
         ### errors
         lkv 0 "HTTP code" $1
@@ -1102,6 +1095,8 @@ function curl_error_exit () {
 
 ##############################################################################
 ### Exit with error message and return code 127
+### $1 - Error message
+### $1 - Exit code
 ##############################################################################
 function error_exit () {
     VERBOSE=0
@@ -1427,17 +1422,22 @@ SHOWVERBOSELEVEL=9
 ### Latest API release
 PVLngURL="$PVLngURL/latest"
 
+### Directory for the temporary "run" files
+RUNDIR=${RunDir:-$_ROOT/run}
+[ -d "$RUNDIR" ] || mkdir -p "$RUNDIR"
+
 ### Setup curl command
 : ${CURL:=$(which curl 2>/dev/null)}
 [ "$CURL" ] || error_exit "Can not find curl executable, please install and/or define in PVLng.conf!" 1
 CURL="$CURL $CURLCONNECT"
 
-### Show run time on end from verbose level 1 onwards
-on_exit "run_time"
+### Init script final processing
+# ON_EXIT_CMDS=$(temp_file)
+# trap ". $ON_EXIT_CMDS" EXIT
 
-### Directory for the temporary "run" files
-RUNDIR=${RunDir:-$_ROOT/run}
-[ -d "$RUNDIR" ] || mkdir -p "$RUNDIR"
+### Show run time on end from verbose level 1 onwards
+on_exit "# $*" # Save command for debugging if temp. files not deleted correctly
+on_exit "run_time"
 
 ### Automatic logging of all data pushed to PVLng API,
 ### Flag -s|--savedata required

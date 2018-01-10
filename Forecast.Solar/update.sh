@@ -65,14 +65,14 @@ for i in $(getGUIDs); do
     var1 GUID $i
     var1 PLANE $i
 
-    URL="$APIURL/$PLANE"
+    URL="$APIURL/$PLANE?damping=${DAMPING:-0}"
 
     log 1 $URL
 
     ### Query API, get CSV
     $curl --header 'Accept: text/csv' --output $CSVFILE $URL
     rc=$?
-    lkv 1 'Curl return' $rc
+    lkv 2 'Curl return' $rc
 
     [ $rc -eq 0 ] || curl_error_exit $rc "Forecast.Solar API"
 

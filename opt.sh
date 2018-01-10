@@ -272,7 +272,13 @@ rm $build_file
 
 if [ "\$TEST" ]; then
     _v=v\$(cat \$_ROOT/.version | head -n 1)
-    _c=\$(git --git-dir=$_ROOT/.git log --pretty=format:'%h/%ad' --date=short -n 1)
+
+    if [ -d $_ROOT/.git ]; then
+        _c=\$(git --git-dir=$_ROOT/.git log --pretty=format:'%h/%ad' --date=short -n 1)
+    else
+        _c='     (no git repo)'
+    fi
+
     cat <<EOT
 
 ##############################################################################

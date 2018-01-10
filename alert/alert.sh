@@ -188,6 +188,9 @@ for i in $(getGUIDs); do
         continue
     fi
 
+    ### MAKE result integer now
+    result=$(int "$result")
+
     if [ -z "$FORCE" ]; then
         ### Skip if condition is not true
         if [ "$result" -eq 0 ]; then
